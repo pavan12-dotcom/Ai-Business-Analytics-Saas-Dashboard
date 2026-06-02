@@ -1,0 +1,72 @@
+-- schema.sql
+-- Run this script in your Supabase SQL Editor to initialize tables and seed them.
+
+-- 1. Drop existing tables if they exist
+drop table if exists customers cascade;
+drop table if exists plan_distribution cascade;
+drop table if exists monthly_metrics cascade;
+drop table if exists kpis cascade;
+
+-- 2. Create KPIs Table
+create table kpis (
+  id serial primary key,
+  label text not null unique,
+  value text not null,
+  change text not null,
+  up boolean not null
+);
+
+-- 3. Create Monthly Metrics Table
+create table monthly_metrics (
+  id serial primary key,
+  month text not null unique,
+  revenue numeric not null,
+  mrr numeric not null,
+  sort_order integer not null
+);
+
+-- 4. Create Plan Distribution Table
+create table plan_distribution (
+  id serial primary key,
+  plan text not null unique,
+  pct integer not null,
+  color text not null
+);
+
+-- 5. Create Customers Table
+create table customers (
+  id text primary key,
+  name text not null,
+  email text,
+  plan text not null,
+  mrr numeric not null,
+  status text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 6. Seed Initial Data
+insert into kpis (label, value, change, up) values
+  ('Total Revenue', '$84,320', '+12.4%', true),
+  ('Active Users', '2,841', '+8.1%', true),
+  ('Churn Rate', '3.2%', '-0.4%', false),
+  ('Avg. Rev / User', '$29.68', '+2.1%', true);
+
+insert into monthly_metrics (month, revenue, mrr, sort_order) values
+  ('Jan', 52000, 38000, 1),
+  ('Feb', 58000, 47000, 2),
+  ('Mar', 55000, 44000, 3),
+  ('Apr', 67000, 56000, 4),
+  ('May', 74000, 61000, 5),
+  ('Jun', 84320, 72000, 6);
+
+insert into plan_distribution (plan, pct, color) values
+  ('Pro', 60, 'var(--accent)'),
+  ('Team', 30, 'var(--teal)'),
+  ('Enterprise', 10, 'var(--amber)');
+
+insert into customers (id, name, plan, mrr, status) values
+  ('1', 'Acme Corp', 'Enterprise', 4200, 'Active'),
+  ('2', 'TechFlow', 'Team', 1800, 'Active'),
+  ('3', 'Bright Labs', 'Pro', 890, 'Active'),
+  ('4', 'Nova Inc', 'Team', 720, 'Pending'),
+  ('5', 'Apex Systems', 'Pro', 290, 'Churned');

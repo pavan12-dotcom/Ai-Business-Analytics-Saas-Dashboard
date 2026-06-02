@@ -1,0 +1,148 @@
+.sidebar {
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  padding: 24px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.sidebar-logo {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 0 10px 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--accent);
+  flex-shrink: 0;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  color: var(--muted);
+  transition: all 0.15s;
+  text-decoration: none;
+}
+
+.nav-item:hover {
+  background: var(--bg3);
+  color: var(--text);
+}
+
+.nav-item.active {
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--accent2);
+}
+
+.nav-icon {
+  font-size: 14px;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.sidebar-section-label {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 14px 12px 4px;
+  margin-top: 4px;
+}
+
+/* Plan Badge */
+.plan-badge {
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.plan-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.plan-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent2);
+}
+
+.plan-usage {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.plan-bar {
+  background: var(--bg3);
+  border-radius: 3px;
+  height: 4px;
+  overflow: hidden;
+}
+
+.plan-bar-fill {
+  background: linear-gradient(90deg, var(--accent), var(--teal));
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.plan-upgrade-btn {
+  width: 100%;
+  font-size: 12px !important;
+  padding: 7px 12px !important;
+}
+
+.signout-btn {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  width: 100%;
+  transition: all 0.15s;
+}
+
+.signout-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--red);
+}

@@ -1,0 +1,124 @@
+.billing-page { display: flex; flex-direction: column; gap: 20px; }
+
+.billing-usage {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.usage-left { flex: 1; }
+.usage-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+.usage-plan-name { color: var(--accent2); }
+.usage-sub { font-size: 12px; color: var(--muted); }
+
+.usage-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 200px;
+}
+
+.usage-bar-bg {
+  flex: 1;
+  background: var(--bg3);
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.usage-bar-fg {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--amber));
+  border-radius: 3px;
+}
+
+.usage-pct { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+.billing-intro { font-size: 15px; color: var(--muted); }
+
+/* Plan cards */
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.plan-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+  transition: border-color 0.2s;
+}
+
+.plan-card:hover { border-color: var(--border2); }
+
+.plan-card-accent {
+  border-color: rgba(99,102,241,0.4);
+  background: rgba(99,102,241,0.04);
+}
+
+.plan-popular-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.plan-name { font-size: 14px; font-weight: 600; color: var(--text2); }
+
+.plan-price { display: flex; align-items: baseline; gap: 4px; }
+.plan-price-num { font-size: 36px; font-weight: 700; color: var(--text); }
+.plan-price-period { font-size: 13px; color: var(--muted); }
+
+.plan-desc { font-size: 13px; color: var(--muted); }
+
+.plan-features {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.plan-features li {
+  font-size: 13px;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.check { color: var(--green); font-weight: 700; flex-shrink: 0; }
+
+.plan-cta {
+  width: 100%;
+  justify-content: center;
+  padding: 11px !important;
+  font-size: 13.5px !important;
+  margin-top: 4px;
+}
+
+/* Billing portal */
+.billing-portal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.portal-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+.portal-sub { font-size: 13px; color: var(--muted); }
