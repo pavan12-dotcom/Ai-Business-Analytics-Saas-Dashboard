@@ -5,6 +5,7 @@ import { promisify } from 'util'
 const execAsync = promisify(exec)
 import fs from 'fs'
 import path from 'path'
+import os from 'os'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
 const router = Router()
@@ -376,11 +377,14 @@ router.post('/document', requireAuth, async (req: Request, res: Response) => {
   // For PDF files, use pdf_extractor.py
   const projectRoot = path.resolve(__dirname, '../../../')
   const scriptPath = path.join(projectRoot, 'pdf_extractor.py')
-  const tempFilePath = path.join(projectRoot, `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}.pdf`)
-  const outputFilePath = path.join(projectRoot, `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}.txt`)
+  const tempDir = os.tmpdir()
+  const tempFilePath = path.join(tempDir, `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}.pdf`)
+  const outputFilePath = path.join(tempDir, `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}.txt`)
 
-  // Use the full absolute Python path to avoid PATH resolution issues with nodemon
-  const PYTHON_EXE = 'C:\\Users\\PAVAN\\AppData\\Local\\Programs\\Python\\Python314\\python.exe'
+  // Use the full absolute Python path to avoid PATH resolution issues with nodemon on Windows
+  const PYTHON_EXE = process.platform === 'win32'
+    ? 'C:\\Users\\PAVAN\\AppData\\Local\\Programs\\Python\\Python314\\python.exe'
+    : 'python3'
 
   try {
     fs.writeFileSync(tempFilePath, Buffer.from(base64, 'base64'))
