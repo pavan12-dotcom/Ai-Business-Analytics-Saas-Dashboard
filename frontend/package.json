@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "vercel --prod --yes",
+    "sync-env": "node ../sync-frontend-env.js"
   },
   "devDependencies": {
     "@types/react": "^19.2.16",

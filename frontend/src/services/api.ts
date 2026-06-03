@@ -1,7 +1,10 @@
 import axios from 'axios'
 
+// Use env var (set in Vercel dashboard) or fall back to production backend
+const API_BASE = import.meta.env.VITE_API_URL || 'https://backend-omega-lake-35.vercel.app'
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000',
+  baseURL: API_BASE,
 })
 
 // Attach Supabase JWT if available

@@ -18,8 +18,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check for demo mode (no real Supabase configured)
-    const isDemoMode = !import.meta.env.VITE_SUPABASE_URL || 
-                       import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co'
+    const isDemoMode = import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co'
 
     if (isDemoMode) {
       const demoUser = localStorage.getItem('demo_user')
@@ -41,8 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signIn = async (email: string, password: string) => {
-    const isDemoMode = !import.meta.env.VITE_SUPABASE_URL || 
-                       import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co'
+    const isDemoMode = import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co'
     if (isDemoMode) {
       const fakeUser = { id: 'demo-1', email, user_metadata: { name: 'Demo User' } } as unknown as User
       setUser(fakeUser)
@@ -54,8 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signUp = async (email: string, password: string, name: string) => {
-    const isDemoMode = !import.meta.env.VITE_SUPABASE_URL || 
-                       import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co'
+    const isDemoMode = import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co'
     if (isDemoMode) {
       const fakeUser = { id: 'demo-1', email, user_metadata: { name } } as unknown as User
       setUser(fakeUser)
