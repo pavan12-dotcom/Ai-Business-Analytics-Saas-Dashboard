@@ -1,18 +1,18 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
 
 :root {
-  --bg: #0a0b0e;
-  --bg2: #111318;
-  --bg3: #1a1d25;
-  --bg4: #21242f;
-  --border: rgba(255, 255, 255, 0.07);
-  --border2: rgba(255, 255, 255, 0.12);
-  --text: #e8eaf0;
-  --text2: #c4c7d4;
-  --muted: #6b7280;
-  --accent: #6366f1;
-  --accent2: #818cf8;
-  --accent3: #4f46e5;
+  --bg: #f3f4f6;       /* Premium light silver background */
+  --bg2: #ffffff;      /* Pure white cards/sidebar/topbar */
+  --bg3: #f9fafb;      /* Light gray active elements */
+  --bg4: #e5e7eb;      /* Silver borders and active tabs */
+  --border: rgba(0, 0, 0, 0.06);
+  --border2: rgba(0, 0, 0, 0.1);
+  --text: #0f172a;     /* Slate 900 */
+  --text2: #334155;    /* Slate 700 */
+  --muted: #64748b;    /* Slate 500 */
+  --accent: #6366f1;   /* Modern Indigo */
+  --accent2: #4f46e5;
+  --accent3: #3730a3;
   --green: #10b981;
   --red: #ef4444;
   --amber: #f59e0b;
@@ -22,8 +22,8 @@
   --radius: 12px;
   --radius-sm: 8px;
   --radius-xs: 6px;
-  --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.02);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -95,6 +95,36 @@ input, textarea { font-family: 'DM Sans', sans-serif; }
 
 .tag-up   { color: var(--green); font-size: 12px; }
 .tag-down { color: var(--red);   font-size: 12px; }
+
+.val-high {
+  background: rgba(217, 119, 6, 0.08); /* Premium Gold/Amber background */
+  color: #b45309; /* Dark gold text for contrast */
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 600;
+  display: inline-block;
+  border: 1px solid rgba(217, 119, 6, 0.2);
+}
+
+.val-medium {
+  background: rgba(16, 185, 129, 0.08); /* Green background */
+  color: #047857; /* Green text */
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 500;
+  display: inline-block;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.val-low {
+  background: rgba(239, 68, 68, 0.08); /* Red background */
+  color: #b91c1c; /* Red text */
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 500;
+  display: inline-block;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
 
 /* Animations */
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }

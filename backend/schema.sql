@@ -2,6 +2,7 @@
 -- Run this script in your Supabase SQL Editor to initialize tables and seed them.
 
 -- 1. Drop existing tables if they exist
+drop table if exists spreadsheets cascade;
 drop table if exists customers cascade;
 drop table if exists plan_distribution cascade;
 drop table if exists monthly_metrics cascade;
@@ -43,6 +44,37 @@ create table customers (
   status text not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- 6. Create Spreadsheets Table
+create table spreadsheets (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  filename text not null,
+  headers text[] not null,
+  columns_metadata jsonb not null,
+  rows jsonb not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable Row-Level Security (RLS) on Spreadsheets
+alter table spreadsheets enable row-level security;
+
+-- Row security policies for Spreadsheets
+drop policy if exists "Users can view their own spreadsheets" on spreadsheets;
+drop policy if exists "Users can insert their own spreadsheets" on spreadsheets;
+drop policy if exists "Users can delete their own spreadsheets" on spreadsheets;
+
+create policy "Users can view their own spreadsheets"
+  on spreadsheets for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert their own spreadsheets"
+  on spreadsheets for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete their own spreadsheets"
+  on spreadsheets for delete
+  using (auth.uid() = user_id);
 
 -- 6. Seed Initial Data
 insert into kpis (label, value, change, up) values

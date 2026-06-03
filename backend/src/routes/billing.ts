@@ -101,6 +101,8 @@ router.post('/webhook', async (req: Request, res: Response) => {
           .from('customers')
           .upsert({
             id: userId,
+            name: session.customer_details?.name || 'Subscriber',
+            email: session.customer_details?.email || null,
             plan: plan === 'pro' ? 'Pro' : plan === 'enterprise' ? 'Enterprise' : 'Free',
             mrr,
             status: 'Active',

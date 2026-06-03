@@ -10,22 +10,31 @@
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 18px 20px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .cust-stat-label {
-  font-size: 11.5px;
+  font-size: 11px;
+  font-weight: 500;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 8px;
+  line-height: 1.4;
+  margin-bottom: auto;
 }
 
 .cust-stat-value {
   font-size: 26px;
   font-weight: 600;
   color: var(--text);
+  margin-top: 8px;
+  line-height: 1.1;
 }
+
 
 .cust-toolbar {
   display: flex;

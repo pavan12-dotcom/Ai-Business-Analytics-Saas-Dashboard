@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { SEED } from '../data/seed'
 import { fetchCustomers } from '../services/api'
+import { useSpreadsheet } from '../context/SpreadsheetContext'
 import type { Customer } from '../data/seed'
 import './Customers.css'
 
@@ -9,17 +10,29 @@ const statusClass: Record<string, string> = {
 }
 
 export default function Customers() {
+  const { activeSheet, activeDocument, getSpreadsheetCustomers } = useSpreadsheet()
   const [customers, setCustomers] = useState<Customer[]>(SEED.customers)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<string>('All')
+  const [currentPage, setCurrentPage] = useState(1)
+  const rowsPerPage = 10
+
+  // Reset page when search/filter changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, filter])
 
   useEffect(() => {
-    fetchCustomers()
-      .then(data => {
-        if (data) setCustomers(data)
-      })
-      .catch(err => console.error('Error fetching customers:', err))
-  }, [])
+    if (activeSheet || (activeDocument && activeDocument.parsedRows?.length > 0)) {
+      setCustomers(getSpreadsheetCustomers())
+    } else {
+      fetchCustomers()
+        .then(data => {
+          if (data) setCustomers(data)
+        })
+        .catch(err => console.error('Error fetching customers:', err))
+    }
+  }, [activeSheet, activeDocument])
 
   const filtered = customers.filter(c => {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -27,6 +40,12 @@ export default function Customers() {
     const matchFilter = filter === 'All' || c.status === filter
     return matchSearch && matchFilter
   })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage))
+  const paginated = filtered.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  )
 
   const total = customers.reduce((s, c) => s + c.mrr, 0)
 
@@ -82,27 +101,61 @@ export default function Customers() {
               <th>Customer</th>
               <th>Email</th>
               <th>Plan</th>
-              <th>MRR</th>
-              <th>Status</th>
+              <th style={{ textAlign: 'right' }}>MRR</th>
+              <th style={{ textAlign: 'center' }}>Status</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((c: Customer) => (
-              <tr key={c.id}>
-                <td style={{ fontWeight: 500 }}>{c.name}</td>
-                <td style={{ color: 'var(--muted)', fontSize: 12 }}>{c.email}</td>
-                <td>
-                  <span className="plan-tag">{c.plan}</span>
-                </td>
-                <td className="mono">${c.mrr.toLocaleString()}</td>
-                <td><span className={`badge ${statusClass[c.status]}`}>{c.status}</span></td>
-              </tr>
-            ))}
+            {paginated.map((c: Customer) => {
+              const getMRRClass = (val: number) => {
+                if (val >= 3000) return 'val-high'
+                if (val >= 800) return 'val-medium'
+                return 'val-low'
+              }
+              return (
+                <tr key={c.id}>
+                  <td style={{ fontWeight: 500 }}>{c.name}</td>
+                  <td style={{ color: 'var(--muted)', fontSize: 12 }}>{c.email}</td>
+                  <td>
+                    <span className="plan-tag">{c.plan}</span>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <span className={`mono ${getMRRClass(c.mrr)}`}>
+                      ${c.mrr.toLocaleString()}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: 'center' }}><span className={`badge ${statusClass[c.status]}`}>{c.status}</span></td>
+                </tr>
+              )
+            })}
             {filtered.length === 0 && (
               <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--muted)', padding: 24 }}>No customers found</td></tr>
             )}
           </tbody>
         </table>
+
+        {/* Pagination Controls */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
+          <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+            Page {currentPage} of {totalPages} ({filtered.length} total)
+          </span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button 
+              className="btn btn-secondary btn-xs"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </button>
+            <button 
+              className="btn btn-secondary btn-xs"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

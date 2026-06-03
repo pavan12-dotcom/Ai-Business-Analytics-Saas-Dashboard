@@ -16,6 +16,9 @@ export function getSupabase() {
 }
 
 
+// Simple in-memory token cache to prevent duplicate remote queries to Supabase Auth
+const tokenCache = new Map<string, { userId: string; expiresAt: number }>()
+
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   // Demo mode — skip auth if Supabase not configured
   if (!process.env.SUPABASE_URL || process.env.SUPABASE_URL === 'placeholder') {
@@ -32,9 +35,25 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ error: 'No token provided' })
 
-  const { data: { user }, error } = await client.auth.getUser(token)
-  if (error || !user) return res.status(401).json({ error: 'Invalid token' })
+  // Check cache
+  const cached = tokenCache.get(token)
+  const now = Date.now()
+  if (cached && cached.expiresAt > now) {
+    (req as any).userId = cached.userId
+    return next()
+  }
 
-  ;(req as any).userId = user.id
-  next()
+  try {
+    const { data: { user }, error } = await client.auth.getUser(token)
+    if (error || !user) return res.status(401).json({ error: 'Invalid token' })
+
+    // Cache valid token for 60 seconds
+    tokenCache.set(token, { userId: user.id, expiresAt: now + 60000 })
+
+    ;(req as any).userId = user.id
+    next()
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid token or authentication failed' })
+  }
 }
+

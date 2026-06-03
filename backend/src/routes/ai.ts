@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import Anthropic from '@anthropic-ai/sdk'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { requireAuth, getSupabase } from '../middleware/auth'
+import { memorySpreadsheets, memoryDocuments } from './data'
 
 const router = Router()
 
@@ -18,35 +19,144 @@ TOP CUSTOMERS: Acme Corp Enterprise $4,200 Active | TechFlow Team $1,800 Active 
 `.trim()
 
 router.post('/query', requireAuth, async (req: Request, res: Response) => {
-  const { question } = req.body
+  const { question, mode } = req.body
   if (!question) return res.status(400).json({ error: 'question is required' })
 
-  // 1. Gather dynamic database context from Supabase
+  // 1. Gather dynamic database context based on mode
   let dbContext = STATIC_DB_CONTEXT
   const supabase = getSupabase()
 
-  if (supabase) {
+  if (mode === 'document') {
+    let docFilename = ''
+    let docText = ''
+    
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('documents')
+          .select('filename, text')
+          .eq('user_id', (req as any).userId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+          
+        if (!error && data) {
+          docFilename = data.filename
+          docText = data.text
+        }
+      } catch (err) {}
+    }
+    
+    if (!docText) {
+      const memoryDoc = memoryDocuments.get((req as any).userId)
+      if (memoryDoc) {
+        docFilename = memoryDoc.filename
+        docText = memoryDoc.text
+      }
+    }
+    
+    if (docText) {
+      dbContext = `
+You are an AI assistant embedded in InsightAI, a SaaS business analytics platform.
+Answer the user's questions based only on this user's uploaded document:
+Filename: ${docFilename}
+
+Document Contents:
+${docText}
+`.trim()
+    } else {
+      dbContext = `
+You are an AI assistant embedded in InsightAI.
+The user wants to chat about an uploaded document, but no active document context is available.
+Please ask them to upload a PDF or text document first.
+`.trim()
+    }
+  } else {
+    // Spreadsheet Data Mode
+    if (supabase) {
     try {
-      const [kpisRes, metricsRes, planRes, customersRes] = await Promise.all([
-        supabase.from('kpis').select('label, value, change, up'),
-        supabase.from('monthly_metrics').select('month, revenue, mrr').order('sort_order', { ascending: true }),
-        supabase.from('plan_distribution').select('plan, pct'),
-        supabase.from('customers').select('name, plan, mrr, status').order('mrr', { ascending: false })
-      ])
+      let spreadsheet = null
+      let sheetError = null
+      
+      try {
+        const { data, error } = await supabase
+          .from('spreadsheets')
+          .select('filename, columns_metadata, rows')
+          .eq('user_id', (req as any).userId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        spreadsheet = data
+        sheetError = error
+      } catch (err) {
+        sheetError = err
+      }
 
-      if (!kpisRes.error && !metricsRes.error && !planRes.error && !customersRes.error) {
-        const kpis = kpisRes.data || []
-        const metrics = metricsRes.data || []
-        const plans = planRes.data || []
-        const customers = customersRes.data || []
+      if (sheetError || !spreadsheet) {
+        spreadsheet = memorySpreadsheets.get((req as any).userId)
+      }
 
-        const kpiStr = kpis.map((k: any) => `${k.label}: ${k.value} (${k.change})`).join(', ')
-        const revTrend = metrics.map((m: any) => `${m.month} $${(Number(m.revenue) / 1000).toFixed(0)}k`).join(', ')
-        const mrrTrend = metrics.map((m: any) => `${m.month} $${(Number(m.mrr) / 1000).toFixed(0)}k`).join(', ')
-        const planStr = plans.map((p: any) => `${p.plan} ${p.pct}%`).join(', ')
-        const topCustStr = customers.slice(0, 8).map((c: any) => `${c.name} (${c.plan} plan, $${c.mrr}/mo, ${c.status})`).join(' | ')
+      if (spreadsheet) {
+        const metadata = spreadsheet.columns_metadata
+        const rows = spreadsheet.rows || []
+        const rowCount = rows.length
+        
+        const summary: Record<string, any> = {
+          filename: spreadsheet.filename,
+          totalRows: rowCount,
+        }
+
+        Object.entries(metadata).forEach(([header, type]) => {
+          if (type === 'metric') {
+            const vals = rows.map((r: any) => Number(r[header])).filter((v: number) => !isNaN(v))
+            if (vals.length > 0) {
+              const sum = vals.reduce((s: number, v: number) => s + v, 0)
+              summary[`Sum of ${header}`] = sum
+              summary[`Avg of ${header}`] = (sum / vals.length).toFixed(2)
+              summary[`Max of ${header}`] = vals.reduce((a: number, b: number) => Math.max(a, b), -Infinity)
+
+
+            }
+          } else if (type === 'category') {
+            const counts: Record<string, number> = {}
+            rows.forEach((r: any) => {
+              const val = r[header] || 'None'
+              counts[val] = (counts[val] || 0) + 1
+            })
+            summary[`Distribution of ${header}`] = counts
+          }
+        })
 
         dbContext = `
+You are an AI assistant embedded in InsightAI, a SaaS business analytics platform.
+Answer questions based only on this user's uploaded spreadsheet:
+Filename: ${summary.filename}
+Metadata: ${JSON.stringify(summary, null, 2)}
+
+Sample Data (First 50 Rows):
+${JSON.stringify(rows.slice(0, 50), null, 2)}
+`.trim()
+      } else {
+        const [kpisRes, metricsRes, planRes, customersRes] = await Promise.all([
+          supabase.from('kpis').select('label, value, change, up'),
+          supabase.from('monthly_metrics').select('month, revenue, mrr').order('sort_order', { ascending: true }),
+          supabase.from('plan_distribution').select('plan, pct'),
+          supabase.from('customers').select('name, plan, mrr, status').order('mrr', { ascending: false })
+        ])
+
+        if (!kpisRes.error && !metricsRes.error && !planRes.error && !customersRes.error) {
+          const kpis = kpisRes.data || []
+          const metrics = metricsRes.data || []
+          const plans = planRes.data || []
+          const customers = customersRes.data || []
+
+          const kpiStr = kpis.map((k: any) => `${k.label}: ${k.value} (${k.change})`).join(', ')
+          const revTrend = metrics.map((m: any) => `${m.month} $${(Number(m.revenue) / 1000).toFixed(0)}k`).join(', ')
+          const mrrTrend = metrics.map((m: any) => `${m.month} $${(Number(m.mrr) / 1000).toFixed(0)}k`).join(', ')
+          const planStr = plans.map((p: any) => `${p.plan} ${p.pct}%`).join(', ')
+          const topCustStr = customers.slice(0, 8).map((c: any) => `${c.name} (${c.plan} plan, $${c.mrr}/mo, ${c.status})`).join(' | ')
+
+          dbContext = `
 You are an AI assistant embedded in InsightAI, a SaaS business analytics platform.
 Answer questions concisely (2-3 sentences) based only on this live database data:
 
@@ -56,10 +166,12 @@ NEW MRR TRENDS: ${mrrTrend}
 PLANS: ${planStr}
 TOP CUSTOMERS: ${topCustStr}
 `.trim()
+        }
       }
     } catch (err) {
       console.error('Error fetching live data for AI assistant context, falling back to static data:', err)
     }
+  }
   }
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY
@@ -67,20 +179,27 @@ TOP CUSTOMERS: ${topCustStr}
 
   // 2. Route request to appropriate LLM engine or fallback
   if (geminiKey) {
-    try {
-      console.log('Routing AI request to Google Gemini (2.5 Flash)...')
-      const genAI = new GoogleGenerativeAI(geminiKey)
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',
-        systemInstruction: dbContext,
-      })
-      const result = await model.generateContent(question)
-      const answer = result.response.text()
-      return res.json({ answer, demo: false, engine: 'gemini' })
-    } catch (err: any) {
-      console.error('Gemini API Error:', err.message)
-      return res.status(500).json({ error: `Gemini API Error: ${err.message}` })
+    const models = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash']
+    let lastError: any = null
+    
+    for (const modelName of models) {
+      try {
+        console.log(`Routing AI request to Google Gemini (${modelName})...`)
+        const genAI = new GoogleGenerativeAI(geminiKey)
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          systemInstruction: dbContext,
+        })
+        const result = await model.generateContent(question)
+        const answer = result.response.text()
+        return res.json({ answer, demo: false, engine: `gemini (${modelName})` })
+      } catch (err: any) {
+        console.error(`Gemini API Error with ${modelName}:`, err.message)
+        lastError = err
+      }
     }
+    
+    return res.status(500).json({ error: `Gemini API Error: ${lastError?.message || 'Unknown error'}` })
   } else if (anthropicKey) {
     try {
       console.log('Routing AI request to Anthropic (Claude 3.5 Sonnet)...')

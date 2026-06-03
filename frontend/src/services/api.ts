@@ -24,9 +24,27 @@ export default api
 export const fetchKPIs   = () => api.get('/api/data/kpis').then(r => r.data)
 export const fetchRevenue = () => api.get('/api/data/revenue').then(r => r.data)
 export const fetchCustomers = () => api.get('/api/data/customers').then(r => r.data)
-export const askAI = (question: string) =>
-  api.post('/api/ai/query', { question }).then(r => r.data)
+export const askAI = (question: string, mode?: string) =>
+  api.post('/api/ai/query', { question, mode }).then(r => r.data)
 export const createCheckout = (plan: string) =>
   api.post('/api/billing/checkout', { plan }).then(r => r.data)
 export const openBillingPortal = () =>
   api.post('/api/billing/portal').then(r => r.data)
+
+// ── Spreadsheet upload / query helpers ─────────────────────────
+export const uploadSpreadsheet = (payload: { filename: string; headers: string[]; columns_metadata: Record<string, string>; rows: any[] }) =>
+  api.post('/api/data/spreadsheet', payload).then(r => r.data)
+export const fetchSpreadsheet = () =>
+  api.get('/api/data/spreadsheet').then(r => r.data)
+export const deleteSpreadsheet = () =>
+  api.delete('/api/data/spreadsheet').then(r => r.data)
+
+// ── Document upload / query helpers ──────────────────────────────
+export const uploadDocument = (payload: { filename: string; base64: string }) =>
+  api.post('/api/data/document', payload).then(r => r.data)
+export const fetchDocument = () =>
+  api.get('/api/data/document').then(r => r.data)
+export const deleteDocument = () =>
+  api.delete('/api/data/document').then(r => r.data)
+export const reparseDocument = () =>
+  api.post('/api/data/document/parse').then(r => r.data)

@@ -66,6 +66,18 @@ async function checkConnection() {
   } else {
     console.log('✅ Successfully fetched customers! Count:', customersData?.length)
   }
+
+  // 5. Check spreadsheets
+  console.log('\n--- Checking spreadsheets table ---')
+  const { data: spreadsheetsData, error: spreadsheetsError } = await supabase
+    .from('spreadsheets')
+    .select('*')
+  
+  if (spreadsheetsError) {
+    console.error('❌ Error fetching spreadsheets:', spreadsheetsError.message)
+  } else {
+    console.log('✅ Successfully fetched spreadsheets! Count:', spreadsheetsData?.length)
+  }
 }
 
 checkConnection()

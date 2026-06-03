@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { SEED } from '../data/seed'
 import { fetchRevenue, fetchCustomers, fetchKPIs } from '../services/api'
+import { useSpreadsheet } from '../context/SpreadsheetContext'
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, AreaChart, Area
@@ -15,7 +16,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       {payload.map((p: any) => (
         <div key={p.dataKey} className="tooltip-row">
           <span style={{ color: p.color }}>{p.name}</span>
-          <span>${(p.value / 1000).toFixed(0)}k</span>
+          <span>{p.value >= 1000 ? `$${(p.value / 1000).toFixed(0)}k` : `$${p.value.toLocaleString()}`}</span>
         </div>
       ))}
     </div>
@@ -23,22 +24,30 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 }
 
 export default function Revenue() {
+  const { activeSheet, activeDocument, getSpreadsheetCustomers, getSpreadsheetMonthlyMetrics, getSpreadsheetKPIs } = useSpreadsheet()
   const [monthly, setMonthly] = useState(SEED.monthly)
   const [customers, setCustomers] = useState(SEED.customers)
   const [kpis, setKpis] = useState(SEED.kpis)
 
   useEffect(() => {
-    let active = true
-    Promise.all([fetchRevenue(), fetchCustomers(), fetchKPIs()])
-      .then(([revData, custData, kpisData]) => {
-        if (!active) return
-        if (revData) setMonthly(revData)
-        if (custData) setCustomers(custData)
-        if (kpisData) setKpis(kpisData)
-      })
-      .catch(err => console.error('Error fetching revenue metrics:', err))
-    return () => { active = false }
-  }, [])
+    if (activeSheet || (activeDocument && activeDocument.parsedRows?.length > 0)) {
+      setMonthly(getSpreadsheetMonthlyMetrics())
+      setCustomers(getSpreadsheetCustomers())
+      const spreadsheetKPIs = getSpreadsheetKPIs()
+      if (spreadsheetKPIs) setKpis(spreadsheetKPIs)
+    } else {
+      let active = true
+      Promise.all([fetchRevenue(), fetchCustomers(), fetchKPIs()])
+        .then(([revData, custData, kpisData]) => {
+          if (!active) return
+          if (revData) setMonthly(revData)
+          if (custData) setCustomers(custData)
+          if (kpisData) setKpis(kpisData)
+        })
+        .catch(err => console.error('Error fetching revenue metrics:', err))
+      return () => { active = false }
+    }
+  }, [activeSheet, activeDocument])
 
   // Calculate plan distribution dynamically from customer data
   const planColors: Record<string, string> = {
@@ -114,7 +123,7 @@ export default function Revenue() {
             <CartesianGrid stroke="rgba(255,255,255,0.04)" strokeDasharray="3 3" />
             <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} axisLine={false} tickLine={false}
-              tickFormatter={v => `$${v/1000}k`} />
+              tickFormatter={v => v >= 1000 ? `$${v/1000}k` : `$${v}`} />
             <Tooltip content={<CustomTooltip />} />
             <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#6366f1" strokeWidth={2}
               fill="url(#revGrad)" dot={{ fill: '#6366f1', r: 4 }} />
@@ -158,8 +167,8 @@ export default function Revenue() {
                 return (
                   <tr key={m.month}>
                     <td>{m.month}</td>
-                    <td className="mono">${(m.revenue / 1000).toFixed(0)}k</td>
-                    <td className="mono">${(m.mrr / 1000).toFixed(0)}k</td>
+                    <td className="mono">{m.revenue >= 1000 ? `$${(m.revenue / 1000).toFixed(0)}k` : `$${m.revenue.toLocaleString()}`}</td>
+                    <td className="mono">{m.mrr >= 1000 ? `$${(m.mrr / 1000).toFixed(0)}k` : `$${m.mrr.toLocaleString()}`}</td>
                     <td className={prev && m.revenue > prev ? 'tag-up' : 'tag-down'}>
                       {growth !== '—' ? `${m.revenue > (prev ?? 0) ? '▲' : '▼'} ${Math.abs(Number(growth))}%` : '—'}
                     </td>

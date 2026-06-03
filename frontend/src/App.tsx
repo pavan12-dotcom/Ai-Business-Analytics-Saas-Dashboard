@@ -7,10 +7,13 @@ import Signup from './pages/Signup'
 import Dashboard from './pages/Dashboard'
 import Customers from './pages/Customers'
 import Revenue from './pages/Revenue'
+import Analytics from './pages/Analytics'
 import AIAssistant from './pages/AIAssistant'
 import Reports from './pages/Reports'
 import Billing from './pages/Billing'
 import Settings from './pages/Settings'
+
+import { SpreadsheetProvider } from './context/SpreadsheetContext'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -26,7 +29,7 @@ function AppRoutes() {
       <Route path="/signup" element={<Signup />} />
       <Route path="/app" element={<PrivateRoute><Layout /></PrivateRoute>}>
         <Route index element={<Dashboard />} />
-        <Route path="analytics" element={<Revenue />} />
+        <Route path="analytics" element={<Analytics />} />
         <Route path="customers" element={<Customers />} />
         <Route path="revenue" element={<Revenue />} />
         <Route path="ai" element={<AIAssistant />} />
@@ -42,7 +45,9 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <SpreadsheetProvider>
+        <AppRoutes />
+      </SpreadsheetProvider>
     </AuthProvider>
   )
 }
