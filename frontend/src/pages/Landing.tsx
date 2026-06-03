@@ -23,7 +23,7 @@ export default function Landing() {
 
       {/* Hero */}
       <section className="hero">
-        <div className="hero-badge">✦ Powered by Claude AI</div>
+        <div className="hero-badge">✦ Created by THOTAKURA PAVAN</div>
         <h1 className="hero-title">
           Your Business Data,<br />
           <span className="hero-gradient">Answered in Plain English</span>
