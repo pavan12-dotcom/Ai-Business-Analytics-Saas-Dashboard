@@ -66,7 +66,7 @@ export default function Landing() {
       </section>
 
       <footer className="landing-footer">
-        © 2026 AI Business Analytics · Powered by Gemini AI
+        © 2026 AI Business Analytics · Created by THOTAKURA PAVAN
       </footer>
     </div>
   )
