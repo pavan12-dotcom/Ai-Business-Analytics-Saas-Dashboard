@@ -374,83 +374,115 @@ router.post('/document', requireAuth, async (req: Request, res: Response) => {
     }
   }
 
-  // For PDF files, use pdf_extractor.py
-  const projectRoot = path.resolve(__dirname, '../../../')
-  const scriptPath = path.join(projectRoot, 'pdf_extractor.py')
-  const tempDir = os.tmpdir()
-  const tempFilePath = path.join(tempDir, `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}.pdf`)
-  const outputFilePath = path.join(tempDir, `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}.txt`)
-
-  // Use the full absolute Python path to avoid PATH resolution issues with nodemon on Windows
-  const PYTHON_EXE = process.platform === 'win32'
-    ? 'C:\\Users\\PAVAN\\AppData\\Local\\Programs\\Python\\Python314\\python.exe'
-    : 'python3'
-
+  // For PDF files, use Gemini directly
   try {
-    fs.writeFileSync(tempFilePath, Buffer.from(base64, 'base64'))
+    const geminiKey = process.env.GEMINI_API_KEY
+    if (!geminiKey) {
+      return res.status(500).json({ error: 'Gemini API Key is not configured on the backend.' })
+    }
 
-    const cmd = `"${PYTHON_EXE}" "${scriptPath}" "${tempFilePath}" -o "${outputFilePath}"`
+    const genAI = new GoogleGenerativeAI(geminiKey)
+    const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
+    
+    const prompt = `You are a data extraction AI. Analyze the uploaded PDF document and perform two tasks:
+1. Extract all raw text from the document (as a single string).
+2. Extract all structured/tabular data (as columns and rows).
 
-    try {
-      await execAsync(cmd, { env: { ...process.env, PYTHONIOENCODING: 'utf-8' }, encoding: 'utf8' })
-    } catch (execErr: any) {
-      console.error('Python PDF extractor failed:', execErr.stderr || execErr.message)
-      if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath)
-      if (fs.existsSync(outputFilePath)) fs.unlinkSync(outputFilePath)
-      let errorMsg = 'Failed to extract text from PDF document.'
-      const stderrStr = String(execErr.stderr || execErr.message)
-      if (stderrStr.includes('exceeds the limit')) {
-        const match = stderrStr.match(/ValueError: (.*)/)
-        if (match) {
-          errorMsg = match[1]
-        } else {
-          errorMsg = 'PDF exceeds the limit of 20 pages. Please upload a smaller document.'
-        }
+Return a valid JSON object with this exact structure:
+{
+  "extractedText": "full raw text here",
+  "columns": ["Col1", "Col2", ...],
+  "rows": [ {"Col1": val, "Col2": val}, ... ]
+}
+
+Rules:
+- Look for tables, lists with numbers, financial data, metrics, KPIs, records, comparisons.
+- If the document contains multiple tables, merge them or pick the most significant one.
+- Column names should be descriptive (e.g. "Revenue", "Month", "Customer", "Units Sold").
+- Numeric values must be numbers (not strings), dates as strings (YYYY-MM-DD or Month Year).
+- Return ONLY the raw JSON, no markdown, no explanation, no code fences.
+- If no structured data exists, return: {"extractedText": "full raw text here", "columns": [], "rows": []}
+`
+
+    let raw = ''
+    for (const modelName of models) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName })
+        const result = await model.generateContent([
+          {
+            inlineData: {
+              data: base64,
+              mimeType: 'application/pdf'
+            }
+          },
+          prompt
+        ])
+        raw = result.response.text().trim()
+        console.log(`PDF parse succeeded with model: ${modelName}`)
+        break
+      } catch (modelErr: any) {
+        console.warn(`Model ${modelName} failed for PDF parse:`, modelErr.message)
       }
-      return res.status(500).json({ error: errorMsg })
     }
 
-    // Clean up temp input PDF
-    if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath)
-
-    if (!fs.existsSync(outputFilePath)) {
-      return res.status(500).json({ error: 'Output text file was not generated.' })
+    if (!raw) {
+      return res.status(500).json({ error: 'Gemini model failed to parse the PDF document.' })
     }
 
-    const extractedText = fs.readFileSync(outputFilePath, 'utf-8')
-    fs.unlinkSync(outputFilePath)
+    // Strip markdown code fences if present
+    const clean = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim()
+    const parsedData = JSON.parse(clean)
+    
+    const extractedText = parsedData.extractedText || 'No text content extracted.'
+    const rows = parsedData.rows || []
+    const columns = parsedData.columns || []
+
+    // Detect column metadata if we have structured data
+    let columnsMetadata: Record<string, string> = {}
+    if (rows.length > 0 && columns.length > 0) {
+      const identifierKw = ['id', 'code', 'ref', 'name', 'customer', 'company', 'email', 'phone', 'address', 'country', 'city', 'key', 'uuid']
+      columns.forEach((col: string) => {
+        const lower = col.toLowerCase()
+        if (identifierKw.some(kw => lower.includes(kw))) { columnsMetadata[col] = 'identifier'; return }
+        const sample = rows.slice(0, 5).map((r: any) => r[col]).filter(Boolean)
+        if (sample.length === 0) { columnsMetadata[col] = 'category'; return }
+        if (sample.every((v: any) => !isNaN(Date.parse(String(v))) && isNaN(Number(v)))) { columnsMetadata[col] = 'time'; return }
+        if (sample.every((v: any) => typeof v === 'number' || !isNaN(Number(v)))) { columnsMetadata[col] = 'metric'; return }
+        columnsMetadata[col] = 'category'
+      })
+    }
 
     const supabase = getSupabase()
+    const parsedJson = rows.length > 0 ? { rows, columnsMetadata } : null
+    
     if (supabase) {
       try {
         await supabase.from('documents').delete().eq('user_id', userId)
         const { error } = await supabase.from('documents').insert({
           user_id: userId,
           filename,
-          text: extractedText
+          text: extractedText,
+          parsed_data: parsedJson ? JSON.stringify(parsedJson) : null
         })
         if (!error) {
           memoryDocuments.delete(userId)
-          return res.json({ success: true, textLength: extractedText.length })
+          return res.json({ success: true, textLength: extractedText.length, hasParsedData: !!parsedJson })
         }
       } catch (err) {}
     }
 
-    // Parse structured data from extracted text
-    const parsed = await parseDocumentText(extractedText)
     memoryDocuments.set(userId, {
       filename,
       text: extractedText,
       created_at: new Date().toISOString(),
-      parsedRows: parsed?.rows,
-      columnsMetadata: parsed?.columnsMetadata
+      parsedRows: rows,
+      columnsMetadata
     })
-    return res.json({ success: true, fallback: true, textLength: extractedText.length, hasParsedData: !!parsed })
+
+    return res.json({ success: true, fallback: true, textLength: extractedText.length, hasParsedData: !!parsedJson })
 
   } catch (err: any) {
-    if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath)
-    if (fs.existsSync(outputFilePath)) fs.unlinkSync(outputFilePath)
-    return res.status(500).json({ error: `File processing failed: ${err.message}` })
+    return res.status(500).json({ error: `PDF extraction failed: ${err.message}` })
   }
 })
 

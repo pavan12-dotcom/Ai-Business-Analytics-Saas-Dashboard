@@ -8,6 +8,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
+  updateProfile: (metadata: { name?: string; orgName?: string; industry?: string }) => Promise<{ error: string | null }>
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType)
@@ -69,8 +70,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
   }
 
+  const updateProfile = async (metadata: { name?: string; orgName?: string; industry?: string }) => {
+    const isDemoMode = import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co'
+    if (isDemoMode) {
+      if (user) {
+        const updatedUser = {
+          ...user,
+          user_metadata: {
+            ...user.user_metadata,
+            ...metadata
+          }
+        } as unknown as User
+        setUser(updatedUser)
+        localStorage.setItem('demo_user', JSON.stringify(updatedUser))
+      }
+      return { error: null }
+    }
+
+    const { data, error } = await supabase.auth.updateUser({
+      data: { ...metadata }
+    })
+
+    if (error) return { error: error.message }
+    if (data.user) {
+      setUser(data.user)
+    }
+    return { error: null }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateProfile }}>
       {children}
     </AuthContext.Provider>
   )
