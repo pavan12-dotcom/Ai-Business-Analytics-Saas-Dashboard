@@ -1,7 +1,7 @@
 {
-  "short_name": "InsightAI",
-  "name": "InsightAI Business Analytics",
-  "description": "SaaS business analytics and AI assistant.",
+  "short_name": "AI Analytics",
+  "name": "AI Business Analytics",
+  "description": "Smart SaaS business analytics powered by AI.",
   "icons": [
     {
       "src": "/favicon.svg",

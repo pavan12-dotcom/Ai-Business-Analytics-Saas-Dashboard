@@ -14,7 +14,7 @@ export default function Landing() {
     <div className="landing">
       {/* Nav */}
       <nav className="landing-nav">
-        <div className="landing-logo"><span className="logo-dot" />InsightAI</div>
+        <div className="landing-logo"><span className="logo-dot" />AI Business Analytics</div>
         <div className="landing-nav-links">
           <button className="btn btn-ghost" onClick={() => nav('/login')}>Sign In</button>
           <button className="btn btn-primary" onClick={() => nav('/signup')}>Get Started Free</button>
@@ -29,7 +29,7 @@ export default function Landing() {
           <span className="hero-gradient">Answered in Plain English</span>
         </h1>
         <p className="hero-sub">
-          InsightAI connects to your data and lets you ask questions like
+          AI Business Analytics connects to your data and lets you ask questions like
           "Who are my top 5 customers this month?" — and gets you the answer instantly.
         </p>
         <div className="hero-cta">
@@ -58,7 +58,7 @@ export default function Landing() {
       <section className="landing-cta-section">
         <div className="landing-cta-card">
           <h2>Ready to get started?</h2>
-          <p>Join teams already using InsightAI to make faster decisions.</p>
+          <p>Join teams already using AI Business Analytics to make faster decisions.</p>
           <button className="btn btn-primary" onClick={() => nav('/signup')}>
             Create Free Account
           </button>
@@ -66,7 +66,7 @@ export default function Landing() {
       </section>
 
       <footer className="landing-footer">
-        © 2026 InsightAI · Built with Claude AI
+        © 2026 AI Business Analytics · Powered by Gemini AI
       </footer>
     </div>
   )

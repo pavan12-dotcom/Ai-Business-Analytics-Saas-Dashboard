@@ -26,7 +26,7 @@ export default function Signup() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-logo"><span className="logo-dot" />InsightAI</div>
+        <div className="auth-logo"><span className="logo-dot" />AI Business Analytics</div>
         <h1 className="auth-title">Create your account</h1>
         <p className="auth-sub">Start free — no credit card required</p>
 

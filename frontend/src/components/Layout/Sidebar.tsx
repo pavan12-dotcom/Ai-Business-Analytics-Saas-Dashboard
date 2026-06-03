@@ -55,7 +55,7 @@ export default function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-logo">
         <span className="logo-dot" />
-        InsightAI
+        AI Business Analytics
       </div>
 
       <div className="sidebar-upload-section">

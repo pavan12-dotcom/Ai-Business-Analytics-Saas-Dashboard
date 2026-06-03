@@ -24,7 +24,7 @@ export default function Login() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-logo"><span className="logo-dot" />InsightAI</div>
+        <div className="auth-logo"><span className="logo-dot" />AI Business Analytics</div>
         <h1 className="auth-title">Welcome back</h1>
         <p className="auth-sub">Sign in to your account</p>
 
