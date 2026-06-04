@@ -33,14 +33,17 @@ app.use(express.raw({ limit: '50mb', type: 'application/json' }))
 
 // Routes
 app.use('/api/data', dataRoutes)
+app.use('/data', dataRoutes)
 app.use('/api/ai', aiRoutes)
+app.use('/ai', aiRoutes)
 app.use('/api/billing', billingRoutes)
+app.use('/billing', billingRoutes)
 
 app.get('/', (_req, res) => {
   res.send('<h1>InsightAI API</h1><p>Backend is running.</p><p><a href="/api/health">/api/health</a></p>')
 })
 
-app.get('/api/health', (_req, res) => {
+app.get(['/api/health', '/health'], (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
