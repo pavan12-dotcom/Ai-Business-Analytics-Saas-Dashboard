@@ -13,12 +13,19 @@ const PORT = Number(process.env.PORT) || 4000
 const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '')
 
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:3000',
-    FRONTEND_URL,
-    FRONTEND_URL + '/',
-  ],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true)
+    
+    const isLocal = origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')
+    const isVercel = origin.endsWith('.vercel.app')
+    const isConfigured = origin.replace(/\/$/, '') === FRONTEND_URL.replace(/\/$/, '')
+    
+    if (isLocal || isVercel || isConfigured) {
+      callback(null, true)
+    } else {
+      callback(new Error('Not allowed by CORS'))
+    }
+  },
   credentials: true,
 }))
 
