@@ -489,7 +489,7 @@ export default function Dashboard() {
               <div className="ai-teaser-header">
                 <span className="ai-live-dot" />
                 <span className="ai-teaser-title">AI Data Assistant</span>
-                <span className="ai-teaser-badge">Powered by Claude</span>
+                <span className="ai-teaser-badge">Powered by Gemini</span>
               </div>
               <div className="ai-teaser-msg ai-msg">
                 Hi! I can answer questions about your business data. Try asking about revenue, customers, or trends.

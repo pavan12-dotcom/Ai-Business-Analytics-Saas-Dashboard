@@ -228,7 +228,7 @@
           <div class="ai-header">
             <div class="ai-dot"></div>
             <div class="ai-title">AI Data Assistant</div>
-            <div class="ai-sub">Powered by Claude</div>
+            <div class="ai-sub">Powered by Gemini</div>
           </div>
           <div class="ai-messages" id="messages">
             <div class="msg ai">Hi! I can answer questions about your business data. Try asking about revenue, customers, or trends.</div>
@@ -310,23 +310,33 @@ async function sendMsg() {
   const thinking = addMsg('Analyzing your data...', 'ai thinking');
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    let apiKey = localStorage.getItem('gemini_api_key') || '';
+    if (!apiKey) {
+      apiKey = prompt('Please enter your Google Gemini API Key to use the AI assistant:');
+      if (apiKey) localStorage.setItem('gemini_api_key', apiKey);
+    }
+    if (!apiKey) {
+      throw new Error('API key is required');
+    }
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: DB_CONTEXT,
-        messages: [{ role: 'user', content: q }]
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: DB_CONTEXT + "\n\nUser Question: " + q }]
+          }
+        ]
       })
     });
     const data = await res.json();
     thinking.remove();
-    const answer = data.content?.[0]?.text || 'Sorry, I could not get a response.';
+    const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not get a response.';
     addMsg(answer, 'ai');
   } catch(e) {
     thinking.remove();
-    addMsg('Unable to reach AI. Make sure the API is connected.', 'ai');
+    addMsg(e.message === 'API key is required' ? 'API Key is required.' : 'Unable to reach AI. Make sure the API key is valid and connected.', 'ai');
   }
   btn.disabled = false;
 }

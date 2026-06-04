@@ -32,7 +32,7 @@ export default function AIAssistant() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [demoMode, setDemoMode] = useState(true)
-  const [engine, setEngine] = useState<'gemini' | 'anthropic' | 'fallback'>('fallback')
+  const [engine, setEngine] = useState<string>('fallback')
   const [docError, setDocError] = useState<string | null>(null)
   const [uploadingDoc, setUploadingDoc] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -127,7 +127,7 @@ export default function AIAssistant() {
           <div>
             <div className="ai-page-title">AI Data Assistant</div>
             <div className="ai-page-sub">
-              {engine.startsWith('gemini') ? 'Powered by OpenAI' : engine === 'anthropic' ? 'Powered by Anthropic Claude' : 'Canned Response Demo'} · Reads your business data
+              {engine.startsWith('gemini') ? 'Powered by Google Gemini' : 'Canned Response Demo'} · Reads your business data
             </div>
           </div>
         </div>

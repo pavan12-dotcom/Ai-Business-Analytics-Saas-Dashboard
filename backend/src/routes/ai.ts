@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express'
-import Anthropic from '@anthropic-ai/sdk'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { requireAuth, getSupabase } from '../middleware/auth'
 import { memorySpreadsheets, memoryDocuments } from './data'
@@ -174,8 +173,7 @@ TOP CUSTOMERS: ${topCustStr}
   }
   }
 
-  const anthropicKey = process.env.ANTHROPIC_API_KEY
-  const geminiKey = process.env.GEMINI_API_KEY
+  const geminiKey = (req as any).user?.user_metadata?.gemini_api_key || process.env.GEMINI_API_KEY
 
   // 2. Route request to appropriate LLM engine or fallback
   if (geminiKey) {
@@ -198,28 +196,11 @@ TOP CUSTOMERS: ${topCustStr}
         lastError = err
       }
     }
-    
-    return res.status(500).json({ error: `Gemini API Error: ${lastError?.message || 'Unknown error'}` })
-  } else if (anthropicKey) {
-    try {
-      console.log('Routing AI request to Anthropic (Claude 3.5 Sonnet)...')
-      const client = new Anthropic({ apiKey: anthropicKey })
-      const message = await client.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 512,
-        system: dbContext,
-        messages: [{ role: 'user', content: question }],
-      })
-      const answer = (message.content[0] as any).text
-      return res.json({ answer, demo: false, engine: 'anthropic' })
-    } catch (err: any) {
-      console.error('Anthropic API Error:', err.message)
-      return res.status(500).json({ error: `Anthropic API Error: ${err.message}` })
-    }
+    console.warn('Google Gemini API failed or was rate-limited. Falling back to canned responses...')
   }
 
   // 3. Fallback: Smart Canned responses using query string matching
-  console.log('No API Keys configured. Falling back to Demo Mode canned responses.')
+  console.log('Falling back to Demo Mode canned responses.')
   const q = question.toLowerCase()
   let answer = `Based on your current data: Total revenue is $84,320/month (+12.4%), 2,841 active users, churn at 3.2%. Your Pro plan leads at 60% of revenue.`
 

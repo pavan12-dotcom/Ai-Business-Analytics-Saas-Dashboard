@@ -17,7 +17,7 @@ export function getSupabase() {
 
 
 // Simple in-memory token cache to prevent duplicate remote queries to Supabase Auth
-const tokenCache = new Map<string, { userId: string; expiresAt: number }>()
+const tokenCache = new Map<string, { userId: string; user: any; expiresAt: number }>()
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   // Demo mode — skip auth if Supabase not configured
@@ -39,7 +39,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   const cached = tokenCache.get(token)
   const now = Date.now()
   if (cached && cached.expiresAt > now) {
-    (req as any).userId = cached.userId
+    ;(req as any).userId = cached.userId;
+    ;(req as any).user = cached.user;
     return next()
   }
 
@@ -48,9 +49,10 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     if (error || !user) return res.status(401).json({ error: 'Invalid token' })
 
     // Cache valid token for 60 seconds
-    tokenCache.set(token, { userId: user.id, expiresAt: now + 60000 })
+    tokenCache.set(token, { userId: user.id, user, expiresAt: now + 60000 })
 
     ;(req as any).userId = user.id
+    ;(req as any).user = user
     next()
   } catch (err) {
     return res.status(401).json({ error: 'Invalid token or authentication failed' })

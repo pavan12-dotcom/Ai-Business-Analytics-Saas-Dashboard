@@ -54,7 +54,7 @@ app.get('/api/health', (_req, res) => {
 })
 
 app.listen(PORT, () => {
-  console.log(`✅ InsightAI API running on http://localhost:${PORT}`)
+  console.log('✅ InsightAI API running on http://localhost:4000')
 })
 
 export default app

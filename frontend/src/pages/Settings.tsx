@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import './Settings.css'
 
@@ -7,7 +7,7 @@ export default function Settings() {
   
   // Profile states
   const [name, setName] = useState<string>((user?.user_metadata?.name as string) || 'Demo User')
-  const [email] = useState(user?.email || 'demo@insightai.com')
+  const [email, setEmail] = useState(user?.email || 'demo@insightai.com')
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -18,6 +18,35 @@ export default function Settings() {
   const [savedOrg, setSavedOrg] = useState(false)
   const [savingOrg, setSavingOrg] = useState(false)
   const [errorOrg, setErrorOrg] = useState<string | null>(null)
+
+  // Custom API key states
+  const [geminiKey, setGeminiKey] = useState<string>((user?.user_metadata?.gemini_api_key as string) || '')
+  const [savingKey, setSavingKey] = useState(false)
+  const [savedKey, setSavedKey] = useState(false)
+  const [errorKey, setErrorKey] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (user) {
+      if (user.user_metadata?.name) setName(user.user_metadata.name)
+      if (user.email) setEmail(user.email)
+      if (user.user_metadata?.orgName) setOrgName(user.user_metadata.orgName)
+      if (user.user_metadata?.industry) setIndustry(user.user_metadata.industry)
+      if (user.user_metadata?.gemini_api_key) setGeminiKey(user.user_metadata.gemini_api_key)
+    }
+  }, [user])
+
+  const saveGeminiKey = async () => {
+    setErrorKey(null)
+    setSavingKey(true)
+    const { error: err } = await updateProfile({ gemini_api_key: geminiKey })
+    setSavingKey(false)
+    if (err) {
+      setErrorKey(err)
+    } else {
+      setSavedKey(true)
+      setTimeout(() => setSavedKey(false), 2000)
+    }
+  }
 
   const save = async () => {
     setError(null)
@@ -53,7 +82,6 @@ export default function Settings() {
     }
   }
 
-  const hasAnthropic = !!import.meta.env.VITE_ANTHROPIC_KEY
   const hasSupabase = !!import.meta.env.VITE_SUPABASE_URL
   const hasStripe = !!import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
 
@@ -121,9 +149,33 @@ export default function Settings() {
           <div className="settings-section-title">API Keys</div>
           <div className="settings-section-sub">Connect AI and billing services</div>
 
+          <div className="field" style={{ marginBottom: 12 }}>
+            <label className="field-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Custom Gemini API Key (Overrides default)</span>
+              <span className={`badge ${geminiKey ? 'badge-green' : 'badge-red'}`} style={{ fontSize: 10, padding: '1px 6px' }}>
+                {geminiKey ? 'Set' : 'Not set'}
+              </span>
+            </label>
+            <input 
+              type="password"
+              placeholder="Pasted key will be masked..." 
+              className="field-input" 
+              value={geminiKey} 
+              onChange={e => setGeminiKey(e.target.value)} 
+            />
+          </div>
+
+          {errorKey && <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 12 }}>⚠️ {errorKey}</div>}
+
+          <button className="btn btn-secondary btn-sm" onClick={saveGeminiKey} disabled={savingKey} style={{ marginBottom: 20 }}>
+            {savingKey ? 'Saving...' : savedKey ? '✓ Saved' : 'Save Gemini Key'}
+          </button>
+
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '8px 0 20px 0' }} />
+
           <div className="api-key-list">
             {[
-              { name: 'Anthropic (Claude)', env: 'VITE_ANTHROPIC_KEY', status: hasAnthropic },
+              { name: 'Default Gemini API Key', env: 'VITE_API_URL backend', status: true },
               { name: 'Supabase URL', env: 'VITE_SUPABASE_URL', status: hasSupabase },
               { name: 'Stripe Publishable', env: 'VITE_STRIPE_PUBLISHABLE_KEY', status: hasStripe },
             ].map(k => (

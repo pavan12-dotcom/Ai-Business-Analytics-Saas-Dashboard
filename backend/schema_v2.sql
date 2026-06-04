@@ -1,7 +1,9 @@
--- schema.sql
--- Run this script in your Supabase SQL Editor to initialize tables and seed them.
+-- schema_v2.sql
+-- Consolidated schema script for Supabase.
+-- Run this in your Supabase SQL Editor (https://supabase.com/dashboard/project/evxxymkctwhwhkqcpyao/sql/new)
 
 -- 1. Drop existing tables if they exist
+drop table if exists documents cascade;
 drop table if exists spreadsheets cascade;
 drop table if exists customers cascade;
 drop table if exists plan_distribution cascade;
@@ -45,10 +47,10 @@ create table customers (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 6. Create Spreadsheets Table
+-- 6. Create Spreadsheets Table (Foreign key references removed for robustness)
 create table spreadsheets (
   id uuid default gen_random_uuid() primary key,
-  user_id uuid references auth.users(id) on delete cascade not null,
+  user_id uuid not null,
   filename text not null,
   headers text[] not null,
   columns_metadata jsonb not null,
@@ -56,8 +58,19 @@ create table spreadsheets (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Enable Row-Level Security (RLS) on Spreadsheets
+-- 7. Create Documents Table (Foreign key references removed for robustness)
+create table documents (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid not null,
+  filename text not null,
+  text text not null,
+  parsed_data text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable Row-Level Security (RLS)
 alter table spreadsheets enable row level security;
+alter table documents enable row level security;
 
 -- Row security policies for Spreadsheets
 drop policy if exists "Users can view their own spreadsheets" on spreadsheets;
@@ -76,7 +89,24 @@ create policy "Users can delete their own spreadsheets"
   on spreadsheets for delete
   using (auth.uid() = user_id);
 
--- 6. Seed Initial Data
+-- Row security policies for Documents
+drop policy if exists "Users can view their own documents" on documents;
+drop policy if exists "Users can insert their own documents" on documents;
+drop policy if exists "Users can delete their own documents" on documents;
+
+create policy "Users can view their own documents"
+  on documents for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert their own documents"
+  on documents for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete their own documents"
+  on documents for delete
+  using (auth.uid() = user_id);
+
+-- 8. Seed Initial Data
 insert into kpis (label, value, change, up) values
   ('Total Revenue', '$84,320', '+12.4%', true),
   ('Active Users', '2,841', '+8.1%', true),

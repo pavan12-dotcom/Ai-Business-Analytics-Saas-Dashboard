@@ -8,7 +8,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
-  updateProfile: (metadata: { name?: string; orgName?: string; industry?: string }) => Promise<{ error: string | null }>
+  updateProfile: (metadata: { name?: string; orgName?: string; industry?: string; gemini_api_key?: string }) => Promise<{ error: string | null }>
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType)
@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
   }
 
-  const updateProfile = async (metadata: { name?: string; orgName?: string; industry?: string }) => {
+  const updateProfile = async (metadata: { name?: string; orgName?: string; industry?: string; gemini_api_key?: string }) => {
     const isDemoMode = import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co'
     if (isDemoMode) {
       if (user) {

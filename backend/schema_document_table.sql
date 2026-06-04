@@ -11,7 +11,7 @@ create table if not exists documents (
 );
 
 -- Enable Row-Level Security (RLS) on Documents
-alter table documents enable row-level security;
+alter table documents enable row level security;
 
 -- Row security policies for Documents
 drop policy if exists "Users can view their own documents" on documents;

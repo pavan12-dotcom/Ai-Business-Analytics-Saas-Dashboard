@@ -139,14 +139,12 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       const reader = new FileReader()
       reader.onload = async (e) => {
         try {
-          const ab = e.target?.result as ArrayBuffer
-          const bytes = new Uint8Array(ab)
-          let binary = ''
-          const len = bytes.byteLength
-          for (let i = 0; i < len; i++) {
-            binary += String.fromCharCode(bytes[i])
+          const dataUrl = e.target?.result as string
+          if (!dataUrl) {
+            resolve({ success: false, error: 'Failed to read document file.' })
+            return
           }
-          const base64 = btoa(binary)
+          const base64 = dataUrl.split(',')[1]
 
           const payload = {
             filename: file.name,
@@ -175,7 +173,7 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       reader.onerror = () => {
         resolve({ success: false, error: 'Failed to read document file.' })
       }
-      reader.readAsArrayBuffer(file)
+      reader.readAsDataURL(file)
     })
   }
 
