@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { fetchAuditLogs } from '../services/api'
 import { PieChart, Pie, Cell } from 'recharts'
 import {
   Shield,
@@ -18,8 +19,22 @@ import {
 } from 'lucide-react'
 import './Settings.css'
 
+interface AuditLog {
+  id: string
+  action: string
+  timestamp: string
+  user: string
+}
+
 export default function Settings() {
-  const { user, updateProfile, signOut } = useAuth()
+  const { user, updateProfile, signOut, userRole } = useAuth()
+
+  const isViewer = userRole === 'Viewer'
+  const isAnalyst = userRole === 'Analyst'
+  const isManager = userRole === 'Manager'
+  const isRestricted = isViewer || isAnalyst
+  const isKeyRestricted = isRestricted || isManager
+  const isDangerRestricted = isRestricted || isManager
 
   // Profile states
   const [name, setName] = useState<string>((user?.user_metadata?.name as string) || 'Demo User')
@@ -40,6 +55,31 @@ export default function Settings() {
   const [savingKey, setSavingKey] = useState(false)
   const [savedKey, setSavedKey] = useState(false)
   const [errorKey, setErrorKey] = useState<string | null>(null)
+
+  // Audit Logs states
+  const [logs, setLogs] = useState<AuditLog[]>([])
+  const [loadingLogs, setLoadingLogs] = useState(false)
+
+  const loadLogs = async () => {
+    setLoadingLogs(true)
+    try {
+      const data = await fetchAuditLogs()
+      setLogs(data)
+    } catch (err) {
+      const localLogs = JSON.parse(localStorage.getItem('audit_logs') || '[]')
+      setLogs(localLogs)
+    } finally {
+      setLoadingLogs(false)
+    }
+  }
+
+  useEffect(() => {
+    loadLogs()
+    window.addEventListener('audit_log_added', loadLogs)
+    return () => {
+      window.removeEventListener('audit_log_added', loadLogs)
+    }
+  }, [])
 
   useEffect(() => {
     if (user) {
@@ -109,6 +149,19 @@ export default function Settings() {
 
   return (
     <div className="settings-page fade-in">
+      {isRestricted && (
+        <div className="settings-warning-banner glass-card">
+          <div className="warning-banner-icon">
+            <Lock size={18} />
+          </div>
+          <div className="warning-banner-content">
+            <div className="warning-banner-title">Workspace Restricted ({userRole} Mode)</div>
+            <div className="warning-banner-desc">
+              Your active workspace permission level is set to <strong>{userRole}</strong>. Profiling fields, custom overrides, and dangerous options are locked.
+            </div>
+          </div>
+        </div>
+      )}
       <div className="settings-grid">
         {/* Left side: Forms */}
         <div className="settings-left-col">
@@ -137,7 +190,12 @@ export default function Settings() {
             <div className="settings-fields">
               <div className="field">
                 <label className="field-label">Full Name</label>
-                <input className="field-input" value={name} onChange={e => setName(e.target.value)} />
+                <input 
+                  className={`field-input ${isRestricted ? 'disabled-input' : ''}`} 
+                  value={name} 
+                  onChange={e => setName(e.target.value)} 
+                  disabled={isRestricted}
+                />
               </div>
               <div className="field">
                 <label className="field-label">Email Address</label>
@@ -147,7 +205,12 @@ export default function Settings() {
 
             {error && <div className="settings-error-msg">⚠️ {error}</div>}
 
-            <button className="btn btn-primary btn-sm save-btn" onClick={save} disabled={saving}>
+            <button 
+              className="btn btn-primary btn-sm save-btn" 
+              onClick={save} 
+              disabled={saving || isRestricted}
+              title={isRestricted ? `Access denied: ${userRole}s cannot modify profile settings` : ''}
+            >
               {saving ? 'Saving...' : saved ? '✓ Profile Saved' : 'Save Profile'}
             </button>
           </div>
@@ -162,17 +225,32 @@ export default function Settings() {
             <div className="settings-fields">
               <div className="field">
                 <label className="field-label">Organization Name</label>
-                <input className="field-input" value={orgName} onChange={e => setOrgName(e.target.value)} />
+                <input 
+                  className={`field-input ${isRestricted ? 'disabled-input' : ''}`} 
+                  value={orgName} 
+                  onChange={e => setOrgName(e.target.value)} 
+                  disabled={isRestricted}
+                />
               </div>
               <div className="field">
                 <label className="field-label">Industry Classification</label>
-                <input className="field-input" value={industry} onChange={e => setIndustry(e.target.value)} />
+                <input 
+                  className={`field-input ${isRestricted ? 'disabled-input' : ''}`} 
+                  value={industry} 
+                  onChange={e => setIndustry(e.target.value)} 
+                  disabled={isRestricted}
+                />
               </div>
             </div>
 
             {errorOrg && <div className="settings-error-msg">⚠️ {errorOrg}</div>}
 
-            <button className="btn btn-secondary btn-sm save-btn" onClick={saveOrg} disabled={savingOrg}>
+            <button 
+              className="btn btn-secondary btn-sm save-btn" 
+              onClick={saveOrg} 
+              disabled={savingOrg || isRestricted}
+              title={isRestricted ? `Access denied: ${userRole}s cannot modify organization settings` : ''}
+            >
               {savingOrg ? 'Saving...' : savedOrg ? '✓ Org Updated' : 'Update Org'}
             </button>
           </div>
@@ -193,16 +271,23 @@ export default function Settings() {
               </label>
               <input
                 type="password"
-                placeholder="Paste Gemini token (will be masked securely)..."
-                className="field-input"
+                placeholder={isKeyRestricted ? `API Key override locked for ${userRole}` : "Paste Gemini token (will be masked securely)..."}
+                className={`field-input ${isKeyRestricted ? 'disabled-input' : ''}`}
                 value={geminiKey}
                 onChange={e => setGeminiKey(e.target.value)}
+                disabled={isKeyRestricted}
               />
             </div>
 
             {errorKey && <div className="settings-error-msg">⚠️ {errorKey}</div>}
 
-            <button className="btn btn-secondary btn-sm save-btn" onClick={saveGeminiKey} disabled={savingKey} style={{ marginBottom: 16 }}>
+            <button 
+              className="btn btn-secondary btn-sm save-btn" 
+              onClick={saveGeminiKey} 
+              disabled={savingKey || isKeyRestricted} 
+              style={{ marginBottom: 16 }}
+              title={isKeyRestricted ? `Access denied: ${userRole}s cannot configure API keys` : ''}
+            >
               {savingKey ? 'Configuring...' : savedKey ? '✓ Key Saved' : 'Update Gemini Override'}
             </button>
 
@@ -280,6 +365,36 @@ export default function Settings() {
             </div>
           </div>
 
+          {/* System Activity Logs */}
+          <div className="card settings-section glass-card">
+            <div className="settings-section-title">
+              <Activity size={14} /> System Activity Logs
+            </div>
+            <div className="settings-section-sub">Real-time audit timeline of workspace operations</div>
+
+            <div className="audit-timeline">
+              {loadingLogs && logs.length === 0 ? (
+                <div className="timeline-empty">Syncing audit history...</div>
+              ) : logs.length === 0 ? (
+                <div className="timeline-empty">No activity logs recorded.</div>
+              ) : (
+                logs.slice(0, 8).map((log) => (
+                  <div key={log.id} className="timeline-item">
+                    <div className="timeline-badge" />
+                    <div className="timeline-content">
+                      <div className="timeline-action">{log.action}</div>
+                      <div className="timeline-meta">
+                        <span className="timeline-user">{log.user}</span>
+                        <span className="timeline-dot">·</span>
+                        <span className="timeline-time">{log.timestamp}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
           {/* Team Active score meters */}
           <div className="card settings-section glass-card">
             <div className="settings-section-title">
@@ -324,7 +439,12 @@ export default function Settings() {
                 <div className="danger-sub">Irreversible actions on this workspace</div>
               </div>
             </div>
-            <button className="btn delete-account-btn" onClick={handleDeleteAccount}>
+            <button 
+              className="btn delete-account-btn" 
+              onClick={handleDeleteAccount}
+              disabled={isDangerRestricted}
+              title={isDangerRestricted ? `Access denied: ${userRole}s cannot deactivate seats` : ''}
+            >
               <Trash2 size={13} style={{ marginRight: 6 }} />
               Deactivate Enterprise Seat
             </button>

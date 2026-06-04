@@ -670,6 +670,56 @@ export default function AIAssistant() {
             </div>
           </div>
 
+          <div className="context-title" style={{ marginTop: '16px' }}>AI Copilot Tasks</div>
+          <div className="copilot-tasks-container">
+            {[
+              {
+                id: 'report',
+                title: 'Generate Executive Report',
+                desc: 'Full MRR growth summary & chart',
+                query: 'Generate an executive report showing MRR growth and revenue summary.',
+                icon: <FileText size={14} />
+              },
+              {
+                id: 'forecast',
+                title: 'Predict Next Month\'s Revenue',
+                desc: 'Future trend forecast with confidence intervals',
+                query: 'Predict next month\'s revenue based on current trends.',
+                icon: <TrendingUp size={14} />
+              },
+              {
+                id: 'churn',
+                title: 'Analyze Customer Churn',
+                desc: 'Details accounts at risk & churn curve',
+                query: 'Analyze customer churn rate and risk profile.',
+                icon: <AlertTriangle size={14} />
+              },
+              {
+                id: 'pricing',
+                title: 'Recommend Pricing Changes',
+                desc: 'Value-tier updates & plan distribution',
+                query: 'Recommend pricing changes based on current plan share.',
+                icon: <Layers size={14} />
+              }
+            ].map(task => (
+              <button
+                key={task.id}
+                className="copilot-task-card glass-card"
+                onClick={() => {
+                  setMode('spreadsheet')
+                  send(task.query)
+                }}
+                disabled={loading || isStreamingActive}
+              >
+                <div className="task-card-icon">{task.icon}</div>
+                <div className="task-card-details">
+                  <div className="task-card-title">{task.title}</div>
+                  <div className="task-card-desc">{task.desc}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+
           <div className="context-title" style={{ marginTop: '16px' }}>Auto Insights</div>
           <div className="insights-container">
             <div className="insight-card info">

@@ -54,3 +54,11 @@ export const reparseDocument = () =>
 export const fetchDBStatus = () =>
   api.get('/api/data/db-status').then(r => r.data)
 
+// ── Audit Logs & Notifications helpers ─────────────────────────
+export const fetchAuditLogs = () => api.get('/api/data/audit-logs').then(r => r.data)
+export const createAuditLog = (action: string) => api.post('/api/data/audit-logs', { action }).then(r => r.data)
+export const fetchNotifications = () => api.get('/api/data/notifications').then(r => r.data)
+export const markNotificationRead = (id: string) => api.post(`/api/data/notifications/${id}/read`).then(r => r.data)
+export const clearNotifications = () => api.delete('/api/data/notifications').then(r => r.data)
+
+

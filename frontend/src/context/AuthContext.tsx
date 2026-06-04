@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../services/supabase'
 import type { User } from '@supabase/supabase-js'
+import { logActivity } from '../services/audit'
 
 interface AuthContextType {
   user: User | null
@@ -9,6 +10,8 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   updateProfile: (metadata: { name?: string; orgName?: string; industry?: string; gemini_api_key?: string }) => Promise<{ error: string | null }>
+  userRole: 'Admin' | 'Manager' | 'Analyst' | 'Viewer'
+  setRole: (role: 'Admin' | 'Manager' | 'Analyst' | 'Viewer') => void
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType)
@@ -16,6 +19,15 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [userRole, setRoleState] = useState<'Admin' | 'Manager' | 'Analyst' | 'Viewer'>(() => {
+    return (localStorage.getItem('user_role') as any) || 'Admin'
+  })
+
+  const setRole = (role: 'Admin' | 'Manager' | 'Analyst' | 'Viewer') => {
+    setRoleState(role)
+    localStorage.setItem('user_role', role)
+    logActivity(`Role switched to ${role}`, user?.user_metadata?.name || 'User')
+  }
 
   useEffect(() => {
     // Check for demo mode (no real Supabase configured)
@@ -99,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateProfile }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateProfile, userRole, setRole }}>
       {children}
     </AuthContext.Provider>
   )

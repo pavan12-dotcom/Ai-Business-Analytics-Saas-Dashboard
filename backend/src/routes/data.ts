@@ -788,4 +788,228 @@ router.get('/db-status', async (_req, res) => {
   }
 })
 
+// ── Audit Logs ─────────────────────────────────────────────────
+export interface AuditLog {
+  id: string
+  action: string
+  timestamp: string
+  user: string
+}
+
+export const memoryAuditLogs = new Map<string, AuditLog[]>()
+
+router.get('/audit-logs', requireAuth, async (req: Request, res: Response) => {
+  const userId = (req as any).userId
+  const userName = (req as any).user?.user_metadata?.name || (req as any).user?.email || 'Demo User'
+  
+  const supabase = getSupabase()
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+      
+      if (!error && data) {
+        return res.json(data.map((row: any) => ({
+          id: row.id,
+          action: row.action,
+          timestamp: new Date(row.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          user: row.user || userName
+        })))
+      }
+    } catch (err) {}
+  }
+
+  // Fallback to in-memory
+  const logs = memoryAuditLogs.get(userId) || []
+  res.json(logs)
+})
+
+router.post('/audit-logs', requireAuth, async (req: Request, res: Response) => {
+  const { action } = req.body
+  const userId = (req as any).userId
+  const userName = (req as any).user?.user_metadata?.name || (req as any).user?.email || 'Demo User'
+  
+  const timestamp = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  const logEntry: AuditLog = {
+    id: Math.random().toString(36).substring(2, 9),
+    action,
+    timestamp,
+    user: userName
+  }
+
+  const supabase = getSupabase()
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('audit_logs')
+        .insert({
+          user_id: userId,
+          action,
+          user: userName
+        })
+      if (!error) {
+        return res.json({ success: true })
+      }
+    } catch (err) {}
+  }
+
+  // Fallback to in-memory
+  const logs = memoryAuditLogs.get(userId) || []
+  logs.unshift(logEntry)
+  memoryAuditLogs.set(userId, logs.slice(0, 50))
+  res.json({ success: true, fallback: true })
+})
+
+// ── Notifications ──────────────────────────────────────────────
+export interface Notification {
+  id: string
+  title: string
+  message: string
+  type: 'revenue' | 'churn' | 'system'
+  read: boolean
+  timestamp: string
+}
+
+export const memoryNotifications = new Map<string, Notification[]>()
+
+// Helper to get initial notifications if none exist
+const getInitialNotifications = (): Notification[] => [
+  {
+    id: 'n-1',
+    title: 'Revenue Milestone Reached',
+    message: 'Monthly recurring revenue crossed $80,000 for the first time.',
+    type: 'revenue',
+    read: false,
+    timestamp: '10 mins ago'
+  },
+  {
+    id: 'n-2',
+    title: 'High Churn Risk Warning',
+    message: 'Apex Systems showing zero usage patterns in the past 14 days.',
+    type: 'churn',
+    read: false,
+    timestamp: '1 hr ago'
+  },
+  {
+    id: 'n-3',
+    title: 'Automated Sync Successful',
+    message: 'Financial spreadsheet data verified and integrated into models.',
+    type: 'system',
+    read: true,
+    timestamp: '2 hrs ago'
+  }
+]
+
+router.get('/notifications', requireAuth, async (req: Request, res: Response) => {
+  const userId = (req as any).userId
+  
+  const supabase = getSupabase()
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+      
+      if (!error && data) {
+        // If empty in DB, let's seed initial notifications
+        if (data.length === 0) {
+          const initials = getInitialNotifications()
+          await supabase.from('notifications').insert(initials.map(n => ({
+            user_id: userId,
+            title: n.title,
+            message: n.message,
+            type: n.type,
+            read: n.read,
+            created_at: new Date(Date.now() - (n.id === 'n-1' ? 10 : n.id === 'n-2' ? 60 : 120) * 60 * 1000).toISOString()
+          })))
+          
+          // Refetch
+          const { data: refetched } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+          if (refetched) {
+            return res.json(refetched.map(row => ({
+              id: row.id.toString(),
+              title: row.title,
+              message: row.message,
+              type: row.type,
+              read: row.read,
+              timestamp: row.created_at
+            })))
+          }
+        }
+        
+        return res.json(data.map((row: any) => ({
+          id: row.id.toString(),
+          title: row.title,
+          message: row.message,
+          type: row.type,
+          read: row.read,
+          timestamp: new Date(row.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+        })))
+      }
+    } catch (err) {}
+  }
+
+  // Fallback to in-memory
+  if (!memoryNotifications.has(userId)) {
+    memoryNotifications.set(userId, getInitialNotifications())
+  }
+  res.json(memoryNotifications.get(userId) || [])
+})
+
+router.post('/notifications/:id/read', requireAuth, async (req: Request, res: Response) => {
+  const { id } = req.params
+  const userId = (req as any).userId
+
+  const supabase = getSupabase()
+  if (supabase) {
+    try {
+      // Check if id is numeric or uuid
+      const filter = isNaN(Number(id)) ? { id } : { id: Number(id) }
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .match({ ...filter, user_id: userId })
+      if (!error) {
+        return res.json({ success: true })
+      }
+    } catch (err) {}
+  }
+
+  // Fallback to in-memory
+  const list = memoryNotifications.get(userId) || []
+  const updated = list.map(n => n.id === id ? { ...n, read: true } : n)
+  memoryNotifications.set(userId, updated)
+  res.json({ success: true, fallback: true })
+})
+
+router.delete('/notifications', requireAuth, async (req: Request, res: Response) => {
+  const userId = (req as any).userId
+
+  const supabase = getSupabase()
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', userId)
+      if (!error) {
+        return res.json({ success: true })
+      }
+    } catch (err) {}
+  }
+
+  // Fallback to in-memory
+  memoryNotifications.set(userId, [])
+  res.json({ success: true, fallback: true })
+})
+
 export default router
