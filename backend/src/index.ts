@@ -22,6 +22,12 @@ app.use(cors({
   credentials: true,
 }))
 
+// Normalize double slashes in URLs (e.g. //api -> /api)
+app.use((req, res, next) => {
+  req.url = req.url.replace(/\/+/g, '/')
+  next()
+})
+
 // Request logger middleware
 app.use((req, res, next) => {
   const start = Date.now()
