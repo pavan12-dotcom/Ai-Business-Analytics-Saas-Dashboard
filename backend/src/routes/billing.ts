@@ -39,6 +39,9 @@ router.post('/checkout', requireAuth, async (req: Request, res: Response) => {
     })
   }
 
+  const origin = (req.headers.origin as string) || process.env.FRONTEND_URL || 'http://localhost:5173'
+  const cleanOrigin = origin.replace(/\/$/, '')
+
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     payment_method_types: ['card'],
@@ -53,8 +56,8 @@ router.post('/checkout', requireAuth, async (req: Request, res: Response) => {
     }],
     client_reference_id: (req as any).userId,
     metadata: { plan },
-    success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/app/billing?success=1`,
-    cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/app/billing`,
+    success_url: `${cleanOrigin}/app/billing?success=1`,
+    cancel_url: `${cleanOrigin}/app/billing`,
   })
 
   res.json({ url: session.url })

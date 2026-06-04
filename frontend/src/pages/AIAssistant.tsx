@@ -576,7 +576,7 @@ export default function AIAssistant() {
                       {/* Embedded visualization interception */}
                       {m.chartType && !m.isStreaming && (
                         <ChatChart
-                          type={m.chartType}
+                          type={m.chartType as any}
                           monthlyData={monthlyMetrics}
                           customerData={customerList}
                         />
