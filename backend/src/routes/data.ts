@@ -692,4 +692,100 @@ router.delete('/document', requireAuth, async (req: Request, res: Response) => {
   res.json({ success: true })
 })
 
+// Fetch database connection and seeding status
+router.get('/db-status', async (_req, res) => {
+  const supabase = getSupabase()
+  if (!supabase) {
+    return res.json({
+      status: 'disabled',
+      message: 'Supabase URL/Key is not set or is using placeholder values. Offline Demo Mode active.'
+    })
+  }
+
+  try {
+    // Check if KPIs table exists
+    const { data: kpisData, error: kpisError } = await supabase
+      .from('kpis')
+      .select('label')
+      .limit(1)
+
+    if (kpisError) {
+      if (kpisError.code === '42P01') {
+        return res.json({
+          status: 'no_tables',
+          message: 'Connected to Supabase, but required tables do not exist. Please run schema.sql and schema_document_table.sql in your Supabase SQL Editor.'
+        })
+      }
+      return res.json({
+        status: 'error',
+        message: `Database error: ${kpisError.message}`
+      })
+    }
+
+    // Check if KPIs table has rows
+    const { count, error: countError } = await supabase
+      .from('kpis')
+      .select('*', { count: 'exact', head: true })
+
+    if (countError) {
+      return res.json({
+        status: 'error',
+        message: `Failed to check table count: ${countError.message}`
+      })
+    }
+
+    if (count === 0 || count === null) {
+      console.log('Database tables detected but empty. Auto-seeding mock dataset...')
+      // Auto-seed KPIs
+      await supabase.from('kpis').upsert([
+        { label: 'Total Revenue', value: '$84,320', change: '+12.4%', up: true },
+        { label: 'Active Users', value: '2,841', change: '+8.1%', up: true },
+        { label: 'Churn Rate', value: '3.2%', change: '-0.4%', up: false },
+        { label: 'Avg. Rev / User', value: '$29.68', change: '+2.1%', up: true }
+      ], { onConflict: 'label' })
+
+      // Auto-seed Monthly Metrics
+      await supabase.from('monthly_metrics').upsert([
+        { month: 'Jan', revenue: 52000, mrr: 38000, sort_order: 1 },
+        { month: 'Feb', revenue: 58000, mrr: 47000, sort_order: 2 },
+        { month: 'Mar', revenue: 55000, mrr: 44000, sort_order: 3 },
+        { month: 'Apr', revenue: 67000, mrr: 56000, sort_order: 4 },
+        { month: 'May', revenue: 74000, mrr: 61000, sort_order: 5 },
+        { month: 'Jun', revenue: 84320, mrr: 72000, sort_order: 6 }
+      ], { onConflict: 'month' })
+
+      // Auto-seed Plan Distribution
+      await supabase.from('plan_distribution').upsert([
+        { plan: 'Pro', pct: 60, color: 'var(--accent)' },
+        { plan: 'Team', pct: 30, color: 'var(--teal)' },
+        { plan: 'Enterprise', pct: 10, color: 'var(--amber)' }
+      ], { onConflict: 'plan' })
+
+      // Auto-seed Customers
+      await supabase.from('customers').upsert([
+        { id: '1', name: 'Acme Corp', plan: 'Enterprise', mrr: 4200, status: 'Active' },
+        { id: '2', name: 'TechFlow', plan: 'Team', mrr: 1800, status: 'Active' },
+        { id: '3', name: 'Bright Labs', plan: 'Pro', mrr: 890, status: 'Active' },
+        { id: '4', name: 'Nova Inc', plan: 'Team', mrr: 720, status: 'Pending' },
+        { id: '5', name: 'Apex Systems', plan: 'Pro', mrr: 290, status: 'Churned' }
+      ], { onConflict: 'id' })
+
+      return res.json({
+        status: 'empty_seeded',
+        message: 'Connected to Supabase. Tables were empty and have been automatically seeded with mock data.'
+      })
+    }
+
+    return res.json({
+      status: 'connected',
+      message: 'Connected to Supabase database. Live tables detected.'
+    })
+  } catch (err: any) {
+    return res.json({
+      status: 'error',
+      message: `Internal server error: ${err.message}`
+    })
+  }
+})
+
 export default router

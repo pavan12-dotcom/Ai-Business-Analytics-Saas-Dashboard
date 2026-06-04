@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://business-analytics-with-ai.vercel.app'
+const API_BASE = import.meta.env.VITE_API_URL || ''
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -50,3 +50,7 @@ export const deleteDocument = () =>
   api.delete('/api/data/document').then(r => r.data)
 export const reparseDocument = () =>
   api.post('/api/data/document/parse').then(r => r.data)
+
+export const fetchDBStatus = () =>
+  api.get('/api/data/db-status').then(r => r.data)
+
