@@ -1,0 +1,20 @@
+services:
+  # Backend API Service
+  - type: web
+    name: insightai-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+
+  # Frontend React/Vite Static Site
+  - type: static
+    name: insightai-frontend
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
