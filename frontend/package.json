@@ -3,11 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "deploy": "vercel --prod --yes",
+    "deploy": "npx vercel --prod --yes",
     "sync-env": "node ../sync-frontend-env.js"
   },
   "devDependencies": {
