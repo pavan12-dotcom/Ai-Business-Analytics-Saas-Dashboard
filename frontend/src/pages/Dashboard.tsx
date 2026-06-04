@@ -752,7 +752,7 @@ export default function Dashboard() {
               </table>
 
               {/* Pagination Controls */}
-              <div style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center', marginTop: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                   Page {currentPage} of {totalPages}
                 </span>
