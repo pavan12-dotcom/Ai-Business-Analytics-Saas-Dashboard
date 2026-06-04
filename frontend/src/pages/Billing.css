@@ -1,41 +1,134 @@
-.billing-page { display: flex; flex-direction: column; gap: 20px; }
+.billing-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
+/* Gauges Grid */
+.billing-gauges-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.gauge-card {
+  padding: 14px 18px;
+  overflow: hidden;
+}
+
+.gauge-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.gauge-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.gauge-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.gauge-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 3px 0 1px 0;
+}
+
+.gauge-sub {
+  font-size: 11px;
+  color: var(--green);
+}
+
+.gauge-wrap {
+  display: flex;
+  align-items: flex-end;
+  height: 55px;
+  margin-right: -10px;
+}
+
+/* Billing Usage Card */
 .billing-usage {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 20px;
   flex-wrap: wrap;
+  padding: 16px 20px;
 }
 
-.usage-left { flex: 1; }
-.usage-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
-.usage-plan-name { color: var(--accent2); }
-.usage-sub { font-size: 12px; color: var(--muted); }
+.usage-left {
+  flex: 1;
+}
+
+.usage-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  margin-bottom: 3px;
+  color: var(--text);
+}
+
+.usage-plan-name {
+  color: var(--accent2);
+}
+
+.usage-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+}
 
 .usage-bar-wrap {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 200px;
+  min-width: 220px;
 }
 
 .usage-bar-bg {
   flex: 1;
   background: var(--bg3);
   height: 6px;
-  border-radius: 3px;
+  border-radius: 99px;
   overflow: hidden;
+  border: 1px solid var(--border);
 }
 
 .usage-bar-fg {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--amber));
-  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 99px;
 }
 
-.usage-pct { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+.usage-pct {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+}
 
-.billing-intro { font-size: 15px; color: var(--muted); }
+/* Intro Section */
+.billing-intro-section {
+  text-align: center;
+  margin: 10px 0;
+}
+
+.billing-intro-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.billing-intro-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 3px;
+}
 
 /* Plan cards */
 .plans-grid {
@@ -45,45 +138,98 @@
 }
 
 .plan-card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 28px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   position: relative;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, transform 0.2s;
 }
 
-.plan-card:hover { border-color: var(--border2); }
+.plan-card:hover {
+  border-color: var(--border2);
+  transform: translateY(-2px);
+}
 
 .plan-card-accent {
-  border-color: rgba(99,102,241,0.4);
-  background: rgba(99,102,241,0.04);
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.05);
 }
 
 .plan-popular-badge {
   position: absolute;
-  top: -12px;
+  top: -10px;
   left: 50%;
   transform: translateX(-50%);
   background: var(--accent);
   color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 14px;
-  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 12px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   white-space: nowrap;
 }
 
-.plan-name { font-size: 14px; font-weight: 600; color: var(--text2); }
+.plan-header-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
-.plan-price { display: flex; align-items: baseline; gap: 4px; }
-.plan-price-num { font-size: 36px; font-weight: 700; color: var(--text); }
-.plan-price-period { font-size: 13px; color: var(--muted); }
+.plan-icon-wrap {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-.plan-desc { font-size: 13px; color: var(--muted); }
+.plan-card-accent .plan-icon-wrap {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.plan-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text2);
+}
+
+.plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.plan-price-num {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.plan-price-period {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.plan-desc {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.plan-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
 
 .plan-features {
   list-style: none;
@@ -91,24 +237,30 @@
   flex-direction: column;
   gap: 8px;
   flex: 1;
+  padding: 0;
 }
 
 .plan-features li {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--text2);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
+  line-height: 1.4;
 }
 
-.check { color: var(--green); font-weight: 700; flex-shrink: 0; }
+.check-icon {
+  color: var(--green);
+  flex-shrink: 0;
+  margin-top: 3px;
+}
 
 .plan-cta {
   width: 100%;
   justify-content: center;
-  padding: 11px !important;
-  font-size: 13.5px !important;
-  margin-top: 4px;
+  padding: 10px !important;
+  font-size: 13px !important;
+  margin-top: 8px;
 }
 
 /* Billing portal */
@@ -116,9 +268,31 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 16px;
   flex-wrap: wrap;
+  padding: 16px 20px;
 }
 
-.portal-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
-.portal-sub { font-size: 13px; color: var(--muted); }
+.portal-left {
+  flex: 1;
+}
+
+.portal-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  margin-bottom: 3px;
+  color: var(--text);
+}
+
+.portal-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.portal-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 16px !important;
+}
+

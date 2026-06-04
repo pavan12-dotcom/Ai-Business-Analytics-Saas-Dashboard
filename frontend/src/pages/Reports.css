@@ -1,4 +1,8 @@
-.reports-page { display: flex; flex-direction: column; gap: 20px; }
+.reports-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
 .reports-header {
   display: flex;
@@ -6,6 +10,61 @@
   justify-content: space-between;
 }
 
+.reports-page-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.reports-page-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+.reports-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Template Switcher Tabs */
+.reports-template-selector {
+  display: flex;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 4px;
+  border-radius: var(--radius);
+  gap: 6px;
+}
+
+.template-tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.template-tab-btn:hover {
+  color: var(--text);
+  background: var(--bg3);
+}
+
+.template-tab-btn.active {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+/* Summary metrics */
 .report-summary {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -13,18 +72,18 @@
 }
 
 .report-metric {
-  background: var(--bg2);
-  border: 1px solid var(--border);
+  padding: 16px 20px;
   border-radius: var(--radius);
-  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .report-metric-label {
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 8px;
 }
 
 .report-metric-val {
@@ -33,22 +92,158 @@
   color: var(--text);
 }
 
+.report-metric-change {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.report-metric-change.green {
+  color: var(--green);
+}
+
+.report-metric-change.red {
+  color: var(--red);
+}
+
+/* Layout Grids */
 .reports-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
 
+/* Audit Checklist (CEO View) */
+.audit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.audit-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+:global(.dark) .audit-item {
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.audit-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.audit-desc {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.audit-badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.audit-badge.status-pass {
+  background: rgba(16, 185, 129, 0.08);
+  color: var(--green);
+}
+
+.audit-badge.status-active {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--accent);
+}
+
+/* Investor KPIs List */
+.investor-kpis-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.investor-kpi-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--bg3);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.ik-label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.ik-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.ik-val {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent2);
+  font-family: 'DM Mono', monospace;
+}
+
+/* Pagination */
+.table-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.pagination-info {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.pagination-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.print-only-header {
+  display: none;
+}
+
+/* Print Overrides */
 @media print {
-  :root {
-    --bg: #ffffff !important;
-    --bg2: #fcfcfd !important;
-    --bg3: #f3f4f6 !important;
-    --border: #e5e7eb !important;
-    --border2: #d1d5db !important;
-    --text: #111827 !important;
-    --text2: #374151 !important;
-    --muted: #6b7280 !important;
+  .no-print, .sidebar, .topbar, button {
+    display: none !important;
+  }
+
+  .print-only-header {
+    display: block !important;
+    margin-bottom: 24px;
+  }
+
+  .print-only-header h1 {
+    font-size: 22px;
+    margin: 0 0 6px 0;
+    color: #111827;
+  }
+
+  .print-only-header p {
+    font-size: 11px;
+    color: #6b7280;
+    margin: 0;
   }
 
   body {
@@ -58,30 +253,32 @@
     margin: 0 !important;
   }
 
-  .app-shell {
-    display: block !important;
-  }
-
-  .sidebar, .topbar, .reports-header button {
-    display: none !important;
-  }
-
-  .shell-main {
-    margin: 0 !important;
-    padding: 0 !important;
-    min-height: auto !important;
-  }
-
-  .shell-content {
-    padding: 0 !important;
-    margin: 0 !important;
-    overflow: visible !important;
-  }
-
   .reports-page {
-    padding: 0 !important;
-    margin: 0 !important;
-    gap: 24px !important;
+    gap: 20px !important;
+    padding: 20px !important;
+  }
+
+  .report-summary {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  .report-metric {
+    background: #f9fafb !important;
+    border: 1px solid #e5e7eb !important;
+    box-shadow: none !important;
+    color: #111827 !important;
+  }
+
+  .report-metric-val {
+    color: #111827 !important;
+  }
+
+  .reports-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
   }
 
   .card {
@@ -89,15 +286,6 @@
     border: 1px solid #e5e7eb !important;
     box-shadow: none !important;
     page-break-inside: avoid;
-  }
-
-  .report-metric {
-    background: #fbfbfb !important;
-    border: 1px solid #e5e7eb !important;
-  }
-
-  .report-metric-val {
-    color: #111827 !important;
   }
 
   .data-table th {
@@ -109,11 +297,6 @@
     border-bottom: 1px solid #f3f4f6 !important;
     color: #111827 !important;
   }
-
-  .reports-grid {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 20px !important;
-  }
 }
+
 

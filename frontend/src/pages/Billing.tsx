@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createCheckout, openBillingPortal } from '../services/api'
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
+import { Check, Zap, ExternalLink, ShieldCheck, TrendingUp, Sparkles, Award } from 'lucide-react'
 import './Billing.css'
 
 const plans = [
@@ -14,6 +16,7 @@ const plans = [
     cta: 'Current Plan',
     ctaDisabled: true,
     accent: false,
+    icon: ShieldCheck
   },
   {
     name: 'Pro',
@@ -25,6 +28,7 @@ const plans = [
     cta: 'Upgrade to Pro',
     ctaDisabled: false,
     accent: true,
+    icon: Sparkles
   },
   {
     name: 'Enterprise',
@@ -36,8 +40,35 @@ const plans = [
     cta: 'Contact Sales',
     ctaDisabled: false,
     accent: false,
+    icon: Award
   },
 ]
+
+function SemicircleGauge({ val, max, color }: { val: number; max: number; color: string }) {
+  const data = [
+    { value: val },
+    { value: max - val }
+  ]
+  return (
+    <div className="gauge-wrap">
+      <PieChart width={100} height={55}>
+        <Pie
+          data={data}
+          startAngle={180}
+          endAngle={0}
+          innerRadius={28}
+          outerRadius={38}
+          paddingAngle={0}
+          dataKey="value"
+          stroke="none"
+        >
+          <Cell fill={color} />
+          <Cell fill="var(--border)" />
+        </Pie>
+      </PieChart>
+    </div>
+  )
+}
 
 export default function Billing() {
   const nav = useNavigate()
@@ -87,11 +118,51 @@ export default function Billing() {
 
   return (
     <div className="billing-page fade-in">
+      {/* Top Health Gauges */}
+      <div className="billing-gauges-grid">
+        <div className="card gauge-card glass-card">
+          <div className="gauge-content">
+            <div className="gauge-text">
+              <span className="gauge-label">Projected ARR</span>
+              <span className="gauge-value">$184.8k</span>
+              <span className="gauge-sub">+12.4% MoM growth</span>
+            </div>
+            <SemicircleGauge val={82} max={100} color="var(--accent)" />
+          </div>
+        </div>
+
+        <div className="card gauge-card glass-card">
+          <div className="gauge-content">
+            <div className="gauge-text">
+              <span className="gauge-label">Customer Lifetime Value</span>
+              <span className="gauge-value">$1,850</span>
+              <span className="gauge-sub">4.2x LTV:CAC Ratio</span>
+            </div>
+            <SemicircleGauge val={75} max={100} color="var(--green)" />
+          </div>
+        </div>
+
+        <div className="card gauge-card glass-card">
+          <div className="gauge-content">
+            <div className="gauge-text">
+              <span className="gauge-label">User Retention Rate</span>
+              <span className="gauge-value">97.6%</span>
+              <span className="gauge-sub">2.4% churn index</span>
+            </div>
+            <SemicircleGauge val={97.6} max={100} color="var(--amber)" />
+          </div>
+        </div>
+      </div>
+
       {/* Current usage */}
-      <div className="card billing-usage">
+      <div className="card billing-usage glass-card">
         <div className="usage-left">
-          <div className="usage-title">Current Plan: <span className="usage-plan-name">Free</span></div>
-          <div className="usage-sub">80 of 100 AI queries used this month · resets July 1</div>
+          <div className="usage-title">
+            Current Subscription plan: <span className="usage-plan-name">Free Tier</span>
+          </div>
+          <div className="usage-sub">
+            80 of 100 AI queries consumed this month. Quota resets in 24 days.
+          </div>
         </div>
         <div className="usage-bar-wrap">
           <div className="usage-bar-bg">
@@ -101,49 +172,66 @@ export default function Billing() {
         </div>
       </div>
 
-      <div className="billing-intro">Choose the plan that fits your team</div>
+      <div className="billing-intro-section">
+        <div className="billing-intro-title">Flexible Plans for Every Scale</div>
+        <div className="billing-intro-sub">Upgrade your analytics stack to unlock enterprise capabilities</div>
+      </div>
 
       {/* Plan cards */}
       <div className="plans-grid">
-        {plans.map(p => (
-          <div key={p.name} className={`plan-card ${p.accent ? 'plan-card-accent' : ''}`}>
-            {p.accent && <div className="plan-popular-badge">Most Popular</div>}
-            <div className="plan-name">{p.name}</div>
-            <div className="plan-price">
-              <span className="plan-price-num">{p.price}</span>
-              <span className="plan-price-period">{p.period}</span>
+        {plans.map(p => {
+          const Icon = p.icon
+          return (
+            <div key={p.name} className={`plan-card glass-card ${p.accent ? 'plan-card-accent' : ''}`}>
+              {p.accent && <div className="plan-popular-badge">Most Popular</div>}
+              <div className="plan-header-row">
+                <div className="plan-icon-wrap">
+                  <Icon size={18} />
+                </div>
+                <div className="plan-name">{p.name}</div>
+              </div>
+              <div className="plan-price">
+                <span className="plan-price-num">{p.price}</span>
+                <span className="plan-price-period">{p.period}</span>
+              </div>
+              <div className="plan-desc">{p.desc}</div>
+              <div className="plan-divider" />
+              <ul className="plan-features">
+                {p.features.map(f => (
+                  <li key={f}>
+                    <Check size={12} className="check-icon" />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                className={`btn ${p.accent ? 'btn-primary' : 'btn-secondary'} plan-cta`}
+                disabled={p.ctaDisabled || loadingPlan !== null}
+                onClick={() => !p.ctaDisabled && handleCheckout(p.name)}
+              >
+                {loadingPlan === p.name.toLowerCase() ? 'Syncing...' : p.cta}
+              </button>
             </div>
-            <div className="plan-desc">{p.desc}</div>
-            <ul className="plan-features">
-              {p.features.map(f => (
-                <li key={f}><span className="check">✓</span>{f}</li>
-              ))}
-            </ul>
-            <button
-              className={`btn ${p.accent ? 'btn-primary' : 'btn-secondary'} plan-cta`}
-              disabled={p.ctaDisabled || loadingPlan !== null}
-              onClick={() => !p.ctaDisabled && handleCheckout(p.name)}
-            >
-              {loadingPlan === p.name.toLowerCase() ? 'Redirecting…' : p.cta}
-            </button>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Billing portal */}
-      <div className="card billing-portal">
-        <div>
-          <div className="portal-title">Billing Portal</div>
-          <div className="portal-sub">Manage invoices, payment methods, and subscription history.</div>
+      <div className="card billing-portal glass-card">
+        <div className="portal-left">
+          <div className="portal-title">Enterprise Stripe Portal</div>
+          <div className="portal-sub">Modify invoice details, configure credit cards, or request historic tax logs.</div>
         </div>
         <button
-          className="btn btn-secondary"
+          className="btn btn-secondary portal-btn"
           disabled={portalLoading}
           onClick={handlePortal}
         >
-          {portalLoading ? 'Opening…' : 'Open Billing Portal →'}
+          <span>{portalLoading ? 'Syncing Stripe...' : 'Access Customer Portal'}</span>
+          <ExternalLink size={13} style={{ marginLeft: 6 }} />
         </button>
       </div>
     </div>
   )
 }
+

@@ -26,6 +26,23 @@ export default function Topbar() {
     message: 'Checking database connection...'
   })
 
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
+  })
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.body.classList.add('dark')
+    } else {
+      document.body.classList.remove('dark')
+    }
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light')
+  }
+
   useEffect(() => {
     let active = true
     const check = () => {
@@ -106,6 +123,28 @@ export default function Topbar() {
       <h1 className="topbar-title">{title}</h1>
       <div className="topbar-right">
         {getStatusBadge()}
+        <button 
+          className="theme-toggle-btn" 
+          onClick={toggleTheme} 
+          title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            borderRadius: '50%',
+            width: '36px',
+            height: '36px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '16px',
+            cursor: 'pointer',
+            color: 'var(--text)',
+            boxShadow: 'var(--shadow-sm)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          {theme === 'light' ? '🌙' : '☀️'}
+        </button>
         <div className="date-chip">{dateStr}</div>
         <div 
           className="topbar-avatar" 
