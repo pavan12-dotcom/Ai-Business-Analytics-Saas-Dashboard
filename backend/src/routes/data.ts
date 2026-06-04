@@ -935,7 +935,7 @@ router.get('/notifications', requireAuth, async (req: Request, res: Response) =>
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
           if (refetched) {
-            return res.json(refetched.map(row => ({
+            return res.json(refetched.map((row: any) => ({
               id: row.id.toString(),
               title: row.title,
               message: row.message,
