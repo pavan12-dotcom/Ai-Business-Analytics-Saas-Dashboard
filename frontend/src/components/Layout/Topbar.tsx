@@ -91,7 +91,7 @@ export default function Topbar() {
   // Listen for custom events
   useEffect(() => {
     const handleSpreadsheetUploaded = (e: Event) => {
-      const detail = (e as CustomEvent).detail || { filename: 'revenue.xlsx' }
+      const detail = (e as any).detail || { filename: 'revenue.xlsx' }
       const newNotif = {
         id: Math.random().toString(36).substring(2, 9),
         title: 'File Uploaded',
@@ -104,7 +104,7 @@ export default function Topbar() {
     }
 
     const handleReportGenerated = (e: Event) => {
-      const detail = (e as CustomEvent).detail || { name: 'CEO Dashboard' }
+      const detail = (e as any).detail || { name: 'CEO Dashboard' }
       const newNotif = {
         id: Math.random().toString(36).substring(2, 9),
         title: 'Report Compiled',
