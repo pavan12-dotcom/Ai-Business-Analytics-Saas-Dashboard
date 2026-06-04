@@ -26,7 +26,13 @@ export default function Signup() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-logo"><span className="logo-dot" />AI Business Analytics</div>
+        <div className="auth-logo" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="logo-dot" />
+            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)', fontWeight: 600 }}>SaaS Dashboard</span>
+          </div>
+          <span style={{ fontSize: '20px', fontWeight: 800 }}>AI-Powered Business Analytics</span>
+        </div>
         <h1 className="auth-title">Create your account</h1>
         <p className="auth-sub">Start free — no credit card required</p>
 

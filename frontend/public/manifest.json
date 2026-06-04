@@ -1,7 +1,7 @@
 {
-  "short_name": "AI Analytics",
-  "name": "AI Business Analytics",
-  "description": "Smart SaaS business analytics powered by AI.",
+  "short_name": "AI-Analytics",
+  "name": "AI-Powered Business Analytics SaaS Dashboard",
+  "description": "Premium SaaS business analytics dashboard powered by AI.",
   "icons": [
     {
       "src": "/favicon.svg",

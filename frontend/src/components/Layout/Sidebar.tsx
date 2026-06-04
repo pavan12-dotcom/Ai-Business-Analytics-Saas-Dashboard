@@ -53,9 +53,12 @@ export default function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-logo">
-        <span className="logo-dot" />
-        AI Business Analytics
+      <div className="sidebar-logo" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span className="logo-dot" />
+          <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', fontWeight: 600 }}>SaaS Dashboard</span>
+        </div>
+        <span style={{ fontSize: '14px', fontWeight: 700, lineHeight: 1.3 }}>AI-Powered Business Analytics</span>
       </div>
 
       <div className="sidebar-upload-section">
