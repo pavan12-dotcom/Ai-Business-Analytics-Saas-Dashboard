@@ -85,7 +85,6 @@ router.post('/query', requireAuth, async (req: Request, res: Response) => {
 
   // 1. Gather dynamic database context based on mode
   let dbContext = STATIC_DB_CONTEXT
-  const supabase = getSupabase()
 
   if (mode === 'document') {
     let docFilename = ''
