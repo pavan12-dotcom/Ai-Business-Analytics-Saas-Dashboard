@@ -31,14 +31,15 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // Only intercept requests for same-origin static assets
   if (event.request.url.startsWith(self.location.origin) && event.request.method === 'GET') {
-    event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        return fetch(event.request).then((response) => {
-          // Cache successful responses of page/assets
-          if (response && response.status === 200 && response.type === 'basic') {
+    const isHtml = event.request.headers.get('accept')?.includes('text/html') || 
+                   event.request.url === self.location.origin + '/' ||
+                   event.request.url.endsWith('index.html');
+
+    if (isHtml) {
+      // Network-First for HTML entry points: always fetch fresh index.html to read updated script hashes
+      event.respondWith(
+        fetch(event.request).then((response) => {
+          if (response && response.status === 200) {
             const responseToCache = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(event.request, responseToCache);
@@ -46,10 +47,26 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         }).catch(() => {
-          // Offline fallback
-          return caches.match('/');
-        });
-      })
-    );
+          return caches.match(event.request).then((cached) => cached || caches.match('/'));
+        })
+      );
+    } else {
+      // Stale-While-Revalidate for other static assets (CSS, JS, images)
+      event.respondWith(
+        caches.match(event.request).then((cachedResponse) => {
+          const fetchPromise = fetch(event.request).then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+              const responseToCache = networkResponse.clone();
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(event.request, responseToCache);
+              });
+            }
+            return networkResponse;
+          }).catch(() => null);
+
+          return cachedResponse || fetchPromise;
+        })
+      );
+    }
   }
 });
