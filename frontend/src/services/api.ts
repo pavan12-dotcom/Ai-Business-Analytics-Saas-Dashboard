@@ -61,4 +61,10 @@ export const fetchNotifications = () => api.get('/api/data/notifications').then(
 export const markNotificationRead = (id: string) => api.post(`/api/data/notifications/${id}/read`).then(r => r.data)
 export const clearNotifications = () => api.delete('/api/data/notifications').then(r => r.data)
 
+export const fetchSubscription = () =>
+  api.get('/api/data/subscription').then(r => r.data)
+export const simulateUpgrade = (plan: string) =>
+  api.post('/api/billing/simulate-upgrade', { plan }).then(r => r.data)
+
+
 

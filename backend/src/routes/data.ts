@@ -798,6 +798,104 @@ export interface AuditLog {
 
 export const memoryAuditLogs = new Map<string, AuditLog[]>()
 
+export const mockUserPlans = new Map<string, { plan: string; mrr: number; status: string }>()
+
+export async function addAuditLog(userId: string, userName: string, action: string) {
+  const timestamp = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  const logEntry: AuditLog = {
+    id: Math.random().toString(36).substring(2, 9),
+    action,
+    timestamp,
+    user: userName
+  }
+
+  const supabase = getSupabase()
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('audit_logs')
+        .insert({
+          user_id: userId,
+          action,
+          user_name: userName
+        })
+      if (!error) return
+    } catch (err) {}
+  }
+
+  // Fallback to in-memory
+  const logs = memoryAuditLogs.get(userId) || []
+  logs.unshift(logEntry)
+  memoryAuditLogs.set(userId, logs.slice(0, 50))
+}
+
+router.get('/subscription', requireAuth, async (req: Request, res: Response) => {
+  const userId = (req as any).userId
+  const supabase = getSupabase()
+  
+  let plan = 'Free'
+  let mrr = 0
+  let status = 'Active'
+  let aiQueryCount = 0
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('plan, mrr, status')
+        .eq('id', userId)
+        .maybeSingle()
+      
+      if (!error && data) {
+        plan = data.plan
+        mrr = Number(data.mrr)
+        status = data.status
+      }
+    } catch (err) {}
+
+    try {
+      const startOfMonth = new Date()
+      startOfMonth.setDate(1)
+      startOfMonth.setHours(0, 0, 0, 0)
+
+      const { count, error } = await supabase
+        .from('audit_logs')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .like('action', 'AI Assistant Query%')
+        .gte('created_at', startOfMonth.toISOString())
+
+      if (!error && count !== null) {
+        aiQueryCount = count
+      }
+    } catch (err) {}
+  } else {
+    const logs = memoryAuditLogs.get(userId) || []
+    aiQueryCount = logs.filter(l => l.action.startsWith('AI Assistant Query')).length
+  }
+
+  // Check if upgraded in local memory (either offline or override)
+  const mockUpgrade = mockUserPlans.get(userId)
+  if (mockUpgrade) {
+    plan = mockUpgrade.plan
+    mrr = mockUpgrade.mrr
+    status = mockUpgrade.status
+  }
+
+  // Determine limits
+  let aiQueryLimit = 100
+  if (plan === 'Pro') aiQueryLimit = 1000
+  if (plan === 'Enterprise') aiQueryLimit = 10000
+
+  res.json({
+    plan,
+    mrr,
+    status,
+    aiQueryCount,
+    aiQueryLimit
+  })
+})
+
 router.get('/audit-logs', requireAuth, async (req: Request, res: Response) => {
   const userId = (req as any).userId
   const userName = (req as any).user?.user_metadata?.name || (req as any).user?.email || 'Demo User'
@@ -816,7 +914,7 @@ router.get('/audit-logs', requireAuth, async (req: Request, res: Response) => {
           id: row.id,
           action: row.action,
           timestamp: new Date(row.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-          user: row.user || userName
+          user: row.user_name || userName
         })))
       }
     } catch (err) {}
@@ -832,36 +930,10 @@ router.post('/audit-logs', requireAuth, async (req: Request, res: Response) => {
   const userId = (req as any).userId
   const userName = (req as any).user?.user_metadata?.name || (req as any).user?.email || 'Demo User'
   
-  const timestamp = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-  const logEntry: AuditLog = {
-    id: Math.random().toString(36).substring(2, 9),
-    action,
-    timestamp,
-    user: userName
-  }
-
-  const supabase = getSupabase()
-  if (supabase) {
-    try {
-      const { error } = await supabase
-        .from('audit_logs')
-        .insert({
-          user_id: userId,
-          action,
-          user: userName
-        })
-      if (!error) {
-        return res.json({ success: true })
-      }
-    } catch (err) {}
-  }
-
-  // Fallback to in-memory
-  const logs = memoryAuditLogs.get(userId) || []
-  logs.unshift(logEntry)
-  memoryAuditLogs.set(userId, logs.slice(0, 50))
-  res.json({ success: true, fallback: true })
+  await addAuditLog(userId, userName, action)
+  res.json({ success: true })
 })
+
 
 // ── Notifications ──────────────────────────────────────────────
 export interface Notification {

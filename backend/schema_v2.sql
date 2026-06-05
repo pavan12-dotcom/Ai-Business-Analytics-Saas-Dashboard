@@ -132,3 +132,59 @@ insert into customers (id, name, plan, mrr, status) values
   ('3', 'Bright Labs', 'Pro', 890, 'Active'),
   ('4', 'Nova Inc', 'Team', 720, 'Pending'),
   ('5', 'Apex Systems', 'Pro', 290, 'Churned');
+
+-- 9. Create Audit Logs Table
+create table if not exists audit_logs (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid not null,
+  action text not null,
+  user_name text not null default 'User',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS on audit_logs
+alter table audit_logs enable row level security;
+
+-- Row security policies for audit_logs
+drop policy if exists "Users can view their own audit logs" on audit_logs;
+drop policy if exists "Users can insert their own audit logs" on audit_logs;
+
+create policy "Users can view their own audit logs"
+  on audit_logs for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert their own audit logs"
+  on audit_logs for insert
+  with check (auth.uid() = user_id);
+
+-- 10. Create Notifications Table
+create table if not exists notifications (
+  id serial primary key,
+  user_id uuid not null,
+  title text not null,
+  message text not null,
+  type text not null,
+  read boolean default false not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS on notifications
+alter table notifications enable row level security;
+
+-- Row security policies for notifications
+drop policy if exists "Users can view their own notifications" on notifications;
+drop policy if exists "Users can update their own notifications" on notifications;
+drop policy if exists "Users can delete their own notifications" on notifications;
+
+create policy "Users can view their own notifications"
+  on notifications for select
+  using (auth.uid() = user_id);
+
+create policy "Users can update their own notifications"
+  on notifications for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete their own notifications"
+  on notifications for delete
+  using (auth.uid() = user_id);
+

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import Stripe from 'stripe'
 import { requireAuth, getSupabase } from '../middleware/auth'
+import { mockUserPlans, addAuditLog } from './data'
 
 const router = Router()
 
@@ -121,6 +122,45 @@ router.post('/webhook', async (req: Request, res: Response) => {
   }
 
   res.json({ received: true })
+})
+
+router.post('/simulate-upgrade', requireAuth, async (req: Request, res: Response) => {
+  const { plan } = req.body
+  const userId = (req as any).userId
+  const userName = (req as any).user?.user_metadata?.name || (req as any).user?.email || 'Demo User'
+  
+  const mrr = plan === 'pro' ? 29 : plan === 'enterprise' ? 99 : 0
+  const planName = plan === 'pro' ? 'Pro' : plan === 'enterprise' ? 'Enterprise' : 'Free'
+  
+  const supabase = getSupabase()
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('customers')
+        .upsert({
+          id: userId,
+          name: userName,
+          email: (req as any).user?.email || null,
+          plan: planName,
+          mrr,
+          status: 'Active',
+        }, { onConflict: 'id' })
+        
+      if (error) {
+        throw error
+      }
+    } catch (err: any) {
+      console.error('Failed to simulate upgrade in Supabase:', err.message)
+    }
+  }
+  
+  // Track in memory
+  mockUserPlans.set(userId, { plan: planName, mrr, status: 'Active' })
+  
+  // Log activity
+  await addAuditLog(userId, userName, `Simulated Upgrade: Upgraded plan to ${planName}`)
+  
+  res.json({ success: true, plan: planName, mrr })
 })
 
 export default router

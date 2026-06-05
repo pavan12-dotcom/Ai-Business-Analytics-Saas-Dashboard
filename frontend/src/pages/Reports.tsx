@@ -195,7 +195,7 @@ export default function Reports() {
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
                   <Tooltip contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text)' }} />
-                  <Bar dataKey="revenue" fill="var(--accent)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="revenue" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -260,7 +260,7 @@ export default function Reports() {
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
                   <Tooltip contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text)' }} />
-                  <Line type="monotone" dataKey="mrr" stroke="var(--green)" strokeWidth={3} activeDot={{ r: 6 }} />
+                  <Line type="monotone" dataKey="mrr" stroke="var(--chart-5)" strokeWidth={3} activeDot={{ r: 6 }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>

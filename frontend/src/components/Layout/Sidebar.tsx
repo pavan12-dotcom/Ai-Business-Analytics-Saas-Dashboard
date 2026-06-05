@@ -21,7 +21,7 @@ import { useState } from 'react'
 import { useSpreadsheet } from '../../context/SpreadsheetContext'
 
 export default function Sidebar() {
-  const { signOut } = useAuth()
+  const { signOut, subscription } = useAuth()
   const navigate = useNavigate()
   const { activeSheet, upload, reset, activeDocument, uploadDoc, resetDoc } = useSpreadsheet()
   const [error, setError] = useState<string | null>(null)
@@ -151,14 +151,25 @@ export default function Sidebar() {
 
       <div className="plan-badge">
         <div className="plan-info">
-          <span className="plan-name">Free Plan</span>
-          <span className="plan-usage">80 / 100 AI queries</span>
+          <span className="plan-name">{subscription ? `${subscription.plan} Plan` : 'Free Plan'}</span>
+          <span className="plan-usage">
+            {subscription ? subscription.aiQueryCount : 0} / {subscription ? subscription.aiQueryLimit : 100} AI queries
+          </span>
         </div>
-        <div className="plan-bar"><div className="plan-bar-fill" style={{ width: '80%' }} /></div>
-        <button className="btn btn-primary btn-sm plan-upgrade-btn"
-          onClick={() => navigate('/app/billing')}>
-          Upgrade to Pro
-        </button>
+        <div className="plan-bar">
+          <div 
+            className="plan-bar-fill" 
+            style={{ 
+              width: `${Math.min(100, Math.round(((subscription?.aiQueryCount || 0) / (subscription?.aiQueryLimit || 100)) * 100))}%` 
+            }} 
+          />
+        </div>
+        {(!subscription || (subscription.plan !== 'Enterprise')) && (
+          <button className="btn btn-primary btn-sm plan-upgrade-btn"
+            onClick={() => navigate('/app/billing')}>
+            {subscription?.plan === 'Pro' ? 'Upgrade to Enterprise' : 'Upgrade to Pro'}
+          </button>
+        )}
       </div>
 
       <button className="signout-btn" onClick={signOut}>

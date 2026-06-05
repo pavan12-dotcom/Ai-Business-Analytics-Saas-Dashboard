@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { askAI } from '../services/api'
 import { useSpreadsheet } from '../context/SpreadsheetContext'
+import { useAuth } from '../context/AuthContext'
 import {
   ResponsiveContainer,
   AreaChart,
@@ -87,15 +88,15 @@ function ChatChart({
           <AreaChart data={data} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
             <defs>
               <linearGradient id="chatColorRev" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
             <XAxis dataKey="month" tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
             <Tooltip contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '11px', color: 'var(--text)' }} />
-            <Area type="monotone" dataKey="revenue" stroke="var(--accent)" strokeWidth={2} fillOpacity={1} fill="url(#chatColorRev)" />
+            <Area type="monotone" dataKey="revenue" stroke="var(--chart-1)" strokeWidth={2} fillOpacity={1} fill="url(#chatColorRev)" />
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -120,7 +121,7 @@ function ChatChart({
             <XAxis dataKey="month" tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
             <Tooltip contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '11px', color: 'var(--text)' }} />
-            <Line type="monotone" dataKey="churn" stroke="var(--amber)" strokeWidth={2} activeDot={{ r: 5 }} dot={{ r: 3 }} />
+            <Line type="monotone" dataKey="churn" stroke="var(--chart-6)" strokeWidth={2} activeDot={{ r: 5 }} dot={{ r: 3 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -146,7 +147,7 @@ function ChatChart({
             <XAxis type="number" tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
             <YAxis type="category" dataKey="name" tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} width={75} />
             <Tooltip contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '11px', color: 'var(--text)' }} />
-            <Bar dataKey="mrr" fill="var(--accent)" radius={[0, 4, 4, 0]} barSize={10} />
+            <Bar dataKey="mrr" fill="var(--chart-1)" radius={[0, 4, 4, 0]} barSize={10} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -166,7 +167,7 @@ function ChatChart({
       })
       data = Object.entries(planGroups).map(([name, value]) => ({ name, value }))
     }
-    const COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444']
+    const COLORS = ['var(--chart-1)', 'var(--chart-5)', 'var(--chart-6)', 'var(--chart-8)']
     return (
       <div className="chat-chart-card">
         <div className="chat-chart-title">Revenue Share by Plan Tier</div>
@@ -219,7 +220,7 @@ function ChatChart({
             <XAxis dataKey="month" tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
             <Tooltip contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '11px', color: 'var(--text)' }} />
-            <Bar dataKey="users" fill="var(--green)" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="users" fill="var(--chart-5)" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -262,6 +263,7 @@ export default function AIAssistant() {
     getSpreadsheetMonthlyMetrics,
     getSpreadsheetKPIs
   } = useSpreadsheet()
+  const { refreshSubscription, isGuest, guestQueryCount, incrementGuestQueryCount, setShowSignupModal } = useAuth()
   const [mode, setMode] = useState<'spreadsheet' | 'document'>('spreadsheet')
 
   const [messages, setMessages] = useState<Message[]>([
@@ -330,6 +332,12 @@ export default function AIAssistant() {
   const send = async (q?: string, overrideMode?: 'spreadsheet' | 'document') => {
     const question = (q ?? input).trim()
     if (!question || loading || messages.some(m => m.isStreaming)) return
+
+    if (isGuest && guestQueryCount >= 2) {
+      setShowSignupModal(true)
+      return
+    }
+
     setInput('')
     const ts = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
     setMessages(prev => [...prev, { role: 'user', text: question, ts }])
@@ -341,9 +349,16 @@ export default function AIAssistant() {
       const fullAnswer = res.answer
       const chart = detectChartType(question, fullAnswer)
 
+      if (isGuest) {
+        incrementGuestQueryCount()
+      }
+
       setDemoMode(!!res.demo)
       setEngine(res.engine || 'fallback')
       setLoading(false)
+
+      // Refresh query limit counters
+      refreshSubscription()
 
       // Insert AI message with isStreaming: true
       setMessages(prev => [
@@ -379,11 +394,28 @@ export default function AIAssistant() {
           })
         }
       }, 25)
-    } catch (err) {
-      setMessages(prev => [
-        ...prev,
-        { role: 'ai', text: 'An error occurred. Please make sure the backend is running and try again.', ts }
-      ])
+    } catch (err: any) {
+      console.error('AI assistant query error:', err)
+      const responseData = err.response?.data
+      let errorMsg = 'An error occurred. Please make sure the backend is running and try again.'
+      
+      if (err.response?.status === 403 && responseData?.error === 'limit_exceeded') {
+        errorMsg = responseData.message || 'You have exceeded your plan\'s monthly AI query limit.'
+        
+        setMessages(prev => [
+          ...prev,
+          { 
+            role: 'ai', 
+            text: `⚠️ Quota Limit Exceeded: ${errorMsg}\n\nTo continue chatting with your datasets and files, please upgrade your plan in the Billing center.`, 
+            ts 
+          }
+        ])
+      } else {
+        setMessages(prev => [
+          ...prev,
+          { role: 'ai', text: errorMsg, ts }
+        ])
+      }
       setLoading(false)
     }
   }
@@ -402,6 +434,10 @@ export default function AIAssistant() {
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
+    if (isGuest && guestQueryCount >= 2) {
+      setShowSignupModal(true)
+      return
+    }
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0]
       const ext = file.name.split('.').pop()?.toLowerCase()
@@ -442,6 +478,10 @@ export default function AIAssistant() {
   }
 
   const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isGuest && guestQueryCount >= 2) {
+      setShowSignupModal(true)
+      return
+    }
     if (e.target.files && e.target.files[0]) {
       setDocError(null)
       setUploadingDoc(true)
@@ -486,7 +526,12 @@ export default function AIAssistant() {
             </div>
           </div>
         </div>
-        {demoMode && (
+        {isGuest ? (
+          <div className="demo-pill" style={{ background: 'rgba(99, 102, 241, 0.15)', color: 'var(--accent)', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+            <Sparkles size={12} style={{ marginRight: 4 }} />
+            Demo Session: {Math.max(0, 2 - guestQueryCount)} Queries Left
+          </div>
+        ) : demoMode && (
           <div className="demo-pill">
             <Sparkles size={12} style={{ marginRight: 4 }} />
             Demo Mode - Simulated responses active

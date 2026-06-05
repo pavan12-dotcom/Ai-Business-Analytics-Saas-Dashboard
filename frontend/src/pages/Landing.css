@@ -20,8 +20,9 @@
 }
 
 .landing-logo {
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 750;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -59,11 +60,13 @@
 }
 
 .hero-title {
-  font-size: clamp(36px, 5vw, 58px);
-  font-weight: 600;
-  line-height: 1.15;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: clamp(38px, 5.5vw, 62px);
+  font-weight: 800;
+  line-height: 1.12;
   margin-bottom: 20px;
   color: var(--text);
+  letter-spacing: -0.02em;
 }
 
 .hero-gradient {
@@ -130,8 +133,9 @@
 }
 
 .feature-title {
-  font-size: 14px;
-  font-weight: 600;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 14.5px;
+  font-weight: 700;
   color: var(--text);
   margin-bottom: 8px;
 }
@@ -163,8 +167,10 @@
 }
 
 .landing-cta-card h2 {
-  font-size: 28px;
-  font-weight: 600;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
 }
 
 .landing-cta-card p {

@@ -8,7 +8,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { signIn } = useAuth()
+  const { signIn, loginAsGuest } = useAuth()
   const nav = useNavigate()
 
   const submit = async (e: React.FormEvent) => {
@@ -57,8 +57,17 @@ export default function Login() {
           Don't have an account? <Link to="/signup" className="auth-link">Sign up free</Link>
         </p>
 
-        <div className="auth-demo-note">
-          💡 <strong>Demo mode:</strong> Enter any email & password to explore the app.
+        <div className="auth-demo-note" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          <div>💡 <strong>Demo mode:</strong> Enter any email & password to explore the app.</div>
+          <div style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>Or bypass sign in completely:</div>
+          <button 
+            type="button"
+            className="btn btn-secondary btn-xs"
+            onClick={() => { loginAsGuest(); nav('/app'); }}
+            style={{ fontWeight: 600, color: 'var(--accent)', background: 'var(--bg-hover)', border: '1px solid var(--border)' }}
+          >
+            See Demo Instant ⚡
+          </button>
         </div>
       </div>
     </div>

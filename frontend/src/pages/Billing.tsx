@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createCheckout, openBillingPortal } from '../services/api'
+import { createCheckout, openBillingPortal, simulateUpgrade } from '../services/api'
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import { Check, Zap, ExternalLink, ShieldCheck, TrendingUp, Sparkles, Award } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 import './Billing.css'
 
 const plans = [
@@ -72,6 +73,7 @@ function SemicircleGauge({ val, max, color }: { val: number; max: number; color:
 
 export default function Billing() {
   const nav = useNavigate()
+  const { subscription, refreshSubscription } = useAuth()
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
 
@@ -81,7 +83,18 @@ export default function Billing() {
     try {
       const res = await createCheckout(planKey)
       if (res.demo) {
-        alert(`Demo Mode: ${res.message}`)
+        const confirmSim = window.confirm(
+          `Stripe is not configured on the backend. Would you like to simulate an instant upgrade to the ${planName} plan for testing?`
+        )
+        if (confirmSim) {
+          const simRes = await simulateUpgrade(planKey)
+          if (simRes.success) {
+            alert(`Successfully upgraded to ${planName}!`)
+            await refreshSubscription()
+          } else {
+            alert(`Failed to simulate upgrade.`)
+          }
+        }
       } else if (res.url) {
         window.location.href = res.url
       } else {
@@ -115,6 +128,38 @@ export default function Billing() {
       setPortalLoading(false)
     }
   }
+
+  const activePlan = subscription?.plan || 'Free'
+
+  const pricingPlans = plans.map(p => {
+    const isCurrent = p.name.toLowerCase() === activePlan.toLowerCase()
+    let cta = p.cta
+    let ctaDisabled = p.ctaDisabled
+    
+    if (isCurrent) {
+      cta = 'Current Plan'
+      ctaDisabled = true
+    } else {
+      const isDowngrade = 
+        (activePlan === 'Enterprise' && (p.name === 'Pro' || p.name === 'Free')) ||
+        (activePlan === 'Pro' && p.name === 'Free')
+      
+      if (isDowngrade) {
+        cta = 'Downgrade Plan'
+        ctaDisabled = false
+      } else {
+        cta = p.name === 'Enterprise' ? 'Contact Sales / Upgrade' : `Upgrade to ${p.name}`
+        ctaDisabled = false
+      }
+    }
+    
+    return {
+      ...p,
+      current: isCurrent,
+      cta,
+      ctaDisabled
+    }
+  })
 
   return (
     <div className="billing-page fade-in">
@@ -158,17 +203,24 @@ export default function Billing() {
       <div className="card billing-usage glass-card">
         <div className="usage-left">
           <div className="usage-title">
-            Current Subscription plan: <span className="usage-plan-name">Free Tier</span>
+            Current Subscription plan: <span className="usage-plan-name">{subscription ? `${subscription.plan} Plan` : 'Free Plan'}</span>
           </div>
           <div className="usage-sub">
-            80 of 100 AI queries consumed this month. Quota resets in 24 days.
+            {subscription ? subscription.aiQueryCount : 0} of {subscription ? subscription.aiQueryLimit : 100} AI queries consumed this month. Quota resets in 24 days.
           </div>
         </div>
         <div className="usage-bar-wrap">
           <div className="usage-bar-bg">
-            <div className="usage-bar-fg" style={{ width: '80%' }} />
+            <div 
+              className="usage-bar-fg" 
+              style={{ 
+                width: `${Math.min(100, Math.round(((subscription?.aiQueryCount || 0) / (subscription?.aiQueryLimit || 100)) * 100))}%` 
+              }} 
+            />
           </div>
-          <div className="usage-pct">80%</div>
+          <div className="usage-pct">
+            {Math.min(100, Math.round(((subscription?.aiQueryCount || 0) / (subscription?.aiQueryLimit || 100)) * 100))}%
+          </div>
         </div>
       </div>
 
@@ -179,7 +231,7 @@ export default function Billing() {
 
       {/* Plan cards */}
       <div className="plans-grid">
-        {plans.map(p => {
+        {pricingPlans.map(p => {
           const Icon = p.icon
           return (
             <div key={p.name} className={`plan-card glass-card ${p.accent ? 'plan-card-accent' : ''}`}>

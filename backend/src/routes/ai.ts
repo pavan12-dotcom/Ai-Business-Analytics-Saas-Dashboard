@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { requireAuth, getSupabase } from '../middleware/auth'
-import { memorySpreadsheets, memoryDocuments } from './data'
+import { memorySpreadsheets, memoryDocuments, addAuditLog, mockUserPlans, memoryAuditLogs } from './data'
 
 const router = Router()
 
@@ -20,6 +20,68 @@ TOP CUSTOMERS: Acme Corp Enterprise $4,200 Active | TechFlow Team $1,800 Active 
 router.post('/query', requireAuth, async (req: Request, res: Response) => {
   const { question, mode } = req.body
   if (!question) return res.status(400).json({ error: 'question is required' })
+
+  const userId = (req as any).userId
+  const userName = (req as any).user?.user_metadata?.name || (req as any).user?.email || 'Demo User'
+
+  // Check limits before proceeding
+  let plan = 'Free'
+  let aiQueryCount = 0
+  const supabase = getSupabase()
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('plan')
+        .eq('id', userId)
+        .maybeSingle()
+      
+      if (!error && data) {
+        plan = data.plan
+      }
+    } catch (err) {}
+
+    try {
+      const startOfMonth = new Date()
+      startOfMonth.setDate(1)
+      startOfMonth.setHours(0, 0, 0, 0)
+
+      const { count, error } = await supabase
+        .from('audit_logs')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .like('action', 'AI Assistant Query%')
+        .gte('created_at', startOfMonth.toISOString())
+
+      if (!error && count !== null) {
+        aiQueryCount = count
+      }
+    } catch (err) {}
+  } else {
+    const logs = memoryAuditLogs.get(userId) || []
+    aiQueryCount = logs.filter(l => l.action.startsWith('AI Assistant Query')).length
+  }
+
+  // Check if upgraded in local memory
+  const mockUpgrade = mockUserPlans.get(userId)
+  if (mockUpgrade) {
+    plan = mockUpgrade.plan
+  }
+
+  // Determine limits
+  let aiQueryLimit = 100
+  if (plan === 'Pro') aiQueryLimit = 1000
+  if (plan === 'Enterprise') aiQueryLimit = 10000
+
+  if (aiQueryCount >= aiQueryLimit) {
+    return res.status(403).json({
+      error: 'limit_exceeded',
+      message: `You have exceeded your plan's monthly limit of ${aiQueryLimit} AI queries. Please upgrade to Pro or Enterprise to continue.`,
+      aiQueryCount,
+      aiQueryLimit
+    })
+  }
 
   // 1. Gather dynamic database context based on mode
   let dbContext = STATIC_DB_CONTEXT
@@ -190,6 +252,10 @@ TOP CUSTOMERS: ${topCustStr}
         })
         const result = await model.generateContent(question)
         const answer = result.response.text()
+        
+        // Log successful query
+        await addAuditLog(userId, userName, `AI Assistant Query: "${question.substring(0, 60)}${question.length > 60 ? '...' : ''}"`)
+
         return res.json({ answer, demo: false, engine: `gemini (${modelName})` })
       } catch (err: any) {
         console.error(`Gemini API Error with ${modelName}:`, err.message)
@@ -212,6 +278,9 @@ TOP CUSTOMERS: ${topCustStr}
     answer = 'Pro plan generates 60% of revenue, Team plan 30%, and Enterprise 10%. Your best growth lever is upselling Team customers to Enterprise.'
   else if (q.includes('revenue') || q.includes('month'))
     answer = 'Revenue grew from $52k in January to $84k in June — a 62% increase in 6 months. June was your strongest month on record with $84,320.'
+
+  // Log successful query
+  await addAuditLog(userId, userName, `AI Assistant Query: "${question.substring(0, 60)}${question.length > 60 ? '...' : ''}"`)
 
   return res.json({ answer, demo: true, engine: 'fallback' })
 })

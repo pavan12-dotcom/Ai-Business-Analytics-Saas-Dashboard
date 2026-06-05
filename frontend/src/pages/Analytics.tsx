@@ -79,10 +79,10 @@ export default function Analytics() {
 
   // Conversion Funnel Data
   const funnelData = [
-    { name: 'Website Visitors', value: 12500, color: '#4F46E5' },
-    { name: 'Account Signups', value: 4860, color: '#7C3AED' },
-    { name: 'App Activations', value: 2950, color: '#10B981' },
-    { name: 'Subscription Purchases', value: activeCount > 0 ? activeCount : 348, color: '#F59E0B' }
+    { name: 'Website Visitors', value: 12500, color: 'var(--chart-1)' },
+    { name: 'Account Signups', value: 4860, color: 'var(--chart-2)' },
+    { name: 'App Activations', value: 2950, color: 'var(--chart-5)' },
+    { name: 'Subscription Purchases', value: activeCount > 0 ? activeCount : 348, color: 'var(--chart-6)' }
   ]
 
   // Cohort Retention Grid
@@ -108,7 +108,7 @@ export default function Analytics() {
   const getHeatmapColor = (val: number | null) => {
     if (val === null) return 'var(--bg-hover)'
     const opacity = val / 100
-    return `rgba(79, 70, 229, ${opacity * 0.9})`
+    return `rgba(var(--chart-1-rgb), ${opacity * 0.9})`
   }
 
   return (
@@ -152,8 +152,8 @@ export default function Analytics() {
               <div className="card-sub">Active user metrics vs app engagement index</div>
             </div>
             <div className="chart-legend">
-              <span className="legend-dot" style={{ background: '#4F46E5' }} />Users
-              <span className="legend-dot" style={{ background: '#7C3AED', marginLeft: 12 }} />Engagement %
+              <span className="legend-dot" style={{ background: 'var(--chart-1)' }} />Users
+              <span className="legend-dot" style={{ background: 'var(--chart-2)', marginLeft: 12 }} />Engagement %
             </div>
           </div>
           <ResponsiveContainer width="100%" height={220}>
@@ -163,8 +163,8 @@ export default function Analytics() {
               <YAxis yAxisId="left" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
               <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Line yAxisId="left" type="monotone" dataKey="Active Users" name="Users" stroke="#4F46E5" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-              <Line yAxisId="right" type="monotone" dataKey="Engagement Index (%)" name="Engagement" stroke="#7C3AED" strokeWidth={2} dot={{ r: 3 }} />
+              <Line yAxisId="left" type="monotone" dataKey="Active Users" name="Users" stroke="var(--chart-1)" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+              <Line yAxisId="right" type="monotone" dataKey="Engagement Index (%)" name="Engagement" stroke="var(--chart-2)" strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -264,8 +264,8 @@ export default function Analytics() {
             <AreaChart data={forecastData}>
               <defs>
                 <linearGradient id="forecastArea" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
@@ -274,7 +274,7 @@ export default function Analytics() {
               <Tooltip />
               <Area type="monotone" dataKey="upper" stroke="transparent" fill="url(#forecastArea)" />
               <Area type="monotone" dataKey="lower" stroke="transparent" fill="transparent" />
-              <Line type="monotone" dataKey="revenue" name="Forecast" stroke="var(--accent)" strokeWidth={2.5} strokeDasharray="5 5" dot />
+              <Line type="monotone" dataKey="revenue" name="Forecast" stroke="var(--chart-1)" strokeWidth={2.5} strokeDasharray="5 5" dot />
             </AreaChart>
           </ResponsiveContainer>
         </div>

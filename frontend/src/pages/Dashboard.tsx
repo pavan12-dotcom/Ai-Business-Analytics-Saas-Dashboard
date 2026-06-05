@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { SEED } from '../data/seed'
 import { fetchKPIs, fetchRevenue, fetchCustomers } from '../services/api'
 import { useSpreadsheet } from '../context/SpreadsheetContext'
@@ -33,6 +34,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function Dashboard() {
   const { activeSheet, activeDocument, reparseDoc } = useSpreadsheet()
   const navigate = useNavigate()
+  const { isGuest, guestQueryCount, setShowSignupModal } = useAuth()
   const [reparsing, setReparsing] = useState(false)
   const [reparseMsg, setReparseMsg] = useState<string | null>(null)
   const [docSheet, setDocSheet] = useState<any>(null)
@@ -271,7 +273,7 @@ export default function Dashboard() {
       })
 
       const totalCount = processedRows.length
-      const colors = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#7C3AED']
+      const colors = ['var(--chart-1)', 'var(--chart-5)', 'var(--chart-6)', 'var(--chart-8)', 'var(--chart-2)']
       donutData = Object.entries(counts).map(([label, count], idx) => ({
         label,
         count,
@@ -341,9 +343,9 @@ export default function Dashboard() {
   }, {} as Record<string, number>)
 
   const seedPlanColors: Record<string, string> = {
-    Pro: '#4F46E5',
-    Team: '#10B981',
-    Enterprise: '#F59E0B',
+    Pro: 'var(--chart-1)',
+    Team: 'var(--chart-5)',
+    Enterprise: 'var(--chart-6)',
   }
 
   const seedPlanDistribution = Object.entries(planMRR).map(([plan, mrr]) => ({
@@ -381,6 +383,10 @@ export default function Dashboard() {
                 className="btn btn-primary btn-sm"
                 disabled={reparsing}
                 onClick={async () => {
+                  if (isGuest && guestQueryCount >= 2) {
+                    setShowSignupModal(true)
+                    return
+                  }
                   setReparsing(true)
                   setReparseMsg(null)
                   const res = await reparseDoc()
@@ -459,20 +465,20 @@ export default function Dashboard() {
                 <AreaChart data={filteredMonthly()}>
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#4F46E5" stopOpacity={0} />
+                      <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="colorMRR" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                      <stop offset="5%" stopColor="var(--chart-5)" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="var(--chart-5)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#4F46E5" strokeWidth={2.5} fill="url(#colorRevenue)" />
-                  <Area type="monotone" dataKey="mrr" name="New MRR" stroke="#10B981" strokeWidth={2} fill="url(#colorMRR)" />
+                  <Area type="monotone" dataKey="revenue" name="Revenue" stroke="var(--chart-1)" strokeWidth={2.5} fill="url(#colorRevenue)" />
+                  <Area type="monotone" dataKey="mrr" name="New MRR" stroke="var(--chart-5)" strokeWidth={2} fill="url(#colorMRR)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -626,15 +632,15 @@ export default function Dashboard() {
                   <AreaChart data={trendChartData}>
                     <defs>
                       <linearGradient id="dynamicGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="#4F46E5" stopOpacity={0} />
+                        <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Area type="monotone" dataKey={primaryMetric} name={primaryMetric} stroke="#4F46E5" strokeWidth={2.5} fill="url(#dynamicGrad)" />
+                    <Area type="monotone" dataKey={primaryMetric} name={primaryMetric} stroke="var(--chart-1)" strokeWidth={2.5} fill="url(#dynamicGrad)" />
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (

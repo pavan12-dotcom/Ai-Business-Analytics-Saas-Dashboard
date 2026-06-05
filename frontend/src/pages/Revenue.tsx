@@ -54,9 +54,9 @@ export default function Revenue() {
 
   // Plan Colors
   const planColors: Record<string, string> = {
-    Pro: '#4F46E5',
-    Team: '#10B981',
-    Enterprise: '#F59E0B',
+    Pro: 'var(--chart-1)',
+    Team: 'var(--chart-5)',
+    Enterprise: 'var(--chart-6)',
   }
 
   const activeCustomers = customers.filter(c => c.status === 'Active')
@@ -104,12 +104,12 @@ export default function Revenue() {
 
   // Waterfall cashflow mockup data
   const waterfallData = [
-    { name: 'Starting', spacer: 0, val: 80000, displayVal: 80000, color: '#4F46E5' },
-    { name: 'New Subscriptions', spacer: 80000, val: 45000, displayVal: 45000, color: '#10B981' },
-    { name: 'Add-on Sales', spacer: 125000, val: 12000, displayVal: 12000, color: '#10B981' },
-    { name: 'Customer Churn', spacer: 132000, val: -5000, displayVal: 5000, color: '#EF4444' }, // churn sits on top of 132000 going down
-    { name: 'OPEX Expenses', spacer: 109000, val: -18000, displayVal: 18000, color: '#EF4444' },
-    { name: 'Net Profit', spacer: 0, val: 109000, displayVal: 109000, color: '#7C3AED' }
+    { name: 'Starting', spacer: 0, val: 80000, displayVal: 80000, color: 'var(--chart-1)' },
+    { name: 'New Subscriptions', spacer: 80000, val: 45000, displayVal: 45000, color: 'var(--chart-5)' },
+    { name: 'Add-on Sales', spacer: 125000, val: 12000, displayVal: 12000, color: 'var(--chart-9)' },
+    { name: 'Customer Churn', spacer: 132000, val: -5000, displayVal: 5000, color: 'var(--chart-8)' }, // churn sits on top of 132000 going down
+    { name: 'OPEX Expenses', spacer: 109000, val: -18000, displayVal: 18000, color: 'var(--chart-7)' },
+    { name: 'Net Profit', spacer: 0, val: 109000, displayVal: 109000, color: 'var(--chart-2)' }
   ]
 
   // Adjust churn/expenses spacer dynamically to sit correctly in the stack
@@ -125,10 +125,10 @@ export default function Revenue() {
 
   // Concentric multi-level donut data (Subscriptions vs Add-ons)
   const sourcePlanDistribution = [
-    { name: 'Enterprise Contract', value: Math.round(totalMRR * 0.5), color: '#4F46E5' },
-    { name: 'Team Self-serve', value: Math.round(totalMRR * 0.3), color: '#7C3AED' },
-    { name: 'API Usage Add-ons', value: Math.round(totalMRR * 0.15), color: '#10B981' },
-    { name: 'Partner Referrals', value: Math.round(totalMRR * 0.05), color: '#F59E0B' }
+    { name: 'Enterprise Contract', value: Math.round(totalMRR * 0.5), color: 'var(--chart-1)' },
+    { name: 'Team Self-serve', value: Math.round(totalMRR * 0.3), color: 'var(--chart-2)' },
+    { name: 'API Usage Add-ons', value: Math.round(totalMRR * 0.15), color: 'var(--chart-9)' },
+    { name: 'Partner Referrals', value: Math.round(totalMRR * 0.05), color: 'var(--chart-6)' }
   ]
 
   return (
@@ -174,15 +174,15 @@ export default function Revenue() {
           <AreaChart data={getGroupedRevenueData()}>
             <defs>
               <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.25} />
+                <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip />} />
-            <Area type="monotone" dataKey="revenue" name="Gross Revenue" stroke="var(--accent)" strokeWidth={2.5} fill="url(#growthGrad)" dot />
+            <Area type="monotone" dataKey="revenue" name="Gross Revenue" stroke="var(--chart-1)" strokeWidth={2.5} fill="url(#growthGrad)" dot />
           </AreaChart>
         </ResponsiveContainer>
       </div>

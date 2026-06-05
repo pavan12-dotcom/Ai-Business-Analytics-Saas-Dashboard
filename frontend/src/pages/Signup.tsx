@@ -9,7 +9,7 @@ export default function Signup() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { signUp } = useAuth()
+  const { signUp, loginAsGuest } = useAuth()
   const nav = useNavigate()
 
   const submit = async (e: React.FormEvent) => {
@@ -65,8 +65,17 @@ export default function Signup() {
           Already have an account? <Link to="/login" className="auth-link">Sign in</Link>
         </p>
 
-        <div className="auth-demo-note">
-          💡 <strong>Demo mode:</strong> Sign up with any details to explore the full dashboard.
+        <div className="auth-demo-note" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          <div>💡 <strong>Demo mode:</strong> Sign up with any details to explore the full dashboard.</div>
+          <div style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>Or bypass account creation:</div>
+          <button 
+            type="button"
+            className="btn btn-secondary btn-xs"
+            onClick={() => { loginAsGuest(); nav('/app'); }}
+            style={{ fontWeight: 600, color: 'var(--accent)', background: 'var(--bg-hover)', border: '1px solid var(--border)' }}
+          >
+            See Demo Instant ⚡
+          </button>
         </div>
       </div>
     </div>

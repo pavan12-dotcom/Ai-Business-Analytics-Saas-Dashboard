@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
   /* Light Mode Variables */
@@ -18,6 +18,26 @@
   --success: #10B981;      /* Emerald Green */
   --warning: #F59E0B;      /* Amber */
   --danger: #EF4444;       /* Crimson Red */
+
+  /* Premium Chart Color Palette (Light Mode) */
+  --chart-1: #4F46E5;       /* Indigo */
+  --chart-1-rgb: 79, 70, 229;
+  --chart-2: #7C3AED;       /* Purple */
+  --chart-3: #EC4899;       /* Pink */
+  --chart-4: #06B6D4;       /* Cyan */
+  --chart-5: #10B981;       /* Emerald */
+  --chart-6: #F59E0B;       /* Amber */
+  --chart-7: #F97316;       /* Orange */
+  --chart-8: #EF4444;       /* Red */
+  --chart-9: #14B8A6;       /* Teal */
+
+  --green: #10B981;
+  --amber: #F59E0B;
+  --teal: #14B8A6;
+  --indigo: #4F46E5;
+  --violet: #7C3AED;
+  --rose: #F43F5E;
+  --cyan: #06B6D4;
   
   --sidebar-w: 240px;
   --topbar-h: 64px;
@@ -47,6 +67,27 @@ body.dark {
   --accent: #6366f1;
   --accent-light: #a5b4fc;
   --accent-dark: #312e81;
+
+  /* Premium Chart Color Palette (Dark Mode - Pastels & Brights) */
+  --chart-1: #6366F1;       /* Indigo */
+  --chart-1-rgb: 99, 102, 241;
+  --chart-2: #8B5CF6;       /* Violet */
+  --chart-3: #F472B6;       /* Pink */
+  --chart-4: #22D3EE;       /* Cyan */
+  --chart-5: #34D399;       /* Emerald */
+  --chart-6: #FBBF24;       /* Amber */
+  --chart-7: #FB923C;       /* Orange */
+  --chart-8: #F87171;       /* Red */
+  --chart-9: #2DD4BF;       /* Teal */
+
+  --green: #34D399;
+  --amber: #FBBF24;
+  --teal: #2DD4BF;
+  --indigo: #6366F1;
+  --violet: #8B5CF6;
+  --rose: #FB7185;
+  --cyan: #22D3EE;
+
   --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.1);
   --shadow-sm: 0 4px 12px -2px rgba(0, 0, 0, 0.15);
   --shadow-lg: 0 20px 40px -15px rgba(0, 0, 0, 0.4);

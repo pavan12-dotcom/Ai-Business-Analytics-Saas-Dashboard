@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import './Landing.css'
 
 const features = [
@@ -10,6 +11,13 @@ const features = [
 
 export default function Landing() {
   const nav = useNavigate()
+  const { loginAsGuest } = useAuth()
+
+  const handleSeeDemo = () => {
+    loginAsGuest()
+    nav('/app')
+  }
+
   return (
     <div className="landing">
       {/* Nav */}
@@ -20,6 +28,7 @@ export default function Landing() {
           <span className="badge badge-blue" style={{ fontSize: '10px', marginLeft: '6px' }}>SaaS Dashboard</span>
         </div>
         <div className="landing-nav-links">
+          <button className="btn btn-ghost" onClick={handleSeeDemo} style={{ color: 'var(--accent)', fontWeight: 600 }}>See Demo ⚡</button>
           <button className="btn btn-ghost" onClick={() => nav('/login')}>Sign In</button>
           <button className="btn btn-primary" onClick={() => nav('/signup')}>Get Started Free</button>
         </div>
@@ -39,6 +48,19 @@ export default function Landing() {
         <div className="hero-cta">
           <button className="btn btn-primary hero-btn" onClick={() => nav('/signup')}>
             Start for Free →
+          </button>
+          <button 
+            className="btn hero-btn" 
+            style={{ 
+              background: 'linear-gradient(135deg, var(--chart-1) 0%, var(--chart-2) 100%)', 
+              color: 'white',
+              border: 'none',
+              boxShadow: '0 4px 15px -3px rgba(99, 102, 241, 0.4)',
+              fontWeight: 600
+            }} 
+            onClick={handleSeeDemo}
+          >
+            See Demo ⚡
           </button>
           <button className="btn btn-secondary hero-btn" onClick={() => nav('/login')}>
             Sign In

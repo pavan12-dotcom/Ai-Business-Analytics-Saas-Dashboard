@@ -30,19 +30,19 @@ const CustomTooltip = ({ active, payload }: any) => {
 // Journey events mock data based on customer name / plan
 const getJourneyEvents = (name: string, plan: string, status: string) => {
   const events = [
-    { date: 'Jan 15, 2026', title: 'Account Created', desc: `Signed up via self-serve onboarding.`, color: '#6366f1' },
+    { date: 'Jan 15, 2026', title: 'Account Created', desc: `Signed up via self-serve onboarding.`, color: 'var(--indigo)' },
   ]
   if (plan === 'Enterprise' || plan === 'Team') {
-    events.push({ date: 'Feb 10, 2026', title: 'Data Uploaded', desc: 'Imported first business dataset (480 rows).', color: '#14b8a6' })
+    events.push({ date: 'Feb 10, 2026', title: 'Data Uploaded', desc: 'Imported first business dataset (480 rows).', color: 'var(--teal)' })
   }
   if (status === 'Active') {
-    events.push({ date: 'Mar 01, 2026', title: `Upgraded to ${plan} Plan`, desc: `Started paid monthly tier of $${plan === 'Enterprise' ? '4,200' : plan === 'Team' ? '1,800' : '890'}/mo.`, color: '#10b981' })
-    events.push({ date: 'Jun 01, 2026', title: 'Invoice Paid', desc: `Monthly charge completed successfully.`, color: '#10b981' })
+    events.push({ date: 'Mar 01, 2026', title: `Upgraded to ${plan} Plan`, desc: `Started paid monthly tier of $${plan === 'Enterprise' ? '4,200' : plan === 'Team' ? '1,800' : '890'}/mo.`, color: 'var(--green)' })
+    events.push({ date: 'Jun 01, 2026', title: 'Invoice Paid', desc: `Monthly charge completed successfully.`, color: 'var(--green)' })
   } else if (status === 'Pending') {
-    events.push({ date: 'Mar 15, 2026', title: 'Trial Started', desc: `Currently evaluating the Team plan features.`, color: '#f59e0b' })
+    events.push({ date: 'Mar 15, 2026', title: 'Trial Started', desc: `Currently evaluating the Team plan features.`, color: 'var(--amber)' })
   } else {
-    events.push({ date: 'Feb 15, 2026', title: 'Upgraded to Pro', desc: 'Paid first invoice of $290.', color: '#10b981' })
-    events.push({ date: 'May 20, 2026', title: 'Subscription Cancelled', desc: 'User requested churn due to project completion.', color: '#ef4444' })
+    events.push({ date: 'Feb 15, 2026', title: 'Upgraded to Pro', desc: 'Paid first invoice of $290.', color: 'var(--green)' })
+    events.push({ date: 'May 20, 2026', title: 'Subscription Cancelled', desc: 'User requested churn due to project completion.', color: 'var(--danger)' })
   }
   return events
 }
@@ -107,10 +107,10 @@ export default function Customers() {
     {
       name: 'Segmentation',
       children: [
-        { name: 'Enterprise', size: customers.filter(c => c.plan === 'Enterprise').length * 10 + 5, color: '#4F46E5' },
-        { name: 'Team', size: customers.filter(c => c.plan === 'Team').length * 10 + 5, color: '#7C3AED' },
-        { name: 'Pro', size: customers.filter(c => c.plan === 'Pro').length * 10 + 5, color: '#10B981' },
-        { name: 'Free', size: customers.filter(c => c.plan === 'Free').length * 10 + 5, color: '#F59E0B' }
+        { name: 'Enterprise', size: customers.filter(c => c.plan === 'Enterprise').length * 10 + 5, color: 'var(--chart-1)' },
+        { name: 'Team', size: customers.filter(c => c.plan === 'Team').length * 10 + 5, color: 'var(--chart-2)' },
+        { name: 'Pro', size: customers.filter(c => c.plan === 'Pro').length * 10 + 5, color: 'var(--chart-5)' },
+        { name: 'Free', size: customers.filter(c => c.plan === 'Free').length * 10 + 5, color: 'var(--chart-6)' }
       ]
     }
   ]
@@ -165,8 +165,8 @@ export default function Customers() {
               data={treemapData}
               dataKey="size"
               aspectRatio={4 / 3}
-              stroke="#fff"
-              fill="#4f46e5"
+              stroke="var(--bg-card)"
+              fill="var(--chart-1)"
             />
           </ResponsiveContainer>
         </div>
@@ -181,7 +181,7 @@ export default function Customers() {
               <YAxis type="number" dataKey="mrr" name="MRR" unit="$" tick={{ fontSize: 9 }} stroke="var(--text-muted)" />
               <ZAxis type="number" dataKey="z" range={[60, 400]} />
               <Tooltip content={<CustomTooltip />} />
-              <Scatter name="Customers" data={bubbleData} fill="#7C3AED" fillOpacity={0.7} />
+              <Scatter name="Customers" data={bubbleData} fill="var(--chart-2)" fillOpacity={0.7} />
             </ScatterChart>
           </ResponsiveContainer>
         </div>
