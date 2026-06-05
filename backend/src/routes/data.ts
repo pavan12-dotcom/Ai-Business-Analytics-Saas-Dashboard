@@ -51,6 +51,8 @@ router.get('/kpis', requireAuth, async (_req, res) => {
     ])
 
     if (custRes.error || kpiRes.error || !custRes.data || !kpiRes.data) {
+      if (custRes.error) console.error('[API] Error fetching customers for KPIs:', custRes.error)
+      if (kpiRes.error) console.error('[API] Error fetching KPIs trends:', kpiRes.error)
       return res.json(SEED.kpis)
     }
 
@@ -62,7 +64,7 @@ router.get('/kpis', requireAuth, async (_req, res) => {
 
     const totalMRR = activeCustomers.reduce((sum: number, c: any) => sum + Number(c.mrr), 0)
     const activeUsers = activeCustomers.length
-    const arpu = activeUsers > 0 ? (totalMRR / activeUsers) : 0
+    const computedArpu = activeUsers > 0 ? (totalMRR / activeUsers) : 0
     
     const totalCustomers = customers.length
     const churnRate = totalCustomers > 0 ? (churnedCustomers.length / totalCustomers) * 100 : 0
@@ -98,12 +100,13 @@ router.get('/kpis', requireAuth, async (_req, res) => {
         up: churnTrend.up
       },
       arpu: {
-        value: `$${arpu.toFixed(2)}`,
+        value: `$${computedArpu.toFixed(2)}`,
         change: arpuTrend.change,
         up: arpuTrend.up
       }
     })
   } catch (err) {
+    console.error('[API] Unexpected error in /kpis:', err)
     res.json(SEED.kpis)
   }
 })
@@ -121,6 +124,7 @@ router.get('/revenue', requireAuth, async (_req, res) => {
       .order('sort_order', { ascending: true })
 
     if (error || !data || data.length === 0) {
+      if (error) console.error('[API] Error fetching monthly metrics:', error)
       return res.json(SEED.monthly)
     }
     
@@ -130,6 +134,7 @@ router.get('/revenue', requireAuth, async (_req, res) => {
       mrr: Number(row.mrr)
     })))
   } catch (err) {
+    console.error('[API] Unexpected error in /revenue:', err)
     res.json(SEED.monthly)
   }
 })
@@ -147,6 +152,7 @@ router.get('/customers', requireAuth, async (_req, res) => {
       .order('mrr', { ascending: false })
 
     if (error || !data || data.length === 0) {
+      if (error) console.error('[API] Error fetching customers list:', error)
       return res.json(SEED.customers)
     }
     
@@ -159,6 +165,7 @@ router.get('/customers', requireAuth, async (_req, res) => {
       status: row.status
     })))
   } catch (err) {
+    console.error('[API] Unexpected error in /customers:', err)
     res.json(SEED.customers)
   }
 })

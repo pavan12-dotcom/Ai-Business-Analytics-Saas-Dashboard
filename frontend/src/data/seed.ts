@@ -20,14 +20,14 @@ export const SEED = {
     { plan: 'Enterprise', pct: 10, color: '#f59e0b' },
   ],
   customers: [
-    { id: 1, name: 'Acme Corp',     plan: 'Enterprise', mrr: 4200, status: 'Active',  email: 'billing@acme.com' },
-    { id: 2, name: 'TechFlow',      plan: 'Team',       mrr: 1800, status: 'Active',  email: 'pay@techflow.io' },
-    { id: 3, name: 'Bright Labs',   plan: 'Pro',        mrr:  890, status: 'Active',  email: 'admin@brightlabs.co' },
-    { id: 4, name: 'Nova Inc',      plan: 'Team',       mrr:  720, status: 'Pending', email: 'nova@novainc.com' },
-    { id: 5, name: 'Apex Systems',  plan: 'Pro',        mrr:  290, status: 'Churned', email: 'hi@apex.systems' },
-    { id: 6, name: 'SkyBridge',     plan: 'Pro',        mrr:  540, status: 'Active',  email: 'pay@skybridge.io' },
-    { id: 7, name: 'Dataform Inc',  plan: 'Enterprise', mrr: 3200, status: 'Active',  email: 'billing@dataform.io' },
-    { id: 8, name: 'Cresent AI',    plan: 'Team',       mrr:  980, status: 'Active',  email: 'cresent@cresent.ai' },
+    { id: '1', name: 'Acme Corp',     plan: 'Enterprise', mrr: 4200, status: 'Active',  email: 'billing@acme.com' },
+    { id: '2', name: 'TechFlow',      plan: 'Team',       mrr: 1800, status: 'Active',  email: 'pay@techflow.io' },
+    { id: '3', name: 'Bright Labs',   plan: 'Pro',        mrr:  890, status: 'Active',  email: 'admin@brightlabs.co' },
+    { id: '4', name: 'Nova Inc',      plan: 'Team',       mrr:  720, status: 'Pending', email: 'nova@novainc.com' },
+    { id: '5', name: 'Apex Systems',  plan: 'Pro',        mrr:  290, status: 'Churned', email: 'hi@apex.systems' },
+    { id: '6', name: 'SkyBridge',     plan: 'Pro',        mrr:  540, status: 'Active',  email: 'pay@skybridge.io' },
+    { id: '7', name: 'Dataform Inc',  plan: 'Enterprise', mrr: 3200, status: 'Active',  email: 'billing@dataform.io' },
+    { id: '8', name: 'Cresent AI',    plan: 'Team',       mrr:  980, status: 'Active',  email: 'cresent@cresent.ai' },
   ],
   aiContext: `
 You are an AI assistant embedded in InsightAI, a SaaS business analytics platform.
