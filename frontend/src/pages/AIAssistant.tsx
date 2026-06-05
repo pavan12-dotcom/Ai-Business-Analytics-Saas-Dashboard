@@ -263,7 +263,7 @@ export default function AIAssistant() {
     getSpreadsheetMonthlyMetrics,
     getSpreadsheetKPIs
   } = useSpreadsheet()
-  const { refreshSubscription, isGuest, guestQueryCount, incrementGuestQueryCount, setShowSignupModal } = useAuth()
+  const { refreshSubscription, isGuest, guestQueryCount, incrementGuestQueryCount, setShowSignupModal, incrementUploadCount, isGuestTrialExhausted } = useAuth()
   const [mode, setMode] = useState<'spreadsheet' | 'document'>('spreadsheet')
 
   const [messages, setMessages] = useState<Message[]>([
@@ -333,7 +333,7 @@ export default function AIAssistant() {
     const question = (q ?? input).trim()
     if (!question || loading || messages.some(m => m.isStreaming)) return
 
-    if (isGuest && guestQueryCount >= 2) {
+    if (isGuest && isGuestTrialExhausted()) {
       setShowSignupModal(true)
       return
     }
@@ -349,6 +349,7 @@ export default function AIAssistant() {
       const fullAnswer = res.answer
       const chart = detectChartType(question, fullAnswer)
 
+      incrementUploadCount()
       if (isGuest) {
         incrementGuestQueryCount()
       }

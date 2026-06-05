@@ -8,8 +8,11 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { signIn, loginAsGuest } = useAuth()
+  const { signIn, loginAsGuest, isGuestTrialExhausted } = useAuth()
   const nav = useNavigate()
+
+  // Check if demo trials are already used up
+  const trialsExhausted = isGuestTrialExhausted()
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,16 +61,42 @@ export default function Login() {
         </p>
 
         <div className="auth-demo-note" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-          <div>💡 <strong>Demo mode:</strong> Enter any email & password to explore the app.</div>
-          <div style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>Or bypass sign in completely:</div>
-          <button 
-            type="button"
-            className="btn btn-secondary btn-xs"
-            onClick={() => { loginAsGuest(); nav('/app'); }}
-            style={{ fontWeight: 600, color: 'var(--accent)', background: 'var(--bg-hover)', border: '1px solid var(--border)' }}
-          >
-            See Demo Instant ⚡
-          </button>
+          {trialsExhausted ? (
+            <>
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                borderRadius: '10px',
+                padding: '10px 14px',
+                textAlign: 'center',
+                width: '100%'
+              }}>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#f87171', marginBottom: 4 }}>
+                  🔴 Demo Limit Reached
+                </div>
+                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                  You've used all 2 free demo actions.<br />
+                  Create a free account to keep going.
+                </div>
+              </div>
+              <Link to="/signup" className="btn btn-primary" style={{ width: '100%', textAlign: 'center', padding: '10px', fontSize: '13px', fontWeight: 700, marginTop: 4 }}>
+                Create Free Account →
+              </Link>
+            </>
+          ) : (
+            <>
+              <div>💡 <strong>Demo mode:</strong> Enter any email &amp; password to explore the app.</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>Or bypass sign in completely:</div>
+              <button 
+                type="button"
+                className="btn btn-secondary btn-xs"
+                onClick={() => { loginAsGuest(); nav('/app'); }}
+                style={{ fontWeight: 600, color: 'var(--accent)', background: 'var(--bg-hover)', border: '1px solid var(--border)' }}
+              >
+                See Demo Instant ⚡
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

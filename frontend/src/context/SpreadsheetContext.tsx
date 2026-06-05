@@ -27,7 +27,7 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
   const [loading, setLoading] = useState(true)
   const [activeDocument, setActiveDocument] = useState<any>(null)
   const [loadingDoc, setLoadingDoc] = useState(true)
-  const { user } = useAuth()
+  const { user, incrementUploadCount, isGuest, isGuestTrialExhausted, setShowSignupModal } = useAuth()
 
   useEffect(() => {
     setLoading(true)
@@ -61,6 +61,11 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
 
 
   const upload = async (file: File): Promise<{ success: boolean; error: string | null }> => {
+    // Block guest upload if demo trial exhausted
+    if (isGuest && isGuestTrialExhausted()) {
+      setShowSignupModal(true)
+      return { success: false, error: 'demo_limit' }
+    }
     // Only accept Excel files
     const extension = file.name.split('.').pop()?.toLowerCase()
     if (extension !== 'xlsx' && extension !== 'xls') {
@@ -100,6 +105,7 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
           const response = await uploadSpreadsheet(payload)
           if (response.success) {
             setActiveSheet(payload)
+            incrementUploadCount()
             resolve({ success: true, error: null })
           } else {
             resolve({ success: false, error: 'Failed to upload spreadsheet data to server.' })
@@ -126,6 +132,11 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
   }
 
   const uploadDoc = async (file: File): Promise<{ success: boolean; error: string | null }> => {
+    // Block guest upload if demo trial exhausted
+    if (isGuest && isGuestTrialExhausted()) {
+      setShowSignupModal(true)
+      return { success: false, error: 'demo_limit' }
+    }
     const extension = file.name.split('.').pop()?.toLowerCase()
     if (extension !== 'pdf' && extension !== 'txt') {
       return { success: false, error: 'Invalid file type. Please upload PDF or text files only (.pdf or .txt)' }
@@ -161,6 +172,7 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
               columnsMetadata: response.columnsMetadata,
               hasParsedData: !!response.parsedRows?.length
             })
+            incrementUploadCount()
             resolve({ success: true, error: null })
           } else {
             resolve({ success: false, error: 'Failed to upload document.' })

@@ -33,7 +33,7 @@ const titles: Record<string, string> = {
 export default function Topbar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { user, userRole, setRole, isGuest, guestQueryCount } = useAuth()
+  const { user, userRole, setRole, isGuest, guestQueryCount, uploadCount } = useAuth()
   const title = titles[pathname] ?? 'Dashboard'
 
   const [dbStatus, setDbStatus] = useState<{ status: string; message: string }>({
@@ -236,26 +236,41 @@ export default function Topbar() {
     <header className="topbar">
       <h1 className="topbar-title">{title}</h1>
       <div className="topbar-right">
-        {isGuest && (
-          <div 
-            className="db-status-badge" 
-            style={{ 
-              background: 'rgba(99, 102, 241, 0.12)', 
-              color: 'var(--accent)', 
-              border: '1px solid rgba(99, 102, 241, 0.3)',
-              fontWeight: 650,
-              fontSize: '11px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '4px 10px',
-              borderRadius: '999px'
-            }}
-          >
-            <span className="db-dot dot-green" style={{ background: 'var(--accent)' }} />
-            Demo: {Math.max(0, 2 - guestQueryCount)} Trials Left
-          </div>
-        )}
+        {isGuest && (() => {
+          const remaining = Math.max(0, 2 - uploadCount)
+          const isExhausted = remaining === 0
+          return (
+            <div
+              className="db-status-badge"
+              style={{
+                background: isExhausted
+                  ? 'rgba(239, 68, 68, 0.12)'
+                  : 'rgba(34, 197, 94, 0.12)',
+                color: isExhausted ? '#f87171' : '#4ade80',
+                border: isExhausted
+                  ? '1px solid rgba(239, 68, 68, 0.35)'
+                  : '1px solid rgba(34, 197, 94, 0.35)',
+                fontWeight: 650,
+                fontSize: '11px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                borderRadius: '999px',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              <span
+                className={isExhausted ? 'db-dot dot-red-pulse' : 'db-dot dot-green'}
+                style={{ background: isExhausted ? '#f87171' : '#4ade80' }}
+              />
+              {isExhausted
+                ? '🔴 Demo Limit Reached'
+                : `🟢 Demo: ${remaining} Free Action${remaining !== 1 ? 's' : ''} Left`}
+            </div>
+          )
+        })()}
+
         {getStatusBadge()}
 
         {/* 1. INTERACTIVE ROLE SELECTOR (RBAC) */}

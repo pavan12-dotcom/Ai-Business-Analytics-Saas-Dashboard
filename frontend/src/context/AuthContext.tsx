@@ -29,6 +29,11 @@ interface AuthContextType {
   showSignupModal: boolean
   setShowSignupModal: (show: boolean) => void
   loginAsGuest: () => void
+  uploadCount: number
+  incrementUploadCount: () => void
+  showProModal: boolean
+  setShowProModal: (show: boolean) => void
+  isGuestTrialExhausted: () => boolean
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType)
@@ -51,6 +56,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return Number(localStorage.getItem('demo_query_count') || '0')
   })
 
+  const [uploadCount, setUploadCount] = useState<number>(() => {
+    return Number(localStorage.getItem('upload_count') || '0')
+  })
+  const [showProModal, setShowProModal] = useState(false)
+
+  const incrementUploadCount = () => {
+    // Read directly from localStorage to avoid stale closure
+    const current = Number(localStorage.getItem('upload_count') || '0')
+    const nextCount = current + 1
+    localStorage.setItem('upload_count', String(nextCount))
+    setUploadCount(nextCount)
+    // After 2 free actions → guest sign-in gate
+    if (nextCount >= 2 && localStorage.getItem('demo_guest_user') === 'true') {
+      setShowSignupModal(true)
+    }
+    // After 5 total actions → Pro plan gate
+    if (nextCount >= 5) {
+      setShowProModal(true)
+    }
+  }
+
+  // Returns true if the guest demo trial is exhausted (uses combined upload_count)
+  const isGuestTrialExhausted = () => {
+    if (!localStorage.getItem('demo_guest_user')) return false
+    return Number(localStorage.getItem('upload_count') || '0') >= 2
+  }
+
   const isGuest = !!user?.user_metadata?.isGuest
 
   const loginAsGuest = () => {
@@ -62,12 +94,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(fakeUser)
     localStorage.setItem('demo_guest_user', 'true')
     localStorage.setItem('demo_query_count', '0')
+    // Do NOT reset upload_count — preserve existing usage so trials can't be bypassed
     setGuestQueryCount(0)
     setShowSignupModal(false)
   }
 
   const incrementGuestQueryCount = () => {
-    const nextCount = guestQueryCount + 1
+    // Read directly from localStorage to avoid stale closure
+    const current = Number(localStorage.getItem('demo_query_count') || '0')
+    const nextCount = current + 1
     localStorage.setItem('demo_query_count', String(nextCount))
     setGuestQueryCount(nextCount)
   }
@@ -145,8 +180,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('demo_user')
     localStorage.removeItem('demo_guest_user')
     localStorage.removeItem('demo_query_count')
+    localStorage.removeItem('upload_count')
     setGuestQueryCount(0)
-    await supabase.auth.signOut()
+    setUploadCount(0)
+    try {
+      await supabase.auth.signOut()
+    } catch (err) {
+      console.warn('Supabase signOut failed:', err)
+    }
     setUser(null)
   }
 
@@ -220,7 +261,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       incrementGuestQueryCount,
       showSignupModal,
       setShowSignupModal,
-      loginAsGuest
+      loginAsGuest,
+      uploadCount,
+      incrementUploadCount,
+      showProModal,
+      setShowProModal,
+      isGuestTrialExhausted
     }}>
       {children}
     </AuthContext.Provider>

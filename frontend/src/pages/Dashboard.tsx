@@ -34,7 +34,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function Dashboard() {
   const { activeSheet, activeDocument, reparseDoc } = useSpreadsheet()
   const navigate = useNavigate()
-  const { isGuest, guestQueryCount, setShowSignupModal } = useAuth()
+  const { isGuest, guestQueryCount, setShowSignupModal, isGuestTrialExhausted } = useAuth()
   const [reparsing, setReparsing] = useState(false)
   const [reparseMsg, setReparseMsg] = useState<string | null>(null)
   const [docSheet, setDocSheet] = useState<any>(null)
@@ -383,7 +383,7 @@ export default function Dashboard() {
                 className="btn btn-primary btn-sm"
                 disabled={reparsing}
                 onClick={async () => {
-                  if (isGuest && guestQueryCount >= 2) {
+                  if (isGuest && isGuestTrialExhausted()) {
                     setShowSignupModal(true)
                     return
                   }
