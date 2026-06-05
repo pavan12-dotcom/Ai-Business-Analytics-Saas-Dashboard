@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginAsGuest = () => {
     const fakeUser = {
-      id: 'demo-guest',
+      id: '00000000-0000-0000-0000-000000000000',
       email: 'guest@demo.com',
       user_metadata: { name: 'Demo Guest', isGuest: true }
     } as unknown as User
@@ -84,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const isGuest = localStorage.getItem('demo_guest_user') === 'true'
         if (isGuest) {
           setUser({
-            id: 'demo-guest',
+            id: '00000000-0000-0000-0000-000000000000',
             email: 'guest@demo.com',
             user_metadata: { name: 'Demo Guest', isGuest: true }
           } as unknown as User)
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isGuest = localStorage.getItem('demo_guest_user') === 'true'
     if (isGuest) {
       setUser({
-        id: 'demo-guest',
+        id: '00000000-0000-0000-0000-000000000000',
         email: 'guest@demo.com',
         user_metadata: { name: 'Demo Guest', isGuest: true }
       } as unknown as User)

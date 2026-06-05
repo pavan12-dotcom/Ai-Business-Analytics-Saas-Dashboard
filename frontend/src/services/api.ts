@@ -6,9 +6,14 @@ const api = axios.create({
   baseURL: API_BASE,
 })
 
-// Attach Supabase JWT if available
+// Attach Supabase JWT if available, or guest demo token
 api.interceptors.request.use(async (config) => {
   try {
+    const isGuest = localStorage.getItem('demo_guest_user') === 'true'
+    if (isGuest) {
+      config.headers.Authorization = 'Bearer demo-guest-token'
+      return config
+    }
     const { supabase } = await import('./supabase')
     const { data: { session } } = await supabase.auth.getSession()
     if (session?.access_token) {

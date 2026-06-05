@@ -20,6 +20,19 @@ export function getSupabase() {
 const tokenCache = new Map<string, { userId: string; user: any; expiresAt: number }>()
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const token = req.headers.authorization?.replace('Bearer ', '')
+
+  // Authenticate guest demo users using a static UUID format
+  if (token === 'demo-guest-token') {
+    ;(req as any).userId = '00000000-0000-0000-0000-000000000000'
+    ;(req as any).user = {
+      id: '00000000-0000-0000-0000-000000000000',
+      email: 'guest@demo.com',
+      user_metadata: { name: 'Demo Guest', isGuest: true }
+    }
+    return next()
+  }
+
   // Demo mode — skip auth if Supabase not configured
   if (!process.env.SUPABASE_URL || process.env.SUPABASE_URL === 'placeholder') {
     (req as any).userId = 'demo-user'
@@ -32,7 +45,6 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return next()
   }
 
-  const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ error: 'No token provided' })
 
   // Check cache
