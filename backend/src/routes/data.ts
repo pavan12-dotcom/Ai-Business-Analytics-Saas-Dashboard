@@ -182,6 +182,7 @@ router.post('/spreadsheet', requireAuth, async (req: Request, res: Response) => 
     return res.status(403).json({ error: lock.error, message: lock.message })
   }
   const { filename, headers, columns_metadata, rows } = req.body
+  const userName = (req as any).user?.user_metadata?.name || (req as any).user?.email || 'Demo User'
 
   const supabase = getSupabase()
   if (supabase) {
@@ -206,6 +207,8 @@ router.post('/spreadsheet', requireAuth, async (req: Request, res: Response) => 
       if (!error) {
         memorySpreadsheets.delete(userId)
         await incrementSubscriptionAnalyses(userId, guestId)
+        await addAuditLog(userId, userName, `Uploaded spreadsheet dataset: ${filename}`)
+        await createNotification(userId, 'File Uploaded', `Spreadsheet "${filename}" uploaded and parsed successfully.`, 'system')
         return res.json({ success: true })
       }
       console.warn('Supabase insert failed, falling back to local memory storage:', error.message)
@@ -223,6 +226,8 @@ router.post('/spreadsheet', requireAuth, async (req: Request, res: Response) => 
     created_at: new Date().toISOString()
   })
   await incrementSubscriptionAnalyses(userId, guestId)
+  await addAuditLog(userId, userName, `Uploaded spreadsheet dataset (memory fallback): ${filename}`)
+  await createNotification(userId, 'File Uploaded (Demo)', `Spreadsheet "${filename}" parsed in temporary session.`, 'system')
   res.json({ success: true, fallback: true })
 })
 
@@ -257,6 +262,7 @@ router.get('/spreadsheet', requireAuth, async (req: Request, res: Response) => {
 // Clear / Delete user's active spreadsheet (reset to seeded data)
 router.delete('/spreadsheet', requireAuth, async (req: Request, res: Response) => {
   const userId = (req as any).userId
+  const userName = (req as any).user?.user_metadata?.name || (req as any).user?.email || 'Demo User'
   memorySpreadsheets.delete(userId)
 
   const supabase = getSupabase()
@@ -268,12 +274,16 @@ router.delete('/spreadsheet', requireAuth, async (req: Request, res: Response) =
         .eq('user_id', userId)
 
       if (!error) {
+        await addAuditLog(userId, userName, 'Deleted spreadsheet dataset')
+        await createNotification(userId, 'Dataset Reset', 'Active spreadsheet removed from sandbox.', 'info')
         return res.json({ success: true })
       }
     } catch (err: any) {
       // Ignore
     }
   }
+  await addAuditLog(userId, userName, 'Deleted spreadsheet dataset (memory)')
+  await createNotification(userId, 'Dataset Reset', 'Temporary spreadsheet dataset cleared.', 'info')
   res.json({ success: true })
 })
 
@@ -406,6 +416,7 @@ router.post('/document', requireAuth, async (req: Request, res: Response) => {
     return res.status(403).json({ error: lock.error, message: lock.message })
   }
   const { filename, base64 } = req.body
+  const userName = (req as any).user?.user_metadata?.name || (req as any).user?.email || 'Demo User'
 
   if (!filename || !base64) {
     return res.status(400).json({ error: 'filename and base64 string are required' })
@@ -430,6 +441,8 @@ router.post('/document', requireAuth, async (req: Request, res: Response) => {
           if (!error) {
             memoryDocuments.delete(userId)
             await incrementSubscriptionAnalyses(userId, guestId)
+            await addAuditLog(userId, userName, `Uploaded document: ${filename}`)
+            await createNotification(userId, 'Document Uploaded', `Document "${filename}" processed successfully.`, 'system')
             return res.json({ success: true, textLength: extractedText.length, hasParsedData: !!parsed })
           }
         } catch (err) {}
@@ -442,6 +455,8 @@ router.post('/document', requireAuth, async (req: Request, res: Response) => {
         columnsMetadata: parsed?.columnsMetadata
       })
       await incrementSubscriptionAnalyses(userId, guestId)
+      await addAuditLog(userId, userName, `Uploaded document (memory fallback): ${filename}`)
+      await createNotification(userId, 'Document Uploaded (Demo)', `Document "${filename}" processed in temporary session.`, 'system')
       return res.json({ success: true, fallback: true, textLength: extractedText.length, hasParsedData: !!parsed })
     } catch (err: any) {
       return res.status(500).json({ error: `Text parsing failed: ${err.message}` })
@@ -473,6 +488,8 @@ router.post('/document', requireAuth, async (req: Request, res: Response) => {
         if (!error) {
           memoryDocuments.delete(userId)
           await incrementSubscriptionAnalyses(userId, guestId)
+          await addAuditLog(userId, userName, `Uploaded document: ${filename}`)
+          await createNotification(userId, 'Document Uploaded', `Document "${filename}" parsed via OCR successfully.`, 'system')
           return res.json({ success: true, textLength: localExtractedText.length, hasParsedData: !!parsed })
         }
       } catch (err) {}
@@ -486,6 +503,8 @@ router.post('/document', requireAuth, async (req: Request, res: Response) => {
       columnsMetadata: parsed?.columnsMetadata
     })
     await incrementSubscriptionAnalyses(userId, guestId)
+    await addAuditLog(userId, userName, `Uploaded document (memory fallback): ${filename}`)
+    await createNotification(userId, 'Document Uploaded (Demo)', `Document "${filename}" parsed via OCR in temporary session.`, 'system')
     return res.json({ success: true, fallback: true, textLength: localExtractedText.length, hasParsedData: !!parsed })
   }
 
@@ -562,6 +581,8 @@ Rules:
           })
           memoryDocuments.delete(userId)
           await incrementSubscriptionAnalyses(userId, guestId)
+          await addAuditLog(userId, userName, `Uploaded document (fallback template): ${filename}`)
+          await createNotification(userId, 'Document Processed', `Document "${filename}" processed with system fallback.`, 'system')
           return res.json({ success: true, fallback: true, textLength: fallbackText.length, hasParsedData: true })
         } catch (err) {}
       }
@@ -575,6 +596,8 @@ Rules:
       })
 
       await incrementSubscriptionAnalyses(userId, guestId)
+      await addAuditLog(userId, userName, `Uploaded document (memory fallback template): ${filename}`)
+      await createNotification(userId, 'Document Processed (Demo)', `Document "${filename}" processed with temporary fallback.`, 'system')
       return res.json({ success: true, fallback: true, textLength: fallbackText.length, hasParsedData: true })
     }
 
@@ -616,6 +639,8 @@ Rules:
         if (!error) {
           memoryDocuments.delete(userId)
           await incrementSubscriptionAnalyses(userId, guestId)
+          await addAuditLog(userId, userName, `Uploaded document: ${filename}`)
+          await createNotification(userId, 'Document Uploaded', `Document "${filename}" parsed using AI successfully.`, 'system')
           return res.json({ success: true, textLength: extractedText.length, hasParsedData: !!parsedJson })
         }
       } catch (err) {}
@@ -630,6 +655,8 @@ Rules:
     })
 
     await incrementSubscriptionAnalyses(userId, guestId)
+    await addAuditLog(userId, userName, `Uploaded document (memory fallback): ${filename}`)
+    await createNotification(userId, 'Document Uploaded (Demo)', `Document "${filename}" parsed using AI in temporary session.`, 'system')
     return res.json({ success: true, fallback: true, textLength: extractedText.length, hasParsedData: !!parsedJson })
 
   } catch (err: any) {
@@ -650,6 +677,8 @@ Rules:
         })
         memoryDocuments.delete(userId)
         await incrementSubscriptionAnalyses(userId, guestId)
+        await addAuditLog(userId, userName, `Uploaded document (crashed fallback): ${filename}`)
+        await createNotification(userId, 'Document Processed', `Document "${filename}" processed with system fallback.`, 'system')
         return res.json({ success: true, fallback: true, textLength: fallbackText.length, hasParsedData: true })
       } catch (dbErr) {}
     }
@@ -663,6 +692,8 @@ Rules:
     })
     
     await incrementSubscriptionAnalyses(userId, guestId)
+    await addAuditLog(userId, userName, `Uploaded document (crashed memory fallback): ${filename}`)
+    await createNotification(userId, 'Document Processed (Demo)', `Document "${filename}" processed with temporary fallback.`, 'system')
     return res.json({ success: true, fallback: true, textLength: fallbackText.length, hasParsedData: true })
   }
 })
@@ -731,6 +762,7 @@ router.post('/document/parse', requireAuth, async (req: Request, res: Response) 
   }
   let text = ''
   let filename = ''
+  const userName = (req as any).user?.user_metadata?.name || (req as any).user?.email || 'Demo User'
 
   const supabase = getSupabase()
   if (supabase) {
@@ -759,12 +791,16 @@ router.post('/document/parse', requireAuth, async (req: Request, res: Response) 
   if (supabase) {
     try {
       await supabase.from('documents').update({ parsed_data: JSON.stringify(parsed) }).eq('user_id', userId)
+      await addAuditLog(userId, userName, `Reparsed document data: ${filename}`)
+      await createNotification(userId, 'Document Reparsed', `Extracted ${parsed.rows.length} rows using Gemini AI.`, 'system')
     } catch {}
   }
   // Update in memory
   const memDoc = memoryDocuments.get(userId)
   if (memDoc) {
     memoryDocuments.set(userId, { ...memDoc, parsedRows: parsed.rows, columnsMetadata: parsed.columnsMetadata })
+    await addAuditLog(userId, userName, `Reparsed document data (memory): ${filename}`)
+    await createNotification(userId, 'Document Reparsed (Demo)', `Extracted ${parsed.rows.length} rows using Gemini AI.`, 'system')
   }
 
   await incrementSubscriptionAnalyses(userId, guestId)
@@ -774,13 +810,19 @@ router.post('/document/parse', requireAuth, async (req: Request, res: Response) 
 // Clear user's active document
 router.delete('/document', requireAuth, async (req: Request, res: Response) => {
   const userId = (req as any).userId
+  const userName = (req as any).user?.user_metadata?.name || (req as any).user?.email || 'Demo User'
   memoryDocuments.delete(userId)
 
   const supabase = getSupabase()
   if (supabase) {
     try {
       await supabase.from('documents').delete().eq('user_id', userId)
+      await addAuditLog(userId, userName, 'Deleted active document')
+      await createNotification(userId, 'Document Deleted', 'Removed PDF document from workspace.', 'info')
     } catch (err) {}
+  } else {
+    await addAuditLog(userId, userName, 'Deleted active document (memory)')
+    await createNotification(userId, 'Document Deleted', 'Removed temporary document from workspace.', 'info')
   }
   res.json({ success: true })
 })
@@ -1217,6 +1259,40 @@ const getInitialNotifications = (): Notification[] => [
     timestamp: '2 hrs ago'
   }
 ]
+
+export async function createNotification(userId: string, title: string, message: string, type: 'revenue' | 'churn' | 'system' | 'info') {
+  const supabase = getSupabase()
+  if (supabase) {
+    try {
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: userId,
+          title,
+          message,
+          type,
+          read: false
+        })
+    } catch (err) {
+      console.warn('[Notifications] Failed to insert into Supabase:', err)
+    }
+  }
+
+  // Fallback to in-memory notifications
+  if (!memoryNotifications.has(userId)) {
+    memoryNotifications.set(userId, [])
+  }
+  const list = memoryNotifications.get(userId) || []
+  list.unshift({
+    id: Math.random().toString(36).substring(2, 9),
+    title,
+    message,
+    type: type === 'info' ? 'system' : type as any,
+    read: false,
+    timestamp: 'Just now'
+  })
+  memoryNotifications.set(userId, list.slice(0, 50))
+}
 
 router.get('/notifications', requireAuth, async (req: Request, res: Response) => {
   const userId = (req as any).userId
