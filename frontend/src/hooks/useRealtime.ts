@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { supabase } from '../services/supabase'
 import { fetchKPIs, fetchRevenue, fetchCustomers, fetchNotifications } from '../services/api'
+import { useAuth } from '../context/AuthContext'
 
 export type RealtimeStatus = 'connecting' | 'live' | 'offline' | 'demo'
 
@@ -86,6 +87,7 @@ export function useRealtime(): UseRealtimeReturn {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const channelRef = useRef<any>(null)
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const { user } = useAuth()
   const configured = isSupabaseConfigured()
 
   const refreshAll = useCallback(async () => {
@@ -121,6 +123,15 @@ export function useRealtime(): UseRealtimeReturn {
       setMonthly(DEMO_MONTHLY)
       setCustomers(DEMO_CUSTOMERS)
       setLastUpdated(new Date())
+      return
+    }
+
+    if (!user) {
+      setStatus('offline')
+      setKpis(null)
+      setMonthly([])
+      setCustomers([])
+      setNotifications([])
       return
     }
 
@@ -200,7 +211,7 @@ export function useRealtime(): UseRealtimeReturn {
         clearInterval(refreshTimerRef.current)
       }
     }
-  }, [configured, refreshAll])
+  }, [configured, refreshAll, user])
 
   const unreadCount = notifications.filter(n => !n.read).length
 

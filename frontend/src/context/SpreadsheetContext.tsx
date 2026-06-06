@@ -38,6 +38,11 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
   const { user, incrementUploadCount, isGuest, isGuestTrialExhausted, setShowSignupModal, refreshSubscription } = useAuth()
 
   useEffect(() => {
+    if (!user) {
+      setActiveSheet(null)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     fetchSpreadsheet()
       .then((sheet) => {
@@ -53,6 +58,11 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
   }, [user])
 
   useEffect(() => {
+    if (!user) {
+      setActiveDocument(null)
+      setLoadingDoc(false)
+      return
+    }
     setLoadingDoc(true)
     fetchDocument()
       .then((doc) => {
