@@ -174,30 +174,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signIn = async (email: string, password: string) => {
+    console.log(`[AUTH] Attempting sign-in for: ${email}`)
     const isDemoMode = import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co'
     if (isDemoMode) {
+      console.log(`[AUTH] Demo Mode active. Mocking sign-in success.`)
       const fakeUser = { id: 'demo-1', email, user_metadata: { name: 'Demo User' } } as unknown as User
       setUser(fakeUser)
       localStorage.setItem('demo_user', JSON.stringify(fakeUser))
       return { error: null }
     }
     const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      console.warn(`[AUTH] Sign-in failed for ${email}: ${error.message}`)
+    } else {
+      console.log(`[AUTH] Sign-in successful for ${email}`)
+    }
     return { error: error?.message ?? null }
   }
 
   const signUp = async (email: string, password: string, name: string) => {
+    const lastRequest = Number(localStorage.getItem('last_signup_request') || '0')
+    const now = Date.now()
+    if (now - lastRequest < 60000) {
+      const waitSecs = Math.ceil((60000 - (now - lastRequest)) / 1000)
+      console.warn(`[AUTH] Signup rate-limit cooldown active. Waiting ${waitSecs}s`)
+      return { error: `Please wait ${waitSecs} seconds before creating another account.`, session: null }
+    }
+
+    console.log(`[AUTH] Attempting sign-up for: ${email} (${name})`)
     const isDemoMode = import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co'
     if (isDemoMode) {
+      console.log(`[AUTH] Demo Mode active. Mocking sign-up success.`)
       const fakeUser = { id: 'demo-1', email, user_metadata: { name } } as unknown as User
       setUser(fakeUser)
       localStorage.setItem('demo_user', JSON.stringify(fakeUser))
+      localStorage.setItem('last_signup_request', String(Date.now()))
       return { error: null, session: { user: fakeUser } }
     }
     const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name } } })
+    if (error) {
+      console.warn(`[AUTH] Sign-up failed for ${email}: ${error.message}`)
+    } else {
+      console.log(`[AUTH] Sign-up completed for ${email}. Session established: ${!!data?.session}`)
+      localStorage.setItem('last_signup_request', String(Date.now()))
+    }
     return { error: error?.message ?? null, session: data?.session ?? null }
   }
 
   const signOut = async () => {
+    console.log('[AUTH] User logout requested')
     localStorage.removeItem('demo_user')
     localStorage.removeItem('demo_guest_user')
     localStorage.removeItem('demo_used')
@@ -205,13 +230,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUploadCount(0)
     try {
       await supabase.auth.signOut()
+      console.log('[AUTH] Supabase signOut successful')
     } catch (err) {
-      console.warn('Supabase signOut failed:', err)
+      console.warn('[AUTH] Supabase signOut failed or offline:', err)
     }
     setUser(null)
   }
 
   const updateProfile = async (metadata: { name?: string; orgName?: string; industry?: string; gemini_api_key?: string }) => {
+    console.log('[AUTH] Updating user profile metadata')
     const isDemoMode = import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co'
     if (isDemoMode) {
       if (user) {
@@ -232,30 +259,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { ...metadata }
     })
 
-    if (error) return { error: error.message }
+    if (error) {
+      console.warn('[AUTH] Profile update failed:', error.message)
+      return { error: error.message }
+    }
     if (data.user) {
+      console.log('[AUTH] Profile update succeeded')
       setUser(data.user)
     }
     return { error: null }
   }
 
   const resetPassword = async (email: string) => {
+    const lastRequest = Number(localStorage.getItem('last_reset_request') || '0')
+    const now = Date.now()
+    if (now - lastRequest < 60000) {
+      const waitSecs = Math.ceil((60000 - (now - lastRequest)) / 1000)
+      console.warn(`[AUTH] Password reset rate-limit cooldown active. Waiting ${waitSecs}s`)
+      return { error: `Please wait ${waitSecs} seconds before requesting another reset email.` }
+    }
+
+    console.log(`[AUTH] Requesting password recovery link for: ${email}`)
     const isDemoMode = import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co'
     if (isDemoMode) {
+      console.log(`[AUTH] Demo Mode active. Mocking reset email success.`)
+      localStorage.setItem('last_reset_request', String(Date.now()))
       return { error: null }
     }
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: window.location.origin + '/reset-password',
     })
+    if (error) {
+      console.warn(`[AUTH] Password reset request failed for ${email}: ${error.message}`)
+    } else {
+      console.log(`[AUTH] Password reset email queued for ${email}`)
+      localStorage.setItem('last_reset_request', String(Date.now()))
+    }
     return { error: error?.message ?? null }
   }
 
   const updatePassword = async (password: string) => {
+    console.log('[AUTH] Submitting password update request')
     const isDemoMode = import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co'
     if (isDemoMode) {
+      console.log('[AUTH] Demo Mode active. Mocking password update success.')
       return { error: null }
     }
     const { error } = await supabase.auth.updateUser({ password })
+    if (error) {
+      console.warn('[AUTH] Password update failed:', error.message)
+    } else {
+      console.log('[AUTH] Password update completed successfully')
+    }
     return { error: error?.message ?? null }
   }
 

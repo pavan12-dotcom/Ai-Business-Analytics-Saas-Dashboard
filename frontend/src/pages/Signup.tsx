@@ -116,7 +116,7 @@ export default function Signup() {
         {successEmailConfirmation ? (
           <div className="auth-success-flow" style={{ marginTop: '16px' }}>
             <div className="auth-success">
-              ✓ Account created! We've sent a verification link to <strong>{email}</strong>. Please check your inbox and click the link to confirm your account.
+              ✓ Verification link sent! If an account exists for <strong>{email}</strong>, you will receive a verification link. Please check your inbox or try signing in.
             </div>
             <div style={{ marginTop: '24px' }}>
               <Link to="/login" className="btn btn-primary auth-submit" style={{ display: 'inline-flex', textDecoration: 'none' }}>
