@@ -198,14 +198,9 @@
   font-weight: 500;
   padding: 6px 12px;
   border-radius: 6px;
-  cursor: pointer;
+  cursor: default;
   transition: all 0.15s;
   height: 34px;
-}
-
-.role-selector-btn:hover {
-  border-color: var(--accent);
-  background: rgba(99, 102, 241, 0.04);
 }
 
 .role-btn-text {
@@ -492,3 +487,19 @@
   background: rgba(239,68,68,0.08);
 }
 
+/* Bell ping animation for new real-time notifications */
+@keyframes bell-shake {
+  0%   { transform: rotate(0deg); }
+  15%  { transform: rotate(12deg); }
+  30%  { transform: rotate(-10deg); }
+  45%  { transform: rotate(8deg); }
+  60%  { transform: rotate(-6deg); }
+  75%  { transform: rotate(4deg); }
+  90%  { transform: rotate(-2deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.notif-bell-btn.bell-ping {
+  animation: bell-shake 0.5s ease-in-out;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+}

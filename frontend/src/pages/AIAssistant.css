@@ -90,7 +90,7 @@
   justify-content: center;
 }
 
-:global(.dark) .drag-overlay {
+body.dark .drag-overlay {
   background: rgba(15, 23, 42, 0.88);
 }
 
@@ -259,7 +259,7 @@
   max-width: 100%;
 }
 
-:global(.dark) .chat-chart-card {
+body.dark .chat-chart-card {
   background: rgba(255, 255, 255, 0.02);
 }
 
@@ -734,4 +734,60 @@
   text-overflow: ellipsis;
 }
 
+/* ──────────────────────────────────────────
+   RESPONSIVE BREAKPOINTS
+   ────────────────────────────────────────── */
 
+/* Tablet & below: stack context sidebar under chat panel */
+@media (max-width: 1024px) {
+  .ai-layout {
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .ai-page {
+    height: auto;
+  }
+
+  .ai-chat-panel {
+    min-height: 560px;
+    max-height: 680px;
+  }
+
+  .ai-context-panel {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+}
+
+/* Mobile: wider chat bubbles, compact suggestion pills */
+@media (max-width: 768px) {
+  .ai-bubble {
+    max-width: 92%;
+  }
+
+  .ai-suggestions-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .ai-sug-btn {
+    width: 100%;
+    text-align: left;
+    border-radius: 8px;
+  }
+
+  .chat-chart-card {
+    width: 100%;
+  }
+
+  .ai-mode-tabs {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .ai-mode-tab {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

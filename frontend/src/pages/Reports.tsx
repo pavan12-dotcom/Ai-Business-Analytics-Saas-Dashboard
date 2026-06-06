@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { SEED } from '../data/seed'
-import { fetchRevenue, fetchCustomers } from '../services/api'
 import { useSpreadsheet } from '../context/SpreadsheetContext'
 import * as XLSX from 'xlsx'
+import { useAuth } from '../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
 import {
   FileText,
   Download,
@@ -10,14 +10,9 @@ import {
   TrendingUp,
   Award,
   DollarSign,
-  Users,
-  Activity,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
-  RefreshCw,
-  PieChart as ChartIcon,
-  ShieldCheck
+  Layers
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -32,34 +27,38 @@ import {
 } from 'recharts'
 import './Reports.css'
 
+const statusClass: Record<string, string> = {
+  Active: 'badge-green',
+  Passed: 'badge-green',
+  Compliant: 'badge-green',
+  InStock: 'badge-green',
+  High: 'badge-green',
+  Paid: 'badge-green',
+  Success: 'badge-green',
+  Inactive: 'badge-gray',
+  Failed: 'badge-red',
+  Churned: 'badge-red',
+  LowStock: 'badge-red',
+  Out: 'badge-red',
+  Pending: 'badge-yellow',
+  Low: 'badge-yellow',
+  Readmitted: 'badge-yellow',
+}
+
 export default function Reports() {
-  const { activeSheet, activeDocument, getSpreadsheetCustomers, getSpreadsheetMonthlyMetrics } = useSpreadsheet()
-  const [monthly, setMonthly] = useState(SEED.monthly)
-  const [customers, setCustomers] = useState(SEED.customers)
+  const { analytics, hasData } = useSpreadsheet()
+  const { isLocked } = useAuth()
+  const navigate = useNavigate()
+
+  const { customers = [], monthly = [], kpis = [], categories = [], aiInsights, datasetType, entityName, valueMetricName } = analytics
+
   const [currentPage, setCurrentPage] = useState(1)
-  const [activeTemplate, setActiveTemplate] = useState<'ceo' | 'investor' | 'finance'>('ceo')
+  const [activeTemplate, setActiveTemplate] = useState<'executive' | 'category' | 'ledger'>('executive')
   const rowsPerPage = 7
 
   useEffect(() => {
     setCurrentPage(1)
   }, [customers])
-
-  useEffect(() => {
-    if (activeSheet || (activeDocument && activeDocument.parsedRows?.length > 0)) {
-      setMonthly(getSpreadsheetMonthlyMetrics())
-      setCustomers(getSpreadsheetCustomers())
-    } else {
-      let active = true
-      Promise.all([fetchRevenue(), fetchCustomers()])
-        .then(([revData, custData]) => {
-          if (!active) return
-          if (revData) setMonthly(revData)
-          if (custData) setCustomers(custData)
-        })
-        .catch(err => console.error('Error fetching reports data:', err))
-      return () => { active = false }
-    }
-  }, [activeSheet, activeDocument])
 
   const totalRev = monthly.reduce((s, m) => s + m.revenue, 0)
   const totalMRR = monthly.reduce((s, m) => s + m.mrr, 0)
@@ -73,7 +72,12 @@ export default function Reports() {
 
   // Exporters
   const exportToCSV = () => {
-    const headers = ['ID', 'Name', 'Email', 'Plan', 'MRR', 'Status']
+    if (isLocked) {
+      alert("Reports export is locked on the free trial. Please upgrade to Pro.")
+      return
+    }
+    if (!hasData) return
+    const headers = ['ID', 'Entity Name', 'Reference / Email', 'Primary Category', 'Metric Value', 'Status']
     const csvContent = [
       headers.join(','),
       ...customers.map(c => [c.id, `"${c.name}"`, c.email, c.plan, c.mrr, c.status].join(','))
@@ -91,16 +95,21 @@ export default function Reports() {
   }
 
   const exportToExcel = () => {
+    if (isLocked) {
+      alert("Reports export is locked on the free trial. Please upgrade to Pro.")
+      return
+    }
+    if (!hasData) return
     const ws = XLSX.utils.json_to_sheet(customers)
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Customers')
-    XLSX.writeFile(wb, `${activeTemplate}_financial_sheet.xlsx`)
+    XLSX.utils.book_append_sheet(wb, ws, 'DataRecords')
+    XLSX.writeFile(wb, `${activeTemplate}_metrics_sheet.xlsx`)
   }
 
   const getTemplateTitle = () => {
-    if (activeTemplate === 'ceo') return 'CEO Executive Report'
-    if (activeTemplate === 'investor') return 'Investor Deck Metrics'
-    return 'Revenue & Finance Ledger'
+    if (activeTemplate === 'executive') return 'Executive Data Audit Summary'
+    if (activeTemplate === 'category') return 'Dimensional Category Breakdown'
+    return 'Detailed Data Records Ledger'
   }
 
   return (
@@ -108,19 +117,40 @@ export default function Reports() {
       {/* Header */}
       <div className="reports-header no-print">
         <div>
-          <div className="reports-page-title">Business Reports Center</div>
-          <div className="reports-page-sub">Compile and export audited financial matrices</div>
+          <div className="reports-page-title">Dynamic Reports Center</div>
+          <div className="reports-page-sub">Compile and export audited analytical ledgers</div>
         </div>
         <div className="reports-actions">
-          <button className="btn btn-secondary btn-sm" onClick={exportToCSV}>
+          <button 
+            className="btn btn-secondary btn-sm" 
+            onClick={exportToCSV}
+            disabled={isLocked || !hasData}
+            style={isLocked || !hasData ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+          >
             <Download size={13} style={{ marginRight: 6 }} />
             Export CSV
           </button>
-          <button className="btn btn-secondary btn-sm" onClick={exportToExcel}>
+          <button 
+            className="btn btn-secondary btn-sm" 
+            onClick={exportToExcel}
+            disabled={isLocked || !hasData}
+            style={isLocked || !hasData ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+          >
             <Download size={13} style={{ marginRight: 6 }} />
             Excel Sheet
           </button>
-          <button className="btn btn-primary btn-sm" onClick={() => window.print()}>
+          <button 
+            className="btn btn-primary btn-sm" 
+            onClick={() => {
+              if (isLocked) {
+                alert("PDF report printing is locked on the free trial. Please upgrade to Pro.")
+                return
+              }
+              window.print()
+            }}
+            disabled={isLocked || !hasData}
+            style={isLocked || !hasData ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+          >
             <Printer size={13} style={{ marginRight: 6 }} />
             Print Report (PDF)
           </button>
@@ -130,286 +160,297 @@ export default function Reports() {
       {/* Template selection tabs */}
       <div className="reports-template-selector no-print">
         <button
-          className={`template-tab-btn ${activeTemplate === 'ceo' ? 'active' : ''}`}
-          onClick={() => setActiveTemplate('ceo')}
+          className={`template-tab-btn ${activeTemplate === 'executive' ? 'active' : ''}`}
+          onClick={() => setActiveTemplate('executive')}
+          disabled={!hasData}
         >
           <Award size={14} />
-          CEO Dashboard Summary
+          Executive Summary
         </button>
         <button
-          className={`template-tab-btn ${activeTemplate === 'investor' ? 'active' : ''}`}
-          onClick={() => setActiveTemplate('investor')}
+          className={`template-tab-btn ${activeTemplate === 'category' ? 'active' : ''}`}
+          onClick={() => setActiveTemplate('category')}
+          disabled={!hasData}
         >
-          <TrendingUp size={14} />
-          Investor Pitch Indicators
+          <Layers size={14} />
+          Category Breakdown
         </button>
         <button
-          className={`template-tab-btn ${activeTemplate === 'finance' ? 'active' : ''}`}
-          onClick={() => setActiveTemplate('finance')}
+          className={`template-tab-btn ${activeTemplate === 'ledger' ? 'active' : ''}`}
+          onClick={() => setActiveTemplate('ledger')}
+          disabled={!hasData}
         >
-          <DollarSign size={14} />
-          Billing & Finance Breakdown
+          <FileText size={14} />
+          Audited Ledger
         </button>
       </div>
 
       {/* Print Only Header */}
       <div className="print-only-header">
         <h1>{getTemplateTitle()}</h1>
-        <p>InsightAI SaaS Business Analytics Report · Generated on {new Date().toLocaleDateString()}</p>
+        <p>Universal AI Analytics Engine Report · Generated on {new Date().toLocaleDateString()}</p>
         <hr />
       </div>
 
-      {/* ────────────────── 1. CEO EXECUTIVE REPORT TEMPLATE ────────────────── */}
-      {activeTemplate === 'ceo' && (
-        <div className="template-content-area">
-          <div className="report-summary">
-            <div className="report-metric glass-card">
-              <div className="report-metric-label">H1 Net Revenue</div>
-              <div className="report-metric-val">${totalRev.toLocaleString()}</div>
-              <span className="report-metric-change green">▲ +62% vs H2</span>
-            </div>
-            <div className="report-metric glass-card">
-              <div className="report-metric-label">Average MRR</div>
-              <div className="report-metric-val">${averageMRR.toLocaleString()}</div>
-              <span className="report-metric-change green">▲ +12.4% MoM</span>
-            </div>
-            <div className="report-metric glass-card">
-              <div className="report-metric-label">Customer Count</div>
-              <div className="report-metric-val">{customers.length}</div>
-              <span className="report-metric-change green">▲ +8.1% growth</span>
-            </div>
-            <div className="report-metric glass-card">
-              <div className="report-metric-label">Avg Churn Rate</div>
-              <div className="report-metric-val">2.4%</div>
-              <span className="report-metric-change green">▼ -0.4% decline</span>
-            </div>
-          </div>
-
-          <div className="reports-grid">
-            <div className="card glass-card">
-              <div className="card-title">Executive Revenue Growth</div>
-              <div className="card-sub" style={{ marginBottom: 12 }}>6-Month Revenue Progress View</div>
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={monthly} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
-                  <Tooltip contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text)' }} />
-                  <Bar dataKey="revenue" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="card glass-card">
-              <div className="card-title">Business Performance Metrics</div>
-              <div className="card-sub" style={{ marginBottom: 16 }}>CEO Audit Benchmarks</div>
-              <div className="audit-list">
-                {[
-                  { title: 'Data Sovereignty Check', desc: 'Compliant with GDPR & SOC-2 compliance parameters.', status: 'PASSED', statusClass: 'status-pass' },
-                  { title: 'LTV to CAC Ratio', desc: 'Current projection at 4.2x (Target: >3x for scale).', status: 'HEALTHY', statusClass: 'status-pass' },
-                  { title: 'Expansion Pipeline', desc: 'Pro tier conversion is up 18% month over month.', status: 'ACTIVE', statusClass: 'status-active' },
-                  { title: 'Churn Risk Flag', desc: 'Acme Corp and Globex high tier accounts have high renewals.', status: 'STABLE', statusClass: 'status-active' }
-                ].map(item => (
-                  <div key={item.title} className="audit-item">
-                    <div className="audit-body">
-                      <div className="audit-title">{item.title}</div>
-                      <div className="audit-desc">{item.desc}</div>
-                    </div>
-                    <span className={`audit-badge ${item.statusClass}`}>{item.status}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+      {!hasData ? (
+        <div className="card glass-card no-print" style={{
+          padding: '60px 40px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          gap: 16,
+          marginTop: 20
+        }}>
+          <div style={{ fontSize: 48 }}>📋</div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>No reports available</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 450, margin: 0, lineHeight: 1.6 }}>
+            Upload a dataset to generate AI-powered analytics.
+          </p>
+          <button className="btn btn-primary" onClick={() => navigate('/app')}>
+            🚀 Go to Dashboard to Upload
+          </button>
         </div>
-      )}
-
-      {/* ────────────────── 2. INVESTOR DECK INDICATORS TEMPLATE ────────────────── */}
-      {activeTemplate === 'investor' && (
-        <div className="template-content-area">
-          <div className="report-summary">
-            <div className="report-metric glass-card">
-              <div className="report-metric-label">ARR Run-rate</div>
-              <div className="report-metric-val">${(totalMRR * 12).toLocaleString()}</div>
-              <span className="report-metric-change green">▲ +14.2% YoY</span>
-            </div>
-            <div className="report-metric glass-card">
-              <div className="report-metric-label">LTV (Lifetime Value)</div>
-              <div className="report-metric-val">$1,850</div>
-              <span className="report-metric-change green">Based on 2.4% Churn</span>
-            </div>
-            <div className="report-metric glass-card">
-              <div className="report-metric-label">CAC (Blended)</div>
-              <div className="report-metric-val">$440</div>
-              <span className="report-metric-change green">Payback: 4.8 months</span>
-            </div>
-            <div className="report-metric glass-card">
-              <div className="report-metric-label">Quick Ratio</div>
-              <div className="report-metric-val">4.5x</div>
-              <span className="report-metric-change green">Healthy SaaS standard</span>
-            </div>
-          </div>
-
-          <div className="reports-grid">
-            <div className="card glass-card">
-              <div className="card-title">MRR Trend Profile</div>
-              <div className="card-sub" style={{ marginBottom: 12 }}>Investor Cohort MRR Trajectory</div>
-              <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={monthly} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
-                  <Tooltip contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text)' }} />
-                  <Line type="monotone" dataKey="mrr" stroke="var(--chart-5)" strokeWidth={3} activeDot={{ r: 6 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="card glass-card">
-              <div className="card-title">Investor Q&A Key Metrics</div>
-              <div className="card-sub" style={{ marginBottom: 16 }}>Core Venture Capitals Standard Indicators</div>
-              <div className="investor-kpis-list">
-                {[
-                  { label: 'Net Revenue Retention (NRR)', val: '108%', sub: 'Target: >100%' },
-                  { label: 'Gross Margin', val: '82%', sub: 'Target: >80% for SaaS' },
-                  { label: 'Rule of 40 Score', val: '58%', sub: 'Growth (46%) + FCF margin (12%)' },
-                  { label: 'Magic Number', val: '1.25x', sub: 'Healthy sales efficiency index' }
-                ].map(k => (
-                  <div key={k.label} className="investor-kpi-row">
-                    <div>
-                      <div className="ik-label">{k.label}</div>
-                      <div className="ik-sub">{k.sub}</div>
-                    </div>
-                    <div className="ik-val">{k.val}</div>
+      ) : (
+        <>
+          {/* ────────────────── 1. EXECUTIVE SUMMARY TEMPLATE ────────────────── */}
+          {activeTemplate === 'executive' && (
+            <div className="template-content-area premium-locked-container">
+              {isLocked && (
+                <div className="premium-blur-overlay" style={{ zIndex: 10 }}>
+                  <div className="lock-icon-wrap" style={{ width: 54, height: 54 }}>
+                    <span style={{ fontSize: 24 }}>🔒</span>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ────────────────── 3. REVENUE & FINANCE BREAKDOWN TEMPLATE ────────────────── */}
-      {activeTemplate === 'finance' && (
-        <div className="template-content-area">
-          <div className="report-summary">
-            <div className="report-metric glass-card">
-              <div className="report-metric-label">Audited Revenue</div>
-              <div className="report-metric-val">${totalRev.toLocaleString()}</div>
-            </div>
-            <div className="report-metric glass-card">
-              <div className="report-metric-label">Ledger Total MRR</div>
-              <div className="report-metric-val">${totalMRR.toLocaleString()}</div>
-            </div>
-            <div className="report-metric glass-card">
-              <div className="report-metric-label">Avg Transaction</div>
-              <div className="report-metric-val">${Math.round(totalRev / (customers.length || 1)).toLocaleString()}</div>
-            </div>
-            <div className="report-metric glass-card">
-              <div className="report-metric-label">Active Contracts</div>
-              <div className="report-metric-val">{customers.filter(c => c.status === 'Active').length}</div>
-            </div>
-          </div>
-
-          <div className="reports-grid">
-            {/* Monthly table */}
-            <div className="card glass-card">
-              <div className="card-title">Revenue Ledger Breakdown</div>
-              <div className="card-sub" style={{ marginBottom: 12 }}>Month over month transactional status</div>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Month</th>
-                    <th>Gross Income</th>
-                    <th>MRR Rate</th>
-                    <th>vs Prev Month</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {monthly.map((m, i) => {
-                    const prev = i > 0 ? monthly[i - 1].revenue : null
-                    const diff = prev ? m.revenue - prev : 0
-                    return (
-                      <tr key={m.month}>
-                        <td>{m.month} 2026</td>
-                        <td className="mono">${m.revenue.toLocaleString()}</td>
-                        <td className="mono">${m.mrr.toLocaleString()}</td>
-                        <td className={diff >= 0 ? 'tag-up' : 'tag-down'}>
-                          {prev ? `${diff >= 0 ? '+' : ''}$${diff.toLocaleString()}` : '—'}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Customer report */}
-            <div className="card glass-card">
-              <div className="card-title">Active Contract Ledger</div>
-              <div className="card-sub" style={{ marginBottom: 12 }}>Customer ledger breakdown</div>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Customer</th>
-                    <th>Plan</th>
-                    <th style={{ textAlign: 'right' }}>Monthly Spend</th>
-                    <th style={{ textAlign: 'center' }}>Contract Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedCustomers.map(c => (
-                    <tr key={c.id}>
-                      <td>{c.name}</td>
-                      <td style={{ color: 'var(--muted)', fontSize: 12 }}>{c.plan}</td>
-                      <td className="mono" style={{ textAlign: 'right' }}>${c.mrr.toLocaleString()}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <span
-                          className={`badge ${
-                            c.status === 'Active'
-                              ? 'badge-green'
-                              : c.status === 'Pending'
-                              ? 'badge-amber'
-                              : 'badge-red'
-                          }`}
-                        >
-                          {c.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {customers.length > rowsPerPage && (
-                <div className="table-pagination">
-                  <span className="pagination-info">
-                    Page {currentPage} of {totalPages} ({customers.length} total)
-                  </span>
-                  <div className="pagination-buttons">
-                    <button
-                      className="btn btn-secondary btn-xs"
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      <ChevronLeft size={12} />
-                      Prev
-                    </button>
-                    <button
-                      className="btn btn-secondary btn-xs"
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                      <ChevronRight size={12} />
-                    </button>
-                  </div>
+                  <h5 className="lock-title">Executive Summary Locked</h5>
+                  <p className="lock-desc">Your free trial has ended. Upgrade to Premium to view performance audits.</p>
+                  <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/billing')}>Upgrade to Pro</button>
                 </div>
               )}
+              <div style={isLocked ? { width: '100%', display: 'flex', flexDirection: 'column', gap: 20, filter: 'blur(5px)', pointerEvents: 'none' } : { width: '100%', display: 'flex', flexDirection: 'column', gap: 20 }}>
+                
+                {/* KPIs */}
+                <div className="report-summary">
+                  {kpis.slice(0, 4).map((kpi, idx) => (
+                    <div key={idx} className="report-metric glass-card">
+                      <div className="report-metric-label">{kpi.label}</div>
+                      <div className="report-metric-val">{kpi.value}</div>
+                      <span className={`report-metric-change ${kpi.up ? 'green' : 'amber'}`}>{kpi.change}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="reports-grid">
+                  {/* Trend chart */}
+                  <div className="card glass-card">
+                    <div className="card-title">{valueMetricName} Growth Profile</div>
+                    <div className="card-sub" style={{ marginBottom: 12 }}>Time-series progress view</div>
+                    <ResponsiveContainer width="100%" height={240}>
+                      <BarChart data={monthly} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                        <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
+                        <Tooltip contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text)' }} />
+                        <Bar dataKey="revenue" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* AI Findings */}
+                  <div className="card glass-card">
+                    <div className="card-title">Audited Findings &amp; Observations</div>
+                    <div className="card-sub" style={{ marginBottom: 16 }}>Engineered Insight Metrics</div>
+                    <div className="audit-list">
+                      {aiInsights.keyFindings.map((finding, idx) => (
+                        <div key={idx} className="audit-item">
+                          <div className="audit-body">
+                            <div className="audit-title">Audit Flag #{idx + 1}</div>
+                            <div className="audit-desc">{finding}</div>
+                          </div>
+                          <span className="audit-badge status-pass">COMPLIANT</span>
+                        </div>
+                      ))}
+                      {aiInsights.anomalies.map((anomaly, idx) => (
+                        <div key={idx} className="audit-item">
+                          <div className="audit-body">
+                            <div className="audit-title">Variance Flag #{idx + 1}</div>
+                            <div className="audit-desc">{anomaly}</div>
+                          </div>
+                          <span className="audit-badge status-active">AUDITED</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
+
+          {/* ────────────────── 2. CATEGORY BREAKDOWN TEMPLATE ────────────────── */}
+          {activeTemplate === 'category' && (
+            <div className="template-content-area premium-locked-container">
+              {isLocked && (
+                <div className="premium-blur-overlay" style={{ zIndex: 10 }}>
+                  <div className="lock-icon-wrap" style={{ width: 54, height: 54 }}>
+                    <span style={{ fontSize: 24 }}>🔒</span>
+                  </div>
+                  <h5 className="lock-title">Category Analysis Locked</h5>
+                  <p className="lock-desc">Your free trial has ended. Upgrade to Premium to view category breakdowns.</p>
+                  <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/billing')}>Upgrade to Pro</button>
+                </div>
+              )}
+              <div style={isLocked ? { width: '100%', display: 'flex', flexDirection: 'column', gap: 20, filter: 'blur(5px)', pointerEvents: 'none' } : { width: '100%', display: 'flex', flexDirection: 'column', gap: 20 }}>
+                
+                <div className="reports-grid">
+                  {/* Category Trend chart */}
+                  <div className="card glass-card">
+                    <div className="card-title">Dimensional Segment Strengths</div>
+                    <div className="card-sub" style={{ marginBottom: 12 }}>Visual representation of category counts</div>
+                    <ResponsiveContainer width="100%" height={240}>
+                      <BarChart data={categories} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                        <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
+                        <Tooltip contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text)' }} />
+                        <Bar dataKey="count" fill="var(--chart-5)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Recommendations */}
+                  <div className="card glass-card">
+                    <div className="card-title">Recommendations Matrix</div>
+                    <div className="card-sub" style={{ marginBottom: 16 }}>AI Engineered Directives</div>
+                    <div className="investor-kpis-list">
+                      {aiInsights.recommendations.map((rec, idx) => (
+                        <div key={idx} className="investor-kpi-row" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '12px' }}>
+                          <div>
+                            <div className="ik-label" style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent)' }}>Directive #{idx + 1}</div>
+                            <div className="ik-sub" style={{ fontSize: '12.5px', marginTop: '4px', lineHeight: 1.5 }}>{rec}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ────────────────── 3. DETAILED LEDGER TEMPLATE ────────────────── */}
+          {activeTemplate === 'ledger' && (
+            <div className="template-content-area premium-locked-container">
+              {isLocked && (
+                <div className="premium-blur-overlay" style={{ zIndex: 10 }}>
+                  <div className="lock-icon-wrap" style={{ width: 54, height: 54 }}>
+                    <span style={{ fontSize: 24 }}>🔒</span>
+                  </div>
+                  <h5 className="lock-title">Audited Ledger Locked</h5>
+                  <p className="lock-desc">Your free trial has ended. Upgrade to Premium to view detailed data ledgers.</p>
+                  <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/billing')}>Upgrade to Pro</button>
+                </div>
+              )}
+              <div style={isLocked ? { width: '100%', display: 'flex', flexDirection: 'column', gap: 20, filter: 'blur(5px)', pointerEvents: 'none' } : { width: '100%', display: 'flex', flexDirection: 'column', gap: 20 }}>
+                
+                <div className="reports-grid">
+                  {/* Monthly ledger summary */}
+                  <div className="card glass-card">
+                    <div className="card-title">Time-series Ledger Summary</div>
+                    <div className="card-sub" style={{ marginBottom: 12 }}>Time-block performance status</div>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Period Group</th>
+                          <th>Aggregate Sum</th>
+                          <th>Average Value</th>
+                          <th>Month growth</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {monthly.map((m, i) => {
+                          const prev = i > 0 ? monthly[i - 1].revenue : null
+                          const diff = prev ? m.revenue - prev : 0
+                          const isCurrency = /revenue|mrr|acv|amount|price|sales|income|spend|profit|earn|salary|wage|cost|treatment/i.test(valueMetricName)
+                          const formatVal = (v: number) => isCurrency ? `$${v.toLocaleString()}` : v.toLocaleString()
+                          return (
+                            <tr key={m.month}>
+                              <td>{m.month}</td>
+                              <td className="mono">{formatVal(m.revenue)}</td>
+                              <td className="mono">{formatVal(m.mrr)}</td>
+                              <td className={diff >= 0 ? 'tag-up' : 'tag-down'}>
+                                {prev ? `${diff >= 0 ? '+' : ''}${formatVal(diff)}` : '—'}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Customer ledger */}
+                  <div className="card glass-card">
+                    <div className="card-title">{entityName} Registry List</div>
+                    <div className="card-sub" style={{ marginBottom: 12 }}>Chronological ledger directory</div>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>{entityName}</th>
+                          <th>Category</th>
+                          <th style={{ textAlign: 'right' }}>{valueMetricName}</th>
+                          <th style={{ textAlign: 'center' }}>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedCustomers.map(c => (
+                          <tr key={c.id}>
+                            <td>{c.name}</td>
+                            <td style={{ color: 'var(--muted)', fontSize: 12 }}>{c.plan}</td>
+                            <td className="mono" style={{ textAlign: 'right' }}>
+                              {/revenue|mrr|acv|amount|price|sales|income|spend|profit|earn|salary|wage|cost|treatment/i.test(valueMetricName)
+                                ? `$${c.mrr.toLocaleString()}`
+                                : c.mrr.toLocaleString()}
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <span className={`badge ${statusClass[c.status] || 'badge-green'}`}>
+                                {c.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {customers.length > rowsPerPage && (
+                      <div className="table-pagination">
+                        <span className="pagination-info">
+                          Page {currentPage} of {totalPages} ({customers.length} total)
+                        </span>
+                        <div className="pagination-buttons">
+                          <button
+                            className="btn btn-secondary btn-xs"
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            disabled={currentPage === 1}
+                          >
+                            <ChevronLeft size={12} />
+                            Prev
+                          </button>
+                          <button
+                            className="btn btn-secondary btn-xs"
+                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            disabled={currentPage === totalPages}
+                          >
+                            Next
+                            <ChevronRight size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
 }
-

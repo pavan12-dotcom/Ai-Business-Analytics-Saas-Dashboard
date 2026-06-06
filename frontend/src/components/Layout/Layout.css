@@ -268,3 +268,18 @@
   transform: translateY(-1px);
   box-shadow: 0 6px 28px rgba(124,58,237,0.45);
 }
+
+.pro-modal-title--yellow {
+  background: linear-gradient(135deg, #fff 40%, #fbbf24) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+.pro-modal-title--red {
+  background: linear-gradient(135deg, #fff 40%, #f87171) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+

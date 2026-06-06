@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express'
 import Stripe from 'stripe'
 import { requireAuth, getSupabase } from '../middleware/auth'
-import { mockUserPlans, addAuditLog } from './data'
+import { mockUserPlans, addAuditLog, memorySubscriptions } from './data'
 
 const router = Router()
 
@@ -131,7 +131,12 @@ router.post('/simulate-upgrade', requireAuth, async (req: Request, res: Response
   
   const mrr = plan === 'pro' ? 29 : plan === 'enterprise' ? 99 : 0
   const planName = plan === 'pro' ? 'Pro' : plan === 'enterprise' ? 'Enterprise' : 'Free'
+  const planType = plan === 'pro' ? 'pro' : plan === 'enterprise' ? 'enterprise' : 'free'
   
+  const now = new Date()
+  const end = new Date()
+  end.setMonth(end.getMonth() + 1)
+
   const supabase = getSupabase()
   if (supabase) {
     try {
@@ -152,10 +157,34 @@ router.post('/simulate-upgrade', requireAuth, async (req: Request, res: Response
     } catch (err: any) {
       console.error('Failed to simulate upgrade in Supabase:', err.message)
     }
+
+    try {
+      await supabase
+        .from('user_subscriptions')
+        .upsert({
+          user_id: userId,
+          plan_type: planType,
+          subscription_status: 'active',
+          subscription_start: now.toISOString(),
+          subscription_end: end.toISOString(),
+          analyses_remaining: 999999
+        }, { onConflict: 'user_id' })
+    } catch (err: any) {
+      console.error('Failed to simulate subscription upgrade in Supabase:', err.message)
+    }
   }
   
   // Track in memory
   mockUserPlans.set(userId, { plan: planName, mrr, status: 'Active' })
+  memorySubscriptions.set(userId, {
+    user_id: userId,
+    plan_type: planType,
+    subscription_status: 'active',
+    subscription_start: now.toISOString(),
+    subscription_end: end.toISOString(),
+    analyses_remaining: 999999,
+    analyses_used: memorySubscriptions.get(userId)?.analyses_used || 0
+  })
   
   // Log activity
   await addAuditLog(userId, userName, `Simulated Upgrade: Upgraded plan to ${planName}`)

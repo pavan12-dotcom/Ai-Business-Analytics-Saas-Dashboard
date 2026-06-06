@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
-import { askAI } from '../services/api'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { streamAI } from '../services/api'
 import { useSpreadsheet } from '../context/SpreadsheetContext'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -165,29 +165,31 @@ function ChatChart({
       customerData.forEach(c => {
         planGroups[c.plan] = (planGroups[c.plan] || 0) + (c.mrr || 0)
       })
-      data = Object.entries(planGroups).map(([name, value]) => ({ name, value }))
+      data = (Object.entries(planGroups) as [string, number][]).map(([name, value]) => ({ name, value }))
     }
     const COLORS = ['var(--chart-1)', 'var(--chart-5)', 'var(--chart-6)', 'var(--chart-8)']
     return (
       <div className="chat-chart-card">
         <div className="chat-chart-title">Revenue Share by Plan Tier</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <ResponsiveContainer width="40%" height={110}>
-            <PieChart>
-              <Pie
-                data={data}
-                innerRadius={25}
-                outerRadius={45}
-                paddingAngle={3}
-                dataKey="value"
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => `$${value}`} contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '10px', color: 'var(--text)' }} />
-            </PieChart>
-          </ResponsiveContainer>
+          <div style={{ width: '110px', height: '110px', flexShrink: 0, position: 'relative' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data}
+                  innerRadius={25}
+                  outerRadius={45}
+                  paddingAngle={3}
+                  dataKey="value"
+                >
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => `$${value}`} contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '10px', color: 'var(--text)' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
           <div className="chat-chart-legend" style={{ flex: 1 }}>
             {data.map((entry, index) => (
               <div key={entry.name} className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', marginBottom: '4px' }}>
@@ -261,15 +263,19 @@ export default function AIAssistant() {
     reset,
     getSpreadsheetCustomers,
     getSpreadsheetMonthlyMetrics,
-    getSpreadsheetKPIs
+    getSpreadsheetKPIs,
+    hasData,
+    analytics,
+    datasetName
   } = useSpreadsheet()
-  const { refreshSubscription, isGuest, guestQueryCount, incrementGuestQueryCount, setShowSignupModal, incrementUploadCount, isGuestTrialExhausted } = useAuth()
+  const { isLocked, refreshSubscription, isGuest, guestQueryCount, incrementGuestQueryCount, setShowSignupModal, isGuestTrialExhausted } = useAuth()
+  const navigate = useNavigate()
   const [mode, setMode] = useState<'spreadsheet' | 'document'>('spreadsheet')
 
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'ai',
-      text: 'Hi! I can analyze your business data. Ask me anything about revenue, customers, churn, or plans, or drag-and-drop spreadsheets/documents here.'
+      text: 'Hi! I\'m your AI Analytics assistant. Ask me anything about your data, or upload a dataset (CSV, XLSX, JSON) to analyze your own numbers.'
     }
   ])
   const [input, setInput] = useState('')
@@ -304,32 +310,33 @@ export default function AIAssistant() {
   // Sync initial message on mode toggle
   useEffect(() => {
     if (mode === 'spreadsheet') {
-      setMessages([
-        {
-          role: 'ai',
-          text: 'Hi! I can analyze your business data. Ask me anything about revenue, customers, churn, or plans, or drag-and-drop spreadsheets/documents here.'
-        }
-      ])
+      const introText = hasData
+        ? `Hi! I can analyze your ${analytics.datasetType} data. Ask me anything about ${analytics.entityName}s, ${analytics.valueMetricName}, or categories in this dataset.`
+        : 'Hi! I\'m your AI Analytics assistant. Ask me anything — I\'ll answer using demo business data. Upload your own dataset for personalized insights.'
+      setMessages([{ role: 'ai', text: introText }])
     } else {
       if (activeDocument) {
-        setMessages([
-          {
-            role: 'ai',
-            text: `Hi! I'm ready to answer questions about the active document: "${activeDocument.filename}". Ask me anything about its contents.`
-          }
-        ])
+        setMessages([{
+          role: 'ai',
+          text: `Hi! I'm ready to answer questions about "${activeDocument.filename}". Ask me anything about its contents.`
+        }])
       } else {
-        setMessages([
-          {
-            role: 'ai',
-            text: 'Please upload a PDF or text document to start chatting with its content.'
-          }
-        ])
+        setMessages([{
+          role: 'ai',
+          text: 'Upload a PDF or text document, then ask me questions about its content.'
+        }])
       }
     }
-  }, [mode, activeDocument])
+  }, [mode, activeDocument, hasData, analytics.datasetType, analytics.entityName, analytics.valueMetricName])
 
-  const send = async (q?: string, overrideMode?: 'spreadsheet' | 'document') => {
+  const abortRef = useRef<AbortController | null>(null)
+
+  // Cleanup stream on unmount
+  useEffect(() => {
+    return () => { abortRef.current?.abort() }
+  }, [])
+
+  const send = useCallback(async (q?: string, overrideMode?: 'spreadsheet' | 'document') => {
     const question = (q ?? input).trim()
     if (!question || loading || messages.some(m => m.isStreaming)) return
 
@@ -343,83 +350,67 @@ export default function AIAssistant() {
     setMessages(prev => [...prev, { role: 'user', text: question, ts }])
     setLoading(true)
 
-    try {
-      const activeMode = overrideMode || mode
-      const res = await askAI(question, activeMode)
-      const fullAnswer = res.answer
-      const chart = detectChartType(question, fullAnswer)
+    // Add placeholder AI message that will be filled by stream
+    setMessages(prev => [...prev, { role: 'ai', text: '', ts, isStreaming: true, chartType: null }])
 
-      incrementUploadCount()
-      if (isGuest) {
-        incrementGuestQueryCount()
-      }
+    const activeMode = overrideMode || mode
+    let accumulated = ''
 
-      setDemoMode(!!res.demo)
-      setEngine(res.engine || 'fallback')
-      setLoading(false)
+    const controller = new AbortController()
+    abortRef.current = controller
 
-      // Refresh query limit counters
-      refreshSubscription()
-
-      // Insert AI message with isStreaming: true
-      setMessages(prev => [
-        ...prev,
-        { role: 'ai', text: '', ts, isStreaming: true, chartType: chart }
-      ])
-
-      const words = fullAnswer.split(' ')
-      let currentText = ''
-      let wordIdx = 0
-
-      const interval = setInterval(() => {
-        if (wordIdx < words.length) {
-          currentText += (wordIdx === 0 ? '' : ' ') + words[wordIdx]
-          setMessages(prev => {
-            const updated = [...prev]
-            const lastMsg = updated[updated.length - 1]
-            if (lastMsg && lastMsg.role === 'ai') {
-              lastMsg.text = currentText
-            }
-            return updated
-          })
-          wordIdx++
-        } else {
-          clearInterval(interval)
-          setMessages(prev => {
-            const updated = [...prev]
-            const lastMsg = updated[updated.length - 1]
-            if (lastMsg && lastMsg.role === 'ai') {
-              lastMsg.isStreaming = false
-            }
-            return updated
-          })
-        }
-      }, 25)
-    } catch (err: any) {
-      console.error('AI assistant query error:', err)
-      const responseData = err.response?.data
-      let errorMsg = 'An error occurred. Please make sure the backend is running and try again.'
-      
-      if (err.response?.status === 403 && responseData?.error === 'limit_exceeded') {
-        errorMsg = responseData.message || 'You have exceeded your plan\'s monthly AI query limit.'
-        
-        setMessages(prev => [
-          ...prev,
-          { 
-            role: 'ai', 
-            text: `⚠️ Quota Limit Exceeded: ${errorMsg}\n\nTo continue chatting with your datasets and files, please upgrade your plan in the Billing center.`, 
-            ts 
+    await streamAI(
+      question,
+      activeMode,
+      // onChunk — append each token
+      (chunk: string) => {
+        accumulated += chunk
+        setMessages(prev => {
+          const updated = [...prev]
+          const last = updated[updated.length - 1]
+          if (last?.role === 'ai' && last.isStreaming) last.text = accumulated
+          return [...updated]
+        })
+      },
+      // onDone
+      (engName: string, isDemo: boolean) => {
+        const chart = detectChartType(question, accumulated)
+        setDemoMode(isDemo)
+        setEngine(engName)
+        setLoading(false)
+        setMessages(prev => {
+          const updated = [...prev]
+          const last = updated[updated.length - 1]
+          if (last?.role === 'ai') {
+            last.isStreaming = false
+            last.chartType = chart
           }
-        ])
-      } else {
-        setMessages(prev => [
-          ...prev,
-          { role: 'ai', text: errorMsg, ts }
-        ])
-      }
-      setLoading(false)
-    }
-  }
+          return [...updated]
+        })
+        if (isGuest) {
+          // Guest: increment unified demo_used counter
+          incrementGuestQueryCount()
+        } else {
+          // Authenticated: backend already incremented DB count; just refresh UI
+          refreshSubscription()
+        }
+      },
+      // onError
+      (errMsg: string) => {
+        setLoading(false)
+        setMessages(prev => {
+          const updated = [...prev]
+          const last = updated[updated.length - 1]
+          if (last?.role === 'ai' && last.isStreaming) {
+            last.isStreaming = false
+            last.text = `⚠️ ${errMsg}`
+          }
+          return [...updated]
+        })
+      },
+      controller.signal
+    )
+  }, [input, loading, messages, mode, isGuest, isGuestTrialExhausted, setShowSignupModal, incrementGuestQueryCount, refreshSubscription])
 
   // Drag and drop handlers
   const handleDragOver = (e: React.DragEvent) => {
@@ -501,18 +492,34 @@ export default function AIAssistant() {
     }
   }
 
-  const currentSuggestions = mode === 'spreadsheet' ? SUGGESTIONS : DOC_SUGGESTIONS
   const isStreamingActive = messages.some(m => m.isStreaming)
 
-  // Context properties
-  const hasSheet = !!activeSheet
-  const sheetFilename = activeSheet?.filename || 'Demo Seeds Dataset'
-  const sheetRows = activeSheet?.rows?.length || 8
+  // Context properties — never lock spreadsheet mode, AI works with fallback context
+  const isSpreadsheetLocked = false
+  const hasSheet = hasData
+  const sheetFilename = hasData ? (activeSheet?.filename || datasetName || 'Active Dataset') : 'Demo Context'
 
   // Computed data context values for Insights
-  const monthlyMetrics = getSpreadsheetMonthlyMetrics()
-  const customerList = getSpreadsheetCustomers()
-  const kpis = getSpreadsheetKPIs()
+  const monthlyMetrics = hasData ? analytics.monthly : []
+  const customerList = hasData ? analytics.customers : []
+  const kpis = hasData ? analytics.kpis : []
+  const sheetRows = hasData ? (activeSheet?.rows?.length || customerList.length || 0) : 0
+
+  const currentSuggestions = mode === 'spreadsheet'
+    ? (hasData ? [
+        `Show me top 5 ${analytics.entityName.toLowerCase()}s by ${analytics.valueMetricName.toLowerCase()}`,
+        `What's our primary trend this period?`,
+        `Compare monthly ${analytics.valueMetricName.toLowerCase()} growth`,
+        `Which category generates the most ${analytics.valueMetricName.toLowerCase()}?`,
+        `How many active ${analytics.entityName.toLowerCase()}s do we have?`
+      ] : [
+        'Show me top 5 entries by metric value',
+        "What's the overall trend this period?",
+        'Compare growth month over month',
+        'Which category has the highest count?',
+        'How many active records do we have?'
+      ])
+    : DOC_SUGGESTIONS
 
   return (
     <div className="ai-page fade-in">
@@ -561,11 +568,46 @@ export default function AIAssistant() {
       <div className="ai-layout">
         {/* Chat workspace with drag and drop */}
         <div
-          className={`ai-chat-panel ${isDragging ? 'dragging' : ''}`}
+          className={`ai-chat-panel ${isDragging ? 'dragging' : ''} ${isLocked || isSpreadsheetLocked ? 'premium-locked-container' : ''}`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
+          {isLocked && (
+            <div className="premium-blur-overlay" style={{ zIndex: 50 }}>
+              <div className="lock-icon-wrap" style={{ width: 54, height: 54 }}>
+                <span style={{ fontSize: 22 }}>🔒</span>
+              </div>
+              <h5 className="lock-title">AI Assistant Locked</h5>
+              <p className="lock-desc">Your free trial has ended. Upgrade to Premium to chat with spreadsheets, documents, and generate predictive charts.</p>
+              <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/billing')}>Upgrade Now</button>
+            </div>
+          )}
+          {/* Soft upload suggestion banner — shown when no dataset, but AI still works */}
+          {mode === 'spreadsheet' && !hasData && !isLocked && (
+            <div style={{
+              margin: '8px 16px 0',
+              padding: '10px 14px',
+              background: 'rgba(99,102,241,0.08)',
+              border: '1px solid rgba(99,102,241,0.25)',
+              borderRadius: 10,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              fontSize: 12,
+              color: 'var(--accent)'
+            }}>
+              <span>📊</span>
+              <span style={{ flex: 1 }}>Using demo context. <strong>Upload a dataset</strong> to analyze your own data.</span>
+              <button
+                className="btn btn-primary btn-sm"
+                style={{ fontSize: 11, padding: '4px 12px' }}
+                onClick={() => navigate('/app')}
+              >
+                Upload
+              </button>
+            </div>
+          )}
           {isDragging && (
             <div className="drag-overlay">
               <div className="drag-content">
@@ -607,7 +649,7 @@ export default function AIAssistant() {
             </div>
           ) : (
             <>
-              <div className="ai-messages">
+              <div className="ai-messages" style={isLocked || isSpreadsheetLocked ? { filter: 'blur(4px)', pointerEvents: 'none' } : undefined}>
                 {messages.map((m, i) => (
                   <div key={i} className={`ai-bubble ${m.role}`}>
                     <div className="bubble-icon-wrap">
@@ -651,13 +693,13 @@ export default function AIAssistant() {
               </div>
 
               {/* Sugestion quick action pills */}
-              <div className="ai-suggestions-row">
+              <div className="ai-suggestions-row" style={isLocked || isSpreadsheetLocked ? { pointerEvents: 'none', opacity: 0.5 } : undefined}>
                 {currentSuggestions.slice(0, 3).map(s => (
                   <button
                     key={s}
                     className="ai-sug-btn"
                     onClick={() => send(s)}
-                    disabled={loading || isStreamingActive}
+                    disabled={loading || isStreamingActive || isLocked || isSpreadsheetLocked}
                   >
                     {s}
                   </button>
@@ -665,23 +707,27 @@ export default function AIAssistant() {
               </div>
 
               {/* Chat Input bar */}
-              <div className="ai-input-bar">
+              <div className="ai-input-bar" style={isLocked || isSpreadsheetLocked ? { opacity: 0.7 } : undefined}>
                 <input
                   className="ai-input-field"
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
                   placeholder={
-                    mode === 'spreadsheet'
+                    isLocked
+                      ? 'AI Assistant locked. Upgrade to continue...'
+                      : isSpreadsheetLocked
+                      ? 'Upload a dataset first to generate AI insights.'
+                      : mode === 'spreadsheet'
                       ? 'Ask about spreadsheet data (e.g. "show revenue growth")...'
                       : 'Ask about document content...'
                   }
-                  disabled={loading || isStreamingActive}
+                  disabled={loading || isStreamingActive || isLocked || isSpreadsheetLocked}
                 />
                 <button
                   className="btn btn-primary ai-send-btn"
                   onClick={() => send()}
-                  disabled={loading || isStreamingActive || !input.trim()}
+                  disabled={loading || isStreamingActive || !input.trim() || isLocked || isSpreadsheetLocked}
                 >
                   <Send size={14} />
                 </button>
@@ -752,10 +798,12 @@ export default function AIAssistant() {
                 key={task.id}
                 className="copilot-task-card glass-card"
                 onClick={() => {
+                  if (isLocked || isSpreadsheetLocked) return
                   setMode('spreadsheet')
                   send(task.query)
                 }}
-                disabled={loading || isStreamingActive}
+                disabled={loading || isStreamingActive || isLocked || isSpreadsheetLocked}
+                style={isLocked || isSpreadsheetLocked ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
               >
                 <div className="task-card-icon">{task.icon}</div>
                 <div className="task-card-details">
@@ -768,29 +816,45 @@ export default function AIAssistant() {
 
           <div className="context-title" style={{ marginTop: '16px' }}>Auto Insights</div>
           <div className="insights-container">
-            <div className="insight-card info">
-              <div className="insight-top">
-                <span className="insight-badge active">System Ready</span>
-                <Layers size={14} style={{ color: 'var(--accent)' }} />
+            {!hasData ? (
+              <div className="insight-card info" style={{ textAlign: 'center', padding: '24px 16px' }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: 0 }}>
+                  Upload a dataset to generate AI-powered analytics.
+                </p>
               </div>
-              <p>Dynamic structure mapper loaded. Natural language queries translated locally.</p>
-            </div>
+            ) : (
+              <>
+                {analytics.aiInsights.keyFindings.slice(0, 1).map((f, idx) => (
+                  <div key={idx} className="insight-card success">
+                    <div className="insight-top">
+                      <span className="insight-badge success">Key Finding</span>
+                      <TrendingUp size={14} style={{ color: 'var(--green)' }} />
+                    </div>
+                    <p style={{ fontSize: '12.5px', lineHeight: 1.4, margin: 0 }}>{f}</p>
+                  </div>
+                ))}
 
-            <div className="insight-card success">
-              <div className="insight-top">
-                <span className="insight-badge success">Milestone reached</span>
-                <TrendingUp size={14} style={{ color: 'var(--green)' }} />
-              </div>
-              <p>MRR is up +12.4% MoM. Enterprise plan constitutes 45% of customer spend.</p>
-            </div>
+                {analytics.aiInsights.anomalies.slice(0, 1).map((a, idx) => (
+                  <div key={idx} className="insight-card warning">
+                    <div className="insight-top">
+                      <span className="insight-badge warning">Variance / Alert</span>
+                      <AlertTriangle size={14} style={{ color: 'var(--amber)' }} />
+                    </div>
+                    <p style={{ fontSize: '12.5px', lineHeight: 1.4, margin: 0 }}>{a}</p>
+                  </div>
+                ))}
 
-            <div className="insight-card warning">
-              <div className="insight-top">
-                <span className="insight-badge warning">Churn watch</span>
-                <AlertTriangle size={14} style={{ color: 'var(--amber)' }} />
-              </div>
-              <p>Churn rate is 2.4%. Standard target is &lt;3%. Check customer engagement page.</p>
-            </div>
+                {analytics.aiInsights.trends.slice(0, 1).map((t, idx) => (
+                  <div key={idx} className="insight-card info">
+                    <div className="insight-top">
+                      <span className="insight-badge active">Trend Detected</span>
+                      <Layers size={14} style={{ color: 'var(--accent)' }} />
+                    </div>
+                    <p style={{ fontSize: '12.5px', lineHeight: 1.4, margin: 0 }}>{t}</p>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
 
           <div className="context-title" style={{ marginTop: '16px' }}>Sample Queries</div>
@@ -799,8 +863,9 @@ export default function AIAssistant() {
               <button
                 key={s}
                 className="sample-q"
-                onClick={() => send(s)}
-                disabled={loading || isStreamingActive}
+                onClick={() => !(isLocked || isSpreadsheetLocked) && send(s)}
+                disabled={loading || isStreamingActive || isLocked || isSpreadsheetLocked}
+                style={isLocked || isSpreadsheetLocked ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
               >
                 <span>{s}</span>
                 <ArrowRight size={10} className="q-arrow" />

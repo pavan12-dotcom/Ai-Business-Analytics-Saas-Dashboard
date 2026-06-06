@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createCheckout, openBillingPortal, simulateUpgrade } from '../services/api'
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
-import { Check, Zap, ExternalLink, ShieldCheck, TrendingUp, Sparkles, Award } from 'lucide-react'
+import { Check, ExternalLink, ShieldCheck, Sparkles, Award } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import './Billing.css'
 
@@ -13,7 +12,7 @@ const plans = [
     period: '/month',
     desc: 'Get started with core analytics',
     current: true,
-    features: ['100 AI queries/month', 'Dashboard & charts', '5 customer records', 'Email support'],
+    features: ['100 AI queries/month', 'Dashboard & charts', '5 customer records', 'Basic analytics views', 'Email support'],
     cta: 'Current Plan',
     ctaDisabled: true,
     accent: false,
@@ -45,31 +44,6 @@ const plans = [
   },
 ]
 
-function SemicircleGauge({ val, max, color }: { val: number; max: number; color: string }) {
-  const data = [
-    { value: val },
-    { value: max - val }
-  ]
-  return (
-    <div className="gauge-wrap">
-      <PieChart width={100} height={55}>
-        <Pie
-          data={data}
-          startAngle={180}
-          endAngle={0}
-          innerRadius={28}
-          outerRadius={38}
-          paddingAngle={0}
-          dataKey="value"
-          stroke="none"
-        >
-          <Cell fill={color} />
-          <Cell fill="var(--border)" />
-        </Pie>
-      </PieChart>
-    </div>
-  )
-}
 
 export default function Billing() {
   const nav = useNavigate()
@@ -163,42 +137,6 @@ export default function Billing() {
 
   return (
     <div className="billing-page fade-in">
-      {/* Top Health Gauges */}
-      <div className="billing-gauges-grid">
-        <div className="card gauge-card glass-card">
-          <div className="gauge-content">
-            <div className="gauge-text">
-              <span className="gauge-label">Projected ARR</span>
-              <span className="gauge-value">$184.8k</span>
-              <span className="gauge-sub">+12.4% MoM growth</span>
-            </div>
-            <SemicircleGauge val={82} max={100} color="var(--accent)" />
-          </div>
-        </div>
-
-        <div className="card gauge-card glass-card">
-          <div className="gauge-content">
-            <div className="gauge-text">
-              <span className="gauge-label">Customer Lifetime Value</span>
-              <span className="gauge-value">$1,850</span>
-              <span className="gauge-sub">4.2x LTV:CAC Ratio</span>
-            </div>
-            <SemicircleGauge val={75} max={100} color="var(--green)" />
-          </div>
-        </div>
-
-        <div className="card gauge-card glass-card">
-          <div className="gauge-content">
-            <div className="gauge-text">
-              <span className="gauge-label">User Retention Rate</span>
-              <span className="gauge-value">97.6%</span>
-              <span className="gauge-sub">2.4% churn index</span>
-            </div>
-            <SemicircleGauge val={97.6} max={100} color="var(--amber)" />
-          </div>
-        </div>
-      </div>
-
       {/* Current usage */}
       <div className="card billing-usage glass-card">
         <div className="usage-left">
@@ -247,15 +185,19 @@ export default function Billing() {
                 <span className="plan-price-period">{p.period}</span>
               </div>
               <div className="plan-desc">{p.desc}</div>
-              <div className="plan-divider" />
-              <ul className="plan-features">
-                {p.features.map(f => (
-                  <li key={f}>
-                    <Check size={12} className="check-icon" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
+              {p.features && p.features.length > 0 && (
+                <>
+                  <div className="plan-divider" />
+                  <ul className="plan-features">
+                    {p.features.map(f => (
+                      <li key={f}>
+                        <Check size={12} className="check-icon" />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
               <button
                 className={`btn ${p.accent ? 'btn-primary' : 'btn-secondary'} plan-cta`}
                 disabled={p.ctaDisabled || loadingPlan !== null}

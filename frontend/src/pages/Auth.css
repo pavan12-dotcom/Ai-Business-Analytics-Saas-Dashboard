@@ -1,3 +1,4 @@
+/* ── Auth page layout ──────────────────────────────────────────── */
 .auth-page {
   min-height: 100vh;
   background: var(--bg);
@@ -16,10 +17,11 @@
   border-radius: var(--radius);
   padding: 40px;
   width: 100%;
-  max-width: 420px;
+  max-width: 440px;
   box-shadow: var(--shadow);
 }
 
+/* ── Logo ─────────────────────────────────────────────────────── */
 .auth-logo {
   font-size: 17px;
   font-weight: 600;
@@ -32,7 +34,7 @@
 
 .auth-title {
   font-size: 22px;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 6px;
   color: var(--text);
 }
@@ -43,6 +45,7 @@
   margin-bottom: 28px;
 }
 
+/* ── Form ─────────────────────────────────────────────────────── */
 .auth-form {
   display: flex;
   flex-direction: column;
@@ -52,50 +55,277 @@
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .field-label {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text2);
+  letter-spacing: 0.01em;
+}
+
+/* ── Input wrapper (positions the check icon / pw toggle) ─────── */
+.field-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .field-input {
+  width: 100%;
   background: var(--bg3);
-  border: 1px solid var(--border2);
+  border: 1.5px solid var(--border2);
   border-radius: var(--radius-sm);
   padding: 10px 14px;
   font-size: 14px;
   color: var(--text);
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: inherit;
+  box-sizing: border-box;
 }
 
 .field-input:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
 }
 
 .field-input::placeholder {
   color: var(--muted);
 }
 
-.auth-error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: var(--radius-xs);
-  padding: 8px 12px;
-  font-size: 13px;
-  color: var(--red);
+/* Password input — extra right padding for toggle button */
+.field-input-pw {
+  padding-right: 42px;
 }
 
+/* ── Valid state — green border + glow ──────────────────────────── */
+.field-input.input-valid {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34,197,94,0.1);
+}
+
+/* ── Error state — red border + glow ───────────────────────────── */
+.field-input.input-error {
+  border-color: var(--red, #ef4444);
+  box-shadow: 0 0 0 3px rgba(239,68,68,0.1);
+}
+
+/* ── Green checkmark icon ───────────────────────────────────────── */
+.field-check {
+  position: absolute;
+  right: 12px;
+  font-size: 14px;
+  color: #22c55e;
+  font-weight: 700;
+  pointer-events: none;
+  user-select: none;
+  animation: checkPop 0.18s ease;
+}
+
+@keyframes checkPop {
+  from { transform: scale(0.5); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+/* ── Inline field error message ─────────────────────────────────── */
+.field-error-msg {
+  font-size: 12px;
+  color: var(--red, #ef4444);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  animation: fadeIn 0.15s ease;
+}
+
+.field-error-msg::before {
+  content: '⚠';
+  font-size: 11px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Show/hide password toggle ──────────────────────────────────── */
+.pw-toggle {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 15px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+
+.pw-toggle:hover { opacity: 1; }
+
+/* ── Password strength bar ──────────────────────────────────────── */
+.pw-strength-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.pw-strength-track {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.pw-strength-seg {
+  flex: 1;
+  height: 4px;
+  border-radius: 99px;
+  transition: background 0.25s;
+}
+
+.pw-strength-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  transition: color 0.25s;
+}
+
+/* ── Password requirement checklist ─────────────────────────────── */
+.pw-requirements {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 10px 12px;
+  background: rgba(99,102,241,0.04);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+}
+
+.pw-req-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: var(--muted);
+  transition: color 0.2s;
+}
+
+.pw-req-item.ok {
+  color: #22c55e;
+}
+
+.pw-req-dot {
+  font-size: 12px;
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* ── Server / global error box ──────────────────────────────────── */
+.auth-error {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-xs);
+  padding: 10px 13px;
+  font-size: 13px;
+  color: var(--red, #ef4444);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.auth-error::before { content: '⚠'; }
+
+/* ── Server / global success box ────────────────────────────────── */
+.auth-success {
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-radius: var(--radius-xs);
+  padding: 10px 13px;
+  font-size: 13px;
+  color: #22c55e;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.4;
+}
+
+/* ── Forgot Password recovery link ──────────────────────────────── */
+.forgot-link {
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s, transform 0.15s;
+}
+
+.forgot-link:hover {
+  color: var(--accent2);
+  text-decoration: underline;
+}
+
+.forgot-link-pulse {
+  color: var(--accent2) !important;
+  font-weight: 700;
+  display: inline-block;
+  animation: pulse-forgot 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse-forgot {
+  0% { transform: scale(1); text-shadow: 0 0 0px rgba(99, 102, 241, 0); }
+  50% { transform: scale(1.08); text-shadow: 0 0 8px rgba(99, 102, 241, 0.5); }
+  100% { transform: scale(1); text-shadow: 0 0 0px rgba(99, 102, 241, 0); }
+}
+
+/* ── Submit button ──────────────────────────────────────────────── */
 .auth-submit {
   width: 100%;
-  padding: 11px !important;
+  padding: 12px !important;
   font-size: 14px !important;
+  font-weight: 700 !important;
   margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity 0.2s, transform 0.15s;
 }
 
+.auth-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ── Loading spinner ────────────────────────────────────────────── */
+.auth-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2.5px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Hint text below submit ─────────────────────────────────────── */
+.auth-hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* ── Footer / links ─────────────────────────────────────────────── */
 .auth-footer {
   text-align: center;
   font-size: 13px;
@@ -105,17 +335,18 @@
 
 .auth-link {
   color: var(--accent2);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .auth-link:hover { text-decoration: underline; }
 
+/* ── Demo note ──────────────────────────────────────────────────── */
 .auth-demo-note {
   margin-top: 16px;
-  background: rgba(99, 102, 241, 0.06);
+  background: rgba(99, 102, 241, 0.05);
   border: 1px solid rgba(99, 102, 241, 0.15);
   border-radius: var(--radius-xs);
-  padding: 10px 14px;
+  padding: 12px 14px;
   font-size: 12px;
   color: var(--muted);
   line-height: 1.5;

@@ -216,7 +216,7 @@
   flex-shrink: 0;
 }
 
-:global(.dark) .session-icon {
+body.dark .session-icon {
   background: rgba(255, 255, 255, 0.03);
 }
 

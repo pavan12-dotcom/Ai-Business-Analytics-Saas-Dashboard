@@ -4,56 +4,6 @@
   gap: 16px;
 }
 
-/* Gauges Grid */
-.billing-gauges-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-
-.gauge-card {
-  padding: 14px 18px;
-  overflow: hidden;
-}
-
-.gauge-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.gauge-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.gauge-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.gauge-value {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text);
-  margin: 3px 0 1px 0;
-}
-
-.gauge-sub {
-  font-size: 11px;
-  color: var(--green);
-}
-
-.gauge-wrap {
-  display: flex;
-  align-items: flex-end;
-  height: 55px;
-  margin-right: -10px;
-}
 
 /* Billing Usage Card */
 .billing-usage {
@@ -228,7 +178,7 @@
 .plan-divider {
   height: 1px;
   background: var(--border);
-  margin: 4px 0;
+  margin: 8px 0 4px;
 }
 
 .plan-features {
@@ -236,8 +186,8 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  flex: 1;
   padding: 0;
+  margin: 0;
 }
 
 .plan-features li {
@@ -252,7 +202,7 @@
 .check-icon {
   color: var(--green);
   flex-shrink: 0;
-  margin-top: 3px;
+  margin-top: 2px;
 }
 
 .plan-cta {

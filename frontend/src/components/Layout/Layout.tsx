@@ -6,7 +6,17 @@ import { Sparkles, Zap, Check, X } from 'lucide-react'
 import './Layout.css'
 
 export default function Layout() {
-  const { showSignupModal, setShowSignupModal, signOut, showProModal, setShowProModal } = useAuth()
+  const { 
+    showSignupModal, 
+    setShowSignupModal, 
+    signOut, 
+    showProModal, 
+    setShowProModal,
+    showUpgradeModal,
+    setShowUpgradeModal,
+    showRenewalModal,
+    setShowRenewalModal
+  } = useAuth()
   const navigate = useNavigate()
 
   const handleAction = async (path: string) => {
@@ -21,6 +31,16 @@ export default function Layout() {
 
   const handleUpgradeToPro = () => {
     setShowProModal(false)
+    navigate('/app/billing')
+  }
+
+  const handleUpgradeFromModal = () => {
+    setShowUpgradeModal(false)
+    navigate('/app/billing')
+  }
+
+  const handleRenewFromModal = () => {
+    setShowRenewalModal(false)
     navigate('/app/billing')
   }
 
@@ -123,6 +143,105 @@ export default function Layout() {
               <button
                 className="btn btn-ghost btn-xs"
                 onClick={() => setShowProModal(false)}
+                style={{ marginTop: 12, opacity: 0.7 }}
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showUpgradeModal && (
+        <div className="modal-overlay">
+          <div className="pro-modal glass-card">
+            <button className="pro-modal-close" onClick={() => setShowUpgradeModal(false)} aria-label="Close">
+              <X size={18} />
+            </button>
+
+            <div className="pro-modal-badge" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(239,68,68,0.2))', borderColor: 'rgba(245,158,11,0.3)', color: '#fbbf24' }}>
+              <Zap size={14} />
+              <span>TRIAL ENDED</span>
+            </div>
+
+            <div className="pro-modal-icon" style={{ color: '#fbbf24', borderColor: 'rgba(245,158,11,0.25)', boxShadow: '0 0 30px rgba(245,158,11,0.15)' }}>
+              <Sparkles size={32} />
+            </div>
+
+            <h2 className="pro-modal-title pro-modal-title--yellow">Your Free Trial Has Ended</h2>
+            <p className="pro-modal-desc">
+              Upgrade to Premium to continue using AI-powered analytics, file uploads, and assistant features.
+            </p>
+
+            <div className="pro-modal-features">
+              {[
+                'Unlimited file uploads',
+                'Unlimited AI analyses',
+                'Advanced revenue forecasting',
+                'Full reports generation and downloads',
+                'AI assistant queries',
+              ].map((f) => (
+                <div key={f} className="pro-modal-feature">
+                  <Check size={14} className="pro-feature-check" style={{ color: '#fbbf24' }} />
+                  <span>{f}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="pro-modal-actions">
+              <button
+                className="btn btn-primary pro-modal-cta"
+                onClick={handleUpgradeFromModal}
+                style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444) !important', boxShadow: '0 4px 20px rgba(245,158,11,0.35)' }}
+              >
+                <Zap size={15} />
+                Upgrade to Premium
+              </button>
+              <button
+                className="btn btn-ghost btn-xs"
+                onClick={() => setShowUpgradeModal(false)}
+                style={{ marginTop: 12, opacity: 0.7 }}
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRenewalModal && (
+        <div className="modal-overlay">
+          <div className="pro-modal glass-card" style={{ borderColor: 'rgba(239,68,68,0.25)', boxShadow: '0 0 60px rgba(239,68,68,0.15), var(--shadow-lg)' }}>
+            <button className="pro-modal-close" onClick={() => setShowRenewalModal(false)} aria-label="Close">
+              <X size={18} />
+            </button>
+
+            <div className="pro-modal-badge" style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.2))', borderColor: 'rgba(239,68,68,0.3)', color: '#f87171' }}>
+              <Zap size={14} />
+              <span>EXPIRED</span>
+            </div>
+
+            <div className="pro-modal-icon" style={{ color: '#f87171', borderColor: 'rgba(239,68,68,0.25)', boxShadow: '0 0 30px rgba(239,68,68,0.15)' }}>
+              <X size={32} />
+            </div>
+
+            <h2 className="pro-modal-title pro-modal-title--red">Subscription Expired</h2>
+            <p className="pro-modal-desc">
+              Your Premium subscription has expired. Renew your plan to restore unlimited access to AI analysis, forecasting, and report exports.
+            </p>
+
+            <div className="pro-modal-actions">
+              <button
+                className="btn btn-primary pro-modal-cta"
+                onClick={handleRenewFromModal}
+                style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626) !important', boxShadow: '0 4px 20px rgba(239,68,68,0.35)' }}
+              >
+                <Zap size={15} />
+                Renew Subscription
+              </button>
+              <button
+                className="btn btn-ghost btn-xs"
+                onClick={() => setShowRenewalModal(false)}
                 style={{ marginTop: 12, opacity: 0.7 }}
               >
                 Maybe later

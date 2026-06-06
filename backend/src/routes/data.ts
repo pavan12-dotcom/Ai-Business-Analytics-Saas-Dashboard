@@ -175,8 +175,13 @@ export const memorySpreadsheets = new Map<string, any>()
 
 // Save or update user's spreadsheet
 router.post('/spreadsheet', requireAuth, async (req: Request, res: Response) => {
-  const { filename, headers, columns_metadata, rows } = req.body
   const userId = (req as any).userId
+  const guestId = (req as any).guestId
+  const lock = await checkSubscriptionLock(userId, guestId)
+  if (lock.locked) {
+    return res.status(403).json({ error: lock.error, message: lock.message })
+  }
+  const { filename, headers, columns_metadata, rows } = req.body
 
   const supabase = getSupabase()
   if (supabase) {
@@ -200,6 +205,7 @@ router.post('/spreadsheet', requireAuth, async (req: Request, res: Response) => 
 
       if (!error) {
         memorySpreadsheets.delete(userId)
+        await incrementSubscriptionAnalyses(userId, guestId)
         return res.json({ success: true })
       }
       console.warn('Supabase insert failed, falling back to local memory storage:', error.message)
@@ -216,6 +222,7 @@ router.post('/spreadsheet', requireAuth, async (req: Request, res: Response) => 
     rows,
     created_at: new Date().toISOString()
   })
+  await incrementSubscriptionAnalyses(userId, guestId)
   res.json({ success: true, fallback: true })
 })
 
@@ -392,8 +399,13 @@ async function extractTextFromPDFLocal(pdfBase64: string): Promise<string> {
 
 // Save/upload user's active document (PDF/text)
 router.post('/document', requireAuth, async (req: Request, res: Response) => {
-  const { filename, base64 } = req.body
   const userId = (req as any).userId
+  const guestId = (req as any).guestId
+  const lock = await checkSubscriptionLock(userId, guestId)
+  if (lock.locked) {
+    return res.status(403).json({ error: lock.error, message: lock.message })
+  }
+  const { filename, base64 } = req.body
 
   if (!filename || !base64) {
     return res.status(400).json({ error: 'filename and base64 string are required' })
@@ -417,6 +429,7 @@ router.post('/document', requireAuth, async (req: Request, res: Response) => {
           })
           if (!error) {
             memoryDocuments.delete(userId)
+            await incrementSubscriptionAnalyses(userId, guestId)
             return res.json({ success: true, textLength: extractedText.length, hasParsedData: !!parsed })
           }
         } catch (err) {}
@@ -428,6 +441,7 @@ router.post('/document', requireAuth, async (req: Request, res: Response) => {
         parsedRows: parsed?.rows,
         columnsMetadata: parsed?.columnsMetadata
       })
+      await incrementSubscriptionAnalyses(userId, guestId)
       return res.json({ success: true, fallback: true, textLength: extractedText.length, hasParsedData: !!parsed })
     } catch (err: any) {
       return res.status(500).json({ error: `Text parsing failed: ${err.message}` })
@@ -458,6 +472,7 @@ router.post('/document', requireAuth, async (req: Request, res: Response) => {
         })
         if (!error) {
           memoryDocuments.delete(userId)
+          await incrementSubscriptionAnalyses(userId, guestId)
           return res.json({ success: true, textLength: localExtractedText.length, hasParsedData: !!parsed })
         }
       } catch (err) {}
@@ -470,6 +485,7 @@ router.post('/document', requireAuth, async (req: Request, res: Response) => {
       parsedRows: parsed?.rows,
       columnsMetadata: parsed?.columnsMetadata
     })
+    await incrementSubscriptionAnalyses(userId, guestId)
     return res.json({ success: true, fallback: true, textLength: localExtractedText.length, hasParsedData: !!parsed })
   }
 
@@ -545,6 +561,7 @@ Rules:
             parsed_data: JSON.stringify({ rows: fallbackRows, columnsMetadata: fallbackMetadata })
           })
           memoryDocuments.delete(userId)
+          await incrementSubscriptionAnalyses(userId, guestId)
           return res.json({ success: true, fallback: true, textLength: fallbackText.length, hasParsedData: true })
         } catch (err) {}
       }
@@ -557,6 +574,7 @@ Rules:
         columnsMetadata: fallbackMetadata
       })
 
+      await incrementSubscriptionAnalyses(userId, guestId)
       return res.json({ success: true, fallback: true, textLength: fallbackText.length, hasParsedData: true })
     }
 
@@ -597,6 +615,7 @@ Rules:
         })
         if (!error) {
           memoryDocuments.delete(userId)
+          await incrementSubscriptionAnalyses(userId, guestId)
           return res.json({ success: true, textLength: extractedText.length, hasParsedData: !!parsedJson })
         }
       } catch (err) {}
@@ -610,6 +629,7 @@ Rules:
       columnsMetadata
     })
 
+    await incrementSubscriptionAnalyses(userId, guestId)
     return res.json({ success: true, fallback: true, textLength: extractedText.length, hasParsedData: !!parsedJson })
 
   } catch (err: any) {
@@ -629,6 +649,7 @@ Rules:
           parsed_data: JSON.stringify({ rows: fallbackData.rows, columnsMetadata: fallbackData.columnsMetadata })
         })
         memoryDocuments.delete(userId)
+        await incrementSubscriptionAnalyses(userId, guestId)
         return res.json({ success: true, fallback: true, textLength: fallbackText.length, hasParsedData: true })
       } catch (dbErr) {}
     }
@@ -641,6 +662,7 @@ Rules:
       columnsMetadata: fallbackData.columnsMetadata
     })
     
+    await incrementSubscriptionAnalyses(userId, guestId)
     return res.json({ success: true, fallback: true, textLength: fallbackText.length, hasParsedData: true })
   }
 })
@@ -702,6 +724,11 @@ router.get('/document', requireAuth, async (req: Request, res: Response) => {
 // Re-parse an already-uploaded document on demand
 router.post('/document/parse', requireAuth, async (req: Request, res: Response) => {
   const userId = (req as any).userId
+  const guestId = (req as any).guestId
+  const lock = await checkSubscriptionLock(userId, guestId)
+  if (lock.locked) {
+    return res.status(403).json({ error: lock.error, message: lock.message })
+  }
   let text = ''
   let filename = ''
 
@@ -740,6 +767,7 @@ router.post('/document/parse', requireAuth, async (req: Request, res: Response) 
     memoryDocuments.set(userId, { ...memDoc, parsedRows: parsed.rows, columnsMetadata: parsed.columnsMetadata })
   }
 
+  await incrementSubscriptionAnalyses(userId, guestId)
   return res.json({ success: true, rowCount: parsed.rows.length, columnsMetadata: parsed.columnsMetadata, parsedRows: parsed.rows })
 })
 
@@ -894,71 +922,221 @@ export async function addAuditLog(userId: string, userName: string, action: stri
   memoryAuditLogs.set(userId, logs.slice(0, 50))
 }
 
-router.get('/subscription', requireAuth, async (req: Request, res: Response) => {
-  const userId = (req as any).userId
+export const memorySubscriptions = new Map<string, any>()
+export const guestAnalyses = new Map<string, number>()
+
+export async function getOrInitSubscription(userId: string, guestId?: string, demoCount: number = 0) {
+  const isGuest = userId === '00000000-0000-0000-0000-000000000000'
+  if (isGuest) {
+    const used = guestId ? (guestAnalyses.get(guestId) || 0) : 0
+    return {
+      user_id: userId,
+      analyses_used: used,
+      analyses_remaining: Math.max(0, 2 - used),
+      subscription_status: used >= 2 ? 'trial_exhausted' : 'demo',
+      subscription_start: new Date().toISOString(),
+      subscription_end: new Date().toISOString(),
+      plan_type: 'free',
+      mrr: 0,
+      remaining_days: 0
+    }
+  }
+
   const supabase = getSupabase()
-  
-  let plan = 'Free'
-  let mrr = 0
-  let status = 'Active'
-  let aiQueryCount = 0
+  let sub: any = null
 
   if (supabase) {
     try {
       const { data, error } = await supabase
-        .from('customers')
-        .select('plan, mrr, status')
-        .eq('id', userId)
-        .maybeSingle()
-      
-      if (!error && data) {
-        plan = data.plan
-        mrr = Number(data.mrr)
-        status = data.status
-      }
-    } catch (err) {}
-
-    try {
-      const startOfMonth = new Date()
-      startOfMonth.setDate(1)
-      startOfMonth.setHours(0, 0, 0, 0)
-
-      const { count, error } = await supabase
-        .from('audit_logs')
-        .select('*', { count: 'exact', head: true })
+        .from('user_subscriptions')
+        .select('*')
         .eq('user_id', userId)
-        .like('action', 'AI Assistant Query%')
-        .gte('created_at', startOfMonth.toISOString())
+        .maybeSingle()
 
-      if (!error && count !== null) {
-        aiQueryCount = count
+      if (!error && data) {
+        sub = data
       }
-    } catch (err) {}
+    } catch (err: any) {
+      console.warn('Supabase subscription fetch failed, using memory fallback:', err.message)
+    }
+  }
+
+  // Fallback to memory
+  if (!sub) {
+    sub = memorySubscriptions.get(userId)
+  }
+
+  // If subscription already exists but we have demo usage to merge (e.g., returning user)
+  if (sub && demoCount > 0 && demoCount > (sub.analyses_used || 0)) {
+    const mergedUsed = Math.min(5, demoCount)
+    const mergedRemaining = Math.max(0, 5 - mergedUsed)
+    const mergedStatus = mergedUsed >= 5 ? 'trial_exhausted' : 'trial'
+    sub.analyses_used = mergedUsed
+    sub.analyses_remaining = mergedRemaining
+    sub.subscription_status = mergedStatus
+
+    if (supabase) {
+      try {
+        await supabase.from('user_subscriptions').update({
+          analyses_used: mergedUsed,
+          analyses_remaining: mergedRemaining,
+          subscription_status: mergedStatus
+        }).eq('user_id', userId)
+      } catch (err: any) {
+        console.warn('Failed to merge demo usage into subscription:', err.message)
+      }
+    }
+    memorySubscriptions.set(userId, sub)
+  }
+
+  // Initialize if not present
+  if (!sub) {
+    const now = new Date()
+    const expiry = new Date()
+    expiry.setMonth(expiry.getMonth() + 1)
+    
+    const used = Math.min(5, Math.max(0, demoCount))
+    sub = {
+      user_id: userId,
+      analyses_used: used,
+      analyses_remaining: Math.max(0, 5 - used),
+      subscription_status: used >= 5 ? 'trial_exhausted' : 'trial',
+      subscription_start: now.toISOString(),
+      subscription_end: expiry.toISOString(),
+      plan_type: 'free',
+      mrr: 0
+    }
+
+    if (supabase) {
+      try {
+        const { error } = await supabase
+          .from('user_subscriptions')
+          .insert(sub)
+        if (error && error.code !== '42P01') {
+          console.error('Error inserting subscription in database:', error.message)
+        }
+      } catch (err: any) {
+        console.warn('Supabase subscription insert failed, using memory fallback:', err.message)
+      }
+    }
+
+    memorySubscriptions.set(userId, sub)
+  }
+
+  // Expiry check and limit enforcement logic
+  const now = new Date()
+  const end = new Date(sub.subscription_end)
+  const diffTime = end.getTime() - now.getTime()
+  const remaining_days = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)))
+
+  let updated = false
+  if (sub.plan_type === 'pro' || sub.plan_type === 'enterprise') {
+    if (now > end && sub.subscription_status === 'active') {
+      sub.subscription_status = 'expired'
+      updated = true
+    }
   } else {
-    const logs = memoryAuditLogs.get(userId) || []
-    aiQueryCount = logs.filter(l => l.action.startsWith('AI Assistant Query')).length
+    if (sub.analyses_used >= 5 && sub.subscription_status === 'trial') {
+      sub.subscription_status = 'trial_exhausted'
+      sub.analyses_remaining = 0
+      updated = true
+    }
   }
 
-  // Check if upgraded in local memory (either offline or override)
-  const mockUpgrade = mockUserPlans.get(userId)
-  if (mockUpgrade) {
-    plan = mockUpgrade.plan
-    mrr = mockUpgrade.mrr
-    status = mockUpgrade.status
+  if (updated) {
+    if (supabase) {
+      try {
+        await supabase
+          .from('user_subscriptions')
+          .update({
+            subscription_status: sub.subscription_status,
+            analyses_remaining: sub.analyses_remaining
+          })
+          .eq('user_id', userId)
+      } catch (err: any) {
+        console.error('Error updating status in database:', err.message)
+      }
+    }
+    memorySubscriptions.set(userId, sub)
   }
 
-  // Determine limits
-  let aiQueryLimit = 100
-  if (plan === 'Pro') aiQueryLimit = 1000
-  if (plan === 'Enterprise') aiQueryLimit = 10000
+  return {
+    ...sub,
+    plan: sub.plan_type === 'pro' ? 'Pro' : sub.plan_type === 'enterprise' ? 'Enterprise' : 'Free',
+    status: sub.subscription_status === 'active' ? 'Active' : sub.subscription_status === 'trial' ? 'Trial' : sub.subscription_status === 'expired' ? 'Expired' : 'Trial Exhausted',
+    mrr: sub.plan_type === 'pro' ? 29 : sub.plan_type === 'enterprise' ? 99 : 0,
+    aiQueryCount: sub.analyses_used,
+    aiQueryLimit: sub.plan_type === 'pro' ? 999999 : sub.plan_type === 'enterprise' ? 999999 : 5,
+    remaining_days
+  }
+}
 
-  res.json({
-    plan,
-    mrr,
-    status,
-    aiQueryCount,
-    aiQueryLimit
-  })
+export async function checkSubscriptionLock(userId: string, guestId?: string) {
+  const sub = await getOrInitSubscription(userId, guestId)
+  if (sub.subscription_status === 'trial_exhausted') {
+    return { locked: true, error: 'trial_exhausted', message: 'Your free trial has ended. Upgrade to Premium to continue using AI-powered analytics.' }
+  }
+  if (sub.subscription_status === 'expired') {
+    return { locked: true, error: 'expired', message: 'Your Premium subscription has expired. Renew your plan to regain access.' }
+  }
+  return { locked: false }
+}
+
+export async function incrementSubscriptionAnalyses(userId: string, guestId?: string) {
+  const isGuest = userId === '00000000-0000-0000-0000-000000000000'
+  if (isGuest) {
+    if (guestId) {
+      const current = guestAnalyses.get(guestId) || 0
+      guestAnalyses.set(guestId, current + 1)
+    }
+    return
+  }
+
+  const sub = await getOrInitSubscription(userId, guestId)
+  if (sub.plan_type === 'free') {
+    const nextUsed = sub.analyses_used + 1
+    const nextRemaining = Math.max(0, 5 - nextUsed)
+    const nextStatus = nextUsed >= 5 ? 'trial_exhausted' : 'trial'
+
+    const supabase = getSupabase()
+    if (supabase) {
+      try {
+        await supabase
+          .from('user_subscriptions')
+          .update({
+            analyses_used: nextUsed,
+            analyses_remaining: nextRemaining,
+            subscription_status: nextStatus
+          })
+          .eq('user_id', userId)
+      } catch (err: any) {
+        console.error('Failed to update subscription count in database:', err.message)
+      }
+    }
+
+    // Update memory
+    const memSub = memorySubscriptions.get(userId)
+    if (memSub) {
+      memSub.analyses_used = nextUsed
+      memSub.analyses_remaining = nextRemaining
+      memSub.subscription_status = nextStatus
+    }
+  }
+}
+
+router.get('/subscription', requireAuth, async (req: Request, res: Response) => {
+  const userId = (req as any).userId
+  const guestId = (req as any).guestId
+  const sub = await getOrInitSubscription(userId, guestId)
+  res.json(sub)
+})
+
+router.post('/subscription/init', requireAuth, async (req: Request, res: Response) => {
+  const userId = (req as any).userId
+  const guestId = (req as any).guestId
+  const { demoCount } = req.body
+  const sub = await getOrInitSubscription(userId, guestId, demoCount)
+  res.json(sub)
 })
 
 router.get('/audit-logs', requireAuth, async (req: Request, res: Response) => {

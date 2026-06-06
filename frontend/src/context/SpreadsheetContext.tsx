@@ -1,9 +1,11 @@
 // SpreadsheetContext.tsx
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { detectColumnTypes } from '../services/columnDetection'
 import { fetchSpreadsheet, uploadSpreadsheet, deleteSpreadsheet, fetchDocument, uploadDocument, deleteDocument, reparseDocument } from '../services/api'
 import { useAuth } from './AuthContext'
+import { computeAnalytics, type AnalyticsResult } from '../services/analyticsEngine'
+import type { SampleDataset } from '../data/sampleDatasets'
 
 interface SpreadsheetContextType {
   activeSheet: any
@@ -18,6 +20,11 @@ interface SpreadsheetContextType {
   uploadDoc: (file: File) => Promise<{ success: boolean; error: string | null }>
   resetDoc: () => Promise<void>
   reparseDoc: () => Promise<{ success: boolean; rowCount?: number; message?: string }>
+  // Analytics engine
+  analytics: AnalyticsResult
+  hasData: boolean
+  datasetName: string
+  loadSample: (dataset: SampleDataset) => void
 }
 
 const SpreadsheetContext = createContext<SpreadsheetContextType>({} as SpreadsheetContextType)
@@ -27,7 +34,8 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
   const [loading, setLoading] = useState(true)
   const [activeDocument, setActiveDocument] = useState<any>(null)
   const [loadingDoc, setLoadingDoc] = useState(true)
-  const { user, incrementUploadCount, isGuest, isGuestTrialExhausted, setShowSignupModal } = useAuth()
+  const [sampleSheet, setSampleSheet] = useState<any>(null) // loaded sample dataset
+  const { user, incrementUploadCount, isGuest, isGuestTrialExhausted, setShowSignupModal, refreshSubscription } = useAuth()
 
   useEffect(() => {
     setLoading(true)
@@ -66,29 +74,35 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       setShowSignupModal(true)
       return { success: false, error: 'demo_limit' }
     }
-    // Only accept Excel files
     const extension = file.name.split('.').pop()?.toLowerCase()
-    if (extension !== 'xlsx' && extension !== 'xls') {
-      return { success: false, error: 'Invalid file type. Please upload Excel files only (.xlsx or .xls)' }
+    if (extension !== 'xlsx' && extension !== 'xls' && extension !== 'csv' && extension !== 'json') {
+      return { success: false, error: 'Invalid file type. Please upload Excel (.xlsx, .xls), CSV (.csv), or JSON (.json) files.' }
     }
 
     return new Promise((resolve) => {
       const reader = new FileReader()
       reader.onload = async (e) => {
         try {
-          const ab = e.target?.result as ArrayBuffer
-          const wb = XLSX.read(ab, { type: 'array', cellDates: true })
-          const sheetName = wb.SheetNames[0]
-          const ws = wb.Sheets[sheetName]
-          const json: any[] = XLSX.utils.sheet_to_json(ws)
+          let json: any[] = []
+          if (extension === 'json') {
+            const text = e.target?.result as string
+            const parsed = JSON.parse(text)
+            json = Array.isArray(parsed) ? parsed : [parsed]
+          } else {
+            const ab = e.target?.result as ArrayBuffer
+            const wb = XLSX.read(ab, { type: 'array', cellDates: true })
+            const sheetName = wb.SheetNames[0]
+            const ws = wb.Sheets[sheetName]
+            json = XLSX.utils.sheet_to_json(ws)
+          }
 
           if (json.length === 0) {
-            resolve({ success: false, error: 'The uploaded spreadsheet contains no data rows.' })
+            resolve({ success: false, error: 'The uploaded dataset contains no data rows.' })
             return
           }
 
           if (json.length > 2000) {
-            resolve({ success: false, error: 'Spreadsheet exceeds the limit of 2000 rows. Please upload a smaller file.' })
+            resolve({ success: false, error: 'Dataset exceeds the limit of 2000 rows. Please upload a smaller file.' })
             return
           }
 
@@ -105,10 +119,14 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
           const response = await uploadSpreadsheet(payload)
           if (response.success) {
             setActiveSheet(payload)
-            incrementUploadCount()
+            if (isGuest) {
+              incrementUploadCount()
+            } else {
+              refreshSubscription()
+            }
             resolve({ success: true, error: null })
           } else {
-            resolve({ success: false, error: 'Failed to upload spreadsheet data to server.' })
+            resolve({ success: false, error: 'Failed to upload dataset data to server.' })
           }
         } catch (err: any) {
           const errMsg = err.response?.data?.error || err.message || 'Unknown server error'
@@ -116,9 +134,13 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
         }
       }
       reader.onerror = () => {
-        resolve({ success: false, error: 'Failed to read spreadsheet file.' })
+        resolve({ success: false, error: 'Failed to read dataset file.' })
       }
-      reader.readAsArrayBuffer(file)
+      if (extension === 'json') {
+        reader.readAsText(file)
+      } else {
+        reader.readAsArrayBuffer(file)
+      }
     })
   }
 
@@ -172,7 +194,13 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
               columnsMetadata: response.columnsMetadata,
               hasParsedData: !!response.parsedRows?.length
             })
-            incrementUploadCount()
+            if (isGuest) {
+              // guest: increment unified demo_used counter
+              incrementUploadCount()
+            } else {
+              // authenticated: backend has already incremented DB; refresh UI counters
+              refreshSubscription()
+            }
             resolve({ success: true, error: null })
           } else {
             resolve({ success: false, error: 'Failed to upload document.' })
@@ -316,7 +344,7 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
         Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
         Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12
       }
-      return Object.entries(monthlyGroups).map(([month, data]) => ({
+      return (Object.entries(monthlyGroups) as [string, { revenue: number; mrr: number }][]).map(([month, data]) => ({
         month,
         revenue: Math.round(data.revenue),
         mrr: Math.round(data.mrr)
@@ -365,11 +393,45 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
     }
   }
 
+  // ── Load a sample dataset without backend ────────────────────
+  const loadSample = (dataset: SampleDataset) => {
+    setSampleSheet({
+      filename: dataset.filename,
+      headers: dataset.headers,
+      columns_metadata: dataset.columns_metadata,
+      rows: dataset.rows,
+    })
+    // Clear real uploads so sample takes precedence
+    setActiveSheet(null)
+    setActiveDocument(null)
+  }
+
+  // ── Compute analytics whenever any data source changes ────────
+  const effectiveSource = activeSheet || sampleSheet || (
+    activeDocument?.parsedRows?.length > 0 ? {
+      filename: activeDocument.filename,
+      rows: activeDocument.parsedRows,
+      columns_metadata: activeDocument.columnsMetadata || {},
+    } : null
+  )
+
+  const analytics = useMemo(() => {
+    if (!effectiveSource) return computeAnalytics([], {}, '')
+    return computeAnalytics(
+      effectiveSource.rows || [],
+      effectiveSource.columns_metadata || {},
+      effectiveSource.filename || 'Dataset'
+    )
+  }, [effectiveSource])
+
+  const hasData = analytics.hasData
+  const datasetName = analytics.datasetName
+
   return (
-    <SpreadsheetContext.Provider value={{ 
-      activeSheet, 
-      loading, 
-      upload, 
+    <SpreadsheetContext.Provider value={{
+      activeSheet: activeSheet || sampleSheet,
+      loading,
+      upload,
       reset,
       getSpreadsheetCustomers,
       getSpreadsheetMonthlyMetrics,
@@ -378,7 +440,11 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       loadingDoc,
       uploadDoc,
       resetDoc,
-      reparseDoc
+      reparseDoc,
+      analytics,
+      hasData,
+      datasetName,
+      loadSample,
     }}>
       {children}
     </SpreadsheetContext.Provider>

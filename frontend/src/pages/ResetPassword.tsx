@@ -1,16 +1,8 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth, mapAuthError } from '../context/AuthContext'
+import { supabase } from '../services/supabase'
 import './Auth.css'
-
-// ── Validators ────────────────────────────────────────────────
-const EMAIL_RE = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/
-
-function validateEmail(v: string) {
-  if (!v) return 'Email is required.'
-  if (!EMAIL_RE.test(v)) return 'Please enter a valid email address.'
-  return ''
-}
 
 function validatePassword(v: string) {
   if (!v) return 'Password is required.'
@@ -27,12 +19,6 @@ function validateConfirm(p: string, c: string) {
   return ''
 }
 
-function validateName(v: string) {
-  if (!v.trim()) return 'Full name is required.'
-  return ''
-}
-
-// ── Password strength ─────────────────────────────────────────
 function getStrength(v: string): { score: number; label: string; color: string } {
   let s = 0
   if (v.length >= 8) s++
@@ -46,32 +32,61 @@ function getStrength(v: string): { score: number; label: string; color: string }
   return { score: s, label: 'Strong', color: 'var(--green)' }
 }
 
-export default function Signup() {
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+export default function ResetPassword() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [successEmailConfirmation, setSuccessEmailConfirmation] = useState(false)
-
-  // Track whether user has blurred each field (to show errors only after touching)
-  const [touched, setTouched] = useState({ name: false, email: false, password: false, confirmPassword: false })
-
+  const [touched, setTouched] = useState({ password: false, confirmPassword: false })
   const [serverError, setServerError] = useState('')
+  const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { signUp, loginAsGuest } = useAuth()
+  const [hasSession, setHasSession] = useState<boolean | null>(null)
+  const { updatePassword } = useAuth()
   const nav = useNavigate()
 
-  // Derived validation errors
+  useEffect(() => {
+    const checkRecoverySession = async () => {
+      const isDemoMode = import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co'
+      if (isDemoMode) {
+        setHasSession(true)
+        return
+      }
+      
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        setHasSession(true)
+      } else {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+          if (currentSession) {
+            setHasSession(true)
+          }
+        })
+        
+        const timer = setTimeout(() => {
+          supabase.auth.getSession().then(({ data: { session: finalSession } }) => {
+            if (!finalSession) {
+              setHasSession(false)
+            } else {
+              setHasSession(true)
+            }
+          })
+        }, 1500)
+
+        return () => {
+          subscription.unsubscribe()
+          clearTimeout(timer)
+        }
+      }
+    }
+    checkRecoverySession()
+  }, [])
+
   const errors = useMemo(() => ({
-    name: validateName(name),
-    email: validateEmail(email),
     password: validatePassword(password),
     confirmPassword: validateConfirm(password, confirmPassword),
-  }), [name, email, password, confirmPassword])
+  }), [password, confirmPassword])
 
-  const isFormValid = !errors.name && !errors.email && !errors.password && !errors.confirmPassword
-
+  const isFormValid = !errors.password && !errors.confirmPassword
   const strength = useMemo(() => getStrength(password), [password])
 
   const blur = (field: keyof typeof touched) =>
@@ -79,22 +94,21 @@ export default function Signup() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Mark all fields touched so errors show
-    setTouched({ name: true, email: true, password: true, confirmPassword: true })
+    setTouched({ password: true, confirmPassword: true })
     if (!isFormValid) return
 
     setServerError('')
+    setSuccess(false)
     setLoading(true)
-    const { error, session } = await signUp(email.trim().toLowerCase(), password, name.trim())
+    const { error } = await updatePassword(password)
     setLoading(false)
     if (error) {
-      setServerError(mapAuthError(error) || 'An error occurred during signup.')
+      setServerError(mapAuthError(error) || 'Failed to reset your password.')
     } else {
-      if (!session) {
-        setSuccessEmailConfirmation(true)
-      } else {
-        nav('/app')
-      }
+      setSuccess(true)
+      setTimeout(() => {
+        nav('/login')
+      }, 3000)
     }
   }
 
@@ -110,74 +124,41 @@ export default function Signup() {
           <span style={{ fontSize: '20px', fontWeight: 800 }}>AI-Powered Business Analytics</span>
         </div>
 
-        <h1 className="auth-title">Create your account</h1>
-        <p className="auth-sub">Start free — no credit card required</p>
+        <h1 className="auth-title">Create New Password</h1>
+        <p className="auth-sub">Please enter a new 8+ character password</p>
 
-        {successEmailConfirmation ? (
-          <div className="auth-success-flow" style={{ marginTop: '16px' }}>
+        {hasSession === null ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+            <div className="auth-spinner" style={{ borderTopColor: 'var(--accent)', width: '32px', height: '32px', borderWidth: '3px' }} />
+          </div>
+        ) : hasSession === false ? (
+          <div className="auth-error-flow" style={{ marginTop: '16px' }}>
+            <div className="auth-error" style={{ marginBottom: '20px' }}>
+              This recovery link is invalid or has expired. Password reset links are single-use.
+            </div>
+            <Link to="/forgot-password" className="btn btn-primary auth-submit" style={{ display: 'inline-flex', textDecoration: 'none' }}>
+              Request New Reset Link →
+            </Link>
+          </div>
+        ) : success ? (
+          <div className="auth-success-flow">
             <div className="auth-success">
-              ✓ Account created! We've sent a verification link to <strong>{email}</strong>. Please check your inbox and click the link to confirm your account.
+              ✓ Password reset successfully! Redirecting you to sign in page...
             </div>
-            <div style={{ marginTop: '24px' }}>
+            <p style={{ marginTop: '20px', textAlign: 'center' }}>
               <Link to="/login" className="btn btn-primary auth-submit" style={{ display: 'inline-flex', textDecoration: 'none' }}>
-                Go to Sign In →
+                Go to Sign In Now
               </Link>
-            </div>
+            </p>
           </div>
         ) : (
           <form onSubmit={submit} className="auth-form" noValidate>
-            {/* Full Name */}
+            {/* New Password */}
             <div className="field">
-              <label className="field-label">Full Name</label>
+              <label className="field-label">New Password</label>
               <div className="field-input-wrap">
                 <input
-                  id="signup-name"
-                  className={`field-input${touched.name && errors.name ? ' input-error' : touched.name && !errors.name ? ' input-valid' : ''}`}
-                  type="text"
-                  value={name}
-                  onChange={e => { setName(e.target.value); if (serverError) setServerError(''); }}
-                  onBlur={() => blur('name')}
-                  placeholder="Jane Smith"
-                  autoComplete="name"
-                />
-                {touched.name && !errors.name && name && (
-                  <span className="field-check">✓</span>
-                )}
-              </div>
-              {touched.name && errors.name && (
-                <span className="field-error-msg">{errors.name}</span>
-              )}
-            </div>
-
-            {/* Work Email */}
-            <div className="field">
-              <label className="field-label">Work Email</label>
-              <div className="field-input-wrap">
-                <input
-                  id="signup-email"
-                  className={`field-input${touched.email && errors.email ? ' input-error' : touched.email && !errors.email ? ' input-valid' : ''}`}
-                  type="email"
-                  value={email}
-                  onChange={e => { setEmail(e.target.value); if (serverError) setServerError(''); }}
-                  onBlur={() => blur('email')}
-                  placeholder="you@company.com"
-                  autoComplete="email"
-                />
-                {touched.email && !errors.email && email && (
-                  <span className="field-check">✓</span>
-                )}
-              </div>
-              {touched.email && errors.email && (
-                <span className="field-error-msg">{errors.email}</span>
-              )}
-            </div>
-
-            {/* Password */}
-            <div className="field">
-              <label className="field-label">Password</label>
-              <div className="field-input-wrap">
-                <input
-                  id="signup-password"
+                  id="reset-password"
                   className={`field-input field-input-pw${touched.password && errors.password ? ' input-error' : touched.password && !errors.password ? ' input-valid' : ''}`}
                   type={showPassword ? 'text' : 'password'}
                   value={password}
@@ -237,10 +218,10 @@ export default function Signup() {
 
             {/* Confirm Password */}
             <div className="field">
-              <label className="field-label">Confirm Password</label>
+              <label className="field-label">Confirm New Password</label>
               <div className="field-input-wrap">
                 <input
-                  id="signup-confirm-password"
+                  id="reset-confirm-password"
                   className={`field-input field-input-pw${touched.confirmPassword && errors.confirmPassword ? ' input-error' : touched.confirmPassword && !errors.confirmPassword && confirmPassword ? ' input-valid' : ''}`}
                   type={showPassword ? 'text' : 'password'}
                   value={confirmPassword}
@@ -262,40 +243,15 @@ export default function Signup() {
             {serverError && <div className="auth-error">{serverError}</div>}
 
             <button
-              id="signup-submit"
+              id="reset-submit"
               type="submit"
               className="btn btn-primary auth-submit"
               disabled={loading || !isFormValid}
             >
-              {loading ? (
-                <span className="auth-spinner" />
-              ) : (
-                'Create Account →'
-              )}
+              {loading ? <span className="auth-spinner" /> : 'Update Password →'}
             </button>
-
-            {/* Validation hint before first submit */}
-            {!isFormValid && !touched.name && !touched.email && !touched.password && !touched.confirmPassword && (
-              <p className="auth-hint">Fill in your details above to continue.</p>
-            )}
           </form>
         )}
-
-        <p className="auth-footer">
-          Already have an account? <Link to="/login" className="auth-link">Sign in</Link>
-        </p>
-
-        <div className="auth-demo-note" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-          <div>💡 <strong>Demo mode:</strong> Try the app instantly without an account.</div>
-          <button
-            type="button"
-            className="btn btn-secondary btn-xs"
-            onClick={() => { loginAsGuest(); nav('/app') }}
-            style={{ fontWeight: 600, color: 'var(--accent)', background: 'var(--bg-hover)', border: '1px solid var(--border)' }}
-          >
-            See Demo Instant ⚡
-          </button>
-        </div>
       </div>
     </div>
   )

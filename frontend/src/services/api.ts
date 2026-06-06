@@ -9,6 +9,10 @@ const api = axios.create({
 // Attach Supabase JWT if available, or guest demo token
 api.interceptors.request.use(async (config) => {
   try {
+    const guestId = localStorage.getItem('guest_session_id')
+    if (guestId) {
+      config.headers['X-Guest-ID'] = guestId
+    }
     const isGuest = localStorage.getItem('demo_guest_user') === 'true'
     if (isGuest) {
       config.headers.Authorization = 'Bearer demo-guest-token'
@@ -71,5 +75,76 @@ export const fetchSubscription = () =>
 export const simulateUpgrade = (plan: string) =>
   api.post('/api/billing/simulate-upgrade', { plan }).then(r => r.data)
 
+// ── Real-time AI streaming helper ──────────────────────────────
+// Returns a ReadableStream of SSE chunks from /api/ai/stream
+export const streamAI = async (
+  question: string,
+  mode: string,
+  onChunk: (chunk: string) => void,
+  onDone: (engine: string, demo: boolean) => void,
+  onError: (msg: string) => void,
+  signal?: AbortSignal
+): Promise<void> => {
+  const { supabase } = await import('./supabase')
+  let token: string | null = null
+  try {
+    const isGuest = localStorage.getItem('demo_guest_user') === 'true'
+    if (isGuest) {
+      token = 'demo-guest-token'
+    } else {
+      const { data: { session } } = await supabase.auth.getSession()
+      token = session?.access_token ?? null
+    }
+  } catch {}
 
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const guestId = localStorage.getItem('guest_session_id')
+  if (guestId) headers['X-Guest-ID'] = guestId
+  if (token) headers['Authorization'] = `Bearer ${token}`
 
+  try {
+    const response = await fetch(`${API_BASE}/api/ai/stream`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ question, mode }),
+      signal,
+    })
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}))
+      onError(errData.error || `Server error ${response.status}`)
+      return
+    }
+
+    if (!response.body) {
+      onError('No response body')
+      return
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let engine = 'fallback'
+    let demo = false
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      const raw = decoder.decode(value, { stream: true })
+      for (const line of raw.split('\n')) {
+        if (!line.startsWith('data: ')) continue
+        const data = line.slice(6)
+        if (data === '[DONE]') { onDone(engine, demo); return }
+        try {
+          const parsed = JSON.parse(data)
+          if (parsed.chunk !== undefined) onChunk(parsed.chunk)
+          if (parsed.engine) engine = parsed.engine
+          if (parsed.demo !== undefined) demo = parsed.demo
+        } catch {}
+      }
+    }
+
+    onDone(engine, demo)
+  } catch (err: any) {
+    if (err.name !== 'AbortError') onError(err.message || 'Stream failed')
+  }
+}

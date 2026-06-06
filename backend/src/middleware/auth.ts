@@ -21,12 +21,17 @@ const tokenCache = new Map<string, { userId: string; user: any; expiresAt: numbe
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const token = req.headers.authorization?.replace('Bearer ', '')
+  const guestId = req.headers['x-guest-id'] as string
+  if (guestId) {
+    ;(req as any).guestId = guestId
+  }
 
-  // Authenticate guest demo users using a static UUID format
+  // Authenticate guest demo users using isolated guest IDs
   if (token === 'demo-guest-token') {
-    ;(req as any).userId = '00000000-0000-0000-0000-000000000000'
+    const finalGuestId = guestId || '00000000-0000-0000-0000-000000000000'
+    ;(req as any).userId = `guest-${finalGuestId}`
     ;(req as any).user = {
-      id: '00000000-0000-0000-0000-000000000000',
+      id: `guest-${finalGuestId}`,
       email: 'guest@demo.com',
       user_metadata: { name: 'Demo Guest', isGuest: true }
     }

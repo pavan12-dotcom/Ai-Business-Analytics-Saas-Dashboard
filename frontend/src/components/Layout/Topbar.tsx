@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { fetchDBStatus } from '../../services/api'
+import { fetchDBStatus, markNotificationRead as apiMarkRead, clearNotifications as apiClear } from '../../services/api'
+import { useRealtime } from '../../hooks/useRealtime'
 import {
   Bell,
   Shield,
-  ChevronDown,
   Check,
   Trash2,
   ShieldAlert,
@@ -33,7 +33,7 @@ const titles: Record<string, string> = {
 export default function Topbar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { user, userRole, setRole, isGuest, guestQueryCount, uploadCount } = useAuth()
+  const { user, userRole, isGuest, guestQueryCount, uploadCount } = useAuth()
   const title = titles[pathname] ?? 'Dashboard'
 
   const [dbStatus, setDbStatus] = useState<{ status: string; message: string }>({
@@ -45,25 +45,39 @@ export default function Topbar() {
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
   })
 
-  // Notifications State
-  const [notifications, setNotifications] = useState<any[]>(() => {
-    const saved = localStorage.getItem('notifications')
+  // Live notifications from Supabase Realtime
+  const { notifications: liveNotifications, unreadCount: liveUnread, markNotificationRead: rtMarkRead, status: realtimeStatus } = useRealtime()
+
+  // Local UI-only notifications (from window events like file upload)
+  const [localNotifs, setLocalNotifs] = useState<any[]>(() => {
+    const saved = localStorage.getItem('local_notifications')
     if (saved) return JSON.parse(saved)
-    return [
-      { id: '1', title: 'Revenue Milestone', desc: 'Projected ARR crossed $180k target milestone!', read: false, type: 'success', time: '10m ago' },
-      { id: '2', title: 'Churn Alert', desc: 'Average churn rate decreased to 2.4% this week.', read: false, type: 'info', time: '1h ago' },
-      { id: '3', title: 'Security Advisory', desc: 'New login detected from a new location.', read: true, type: 'warning', time: '5h ago' }
-    ]
+    return []
   })
 
+  // Merge live DB notifs + local UI events
+  const allNotifications = [
+    ...localNotifs,
+    ...liveNotifications.map(n => ({
+      id: `rt_${n.id}`,
+      title: n.title,
+      desc: n.message,
+      read: n.read,
+      type: n.type === 'revenue' ? 'success' : n.type === 'churn' ? 'warning' : 'info',
+      time: n.timestamp,
+      isRealtime: true,
+      rtId: n.id,
+    }))
+  ]
+
   const [showNotifications, setShowNotifications] = useState(false)
-  const [showRoleDropdown, setShowRoleDropdown] = useState(false)
-  const roleRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
+  const [bellPing, setBellPing] = useState(false)
+  const prevUnreadRef = useRef(0)
 
   useEffect(() => {
-    localStorage.setItem('notifications', JSON.stringify(notifications))
-  }, [notifications])
+    localStorage.setItem('local_notifications', JSON.stringify(localNotifs))
+  }, [localNotifs])
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -77,9 +91,6 @@ export default function Topbar() {
   // Listen for click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (roleRef.current && !roleRef.current.contains(event.target as Node)) {
-        setShowRoleDropdown(false)
-      }
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
         setShowNotifications(false)
       }
@@ -88,7 +99,17 @@ export default function Topbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Listen for custom events
+  // Bell ping animation on new unread
+  useEffect(() => {
+    const totalUnread = allNotifications.filter(n => !n.read).length
+    if (totalUnread > prevUnreadRef.current && prevUnreadRef.current !== 0) {
+      setBellPing(true)
+      setTimeout(() => setBellPing(false), 2000)
+    }
+    prevUnreadRef.current = totalUnread
+  }, [allNotifications])
+
+  // Listen for custom events from file uploads / reports
   useEffect(() => {
     const handleSpreadsheetUploaded = (e: Event) => {
       const detail = (e as any).detail || { filename: 'revenue.xlsx' }
@@ -100,7 +121,7 @@ export default function Topbar() {
         type: 'success',
         time: 'Just now'
       }
-      setNotifications(prev => [newNotif, ...prev])
+      setLocalNotifs(prev => [newNotif, ...prev])
     }
 
     const handleReportGenerated = (e: Event) => {
@@ -113,7 +134,7 @@ export default function Topbar() {
         type: 'info',
         time: 'Just now'
       }
-      setNotifications(prev => [newNotif, ...prev])
+      setLocalNotifs(prev => [newNotif, ...prev])
     }
 
     window.addEventListener('spreadsheet_uploaded', handleSpreadsheetUploaded)
@@ -163,24 +184,43 @@ export default function Topbar() {
   const now = new Date()
   const dateStr = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
-  // Notification Actions
-  const unreadCount = notifications.filter(n => !n.read).length
+  const unreadCount = allNotifications.filter(n => !n.read).length
 
   const markAllRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    setLocalNotifs(prev => prev.map(n => ({ ...n, read: true })))
+    liveNotifications.forEach(n => {
+      if (!n.read) {
+        rtMarkRead(n.id)
+        apiMarkRead(n.id).catch(() => {})
+      }
+    })
     logActivity('Marked all notifications as read', user?.user_metadata?.name || 'User')
   }
 
-  const markRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+  const markRead = (n: any) => {
+    if (n.isRealtime) {
+      rtMarkRead(n.rtId)
+      apiMarkRead(n.rtId).catch(() => {})
+    } else {
+      setLocalNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))
+    }
   }
 
   const deleteNotif = (id: string, title: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id))
+    setLocalNotifs(prev => prev.filter(n => n.id !== id))
     logActivity(`Dismissed notification: ${title}`, user?.user_metadata?.name || 'User')
   }
 
   const getStatusBadge = () => {
+    // Use realtime status when available
+    if (realtimeStatus === 'live') {
+      return (
+        <div className="db-status-badge db-connected" title="Connected to Supabase Realtime">
+          <span className="db-dot dot-green" />
+          Live ● Realtime
+        </div>
+      )
+    }
     const { status, message } = dbStatus
     switch (status) {
       case 'connected':
@@ -273,51 +313,18 @@ export default function Topbar() {
 
         {getStatusBadge()}
 
-        {/* 1. INTERACTIVE ROLE SELECTOR (RBAC) */}
-        <div className="role-switcher-wrap" ref={roleRef}>
-          <button 
-            className="role-selector-btn"
-            onClick={() => setShowRoleDropdown(!showRoleDropdown)}
-            title="Set security role dynamically for RBAC testing"
-          >
+        {/* 1. STATIC ROLE DISPLAY (RBAC) */}
+        <div className="role-switcher-wrap">
+          <div className="role-selector-btn" style={{ cursor: 'default' }} title="Your user access role is Analyst">
             {getRoleIcon(userRole)}
             <span className="role-btn-text">Role: {userRole}</span>
-            <ChevronDown size={12} className={`arrow-icon ${showRoleDropdown ? 'open' : ''}`} />
-          </button>
-
-          {showRoleDropdown && (
-            <div className="role-dropdown-menu glass-card">
-              <div className="dropdown-section-title">Select User Role (RBAC)</div>
-              {(['Admin', 'Manager', 'Analyst', 'Viewer'] as const).map(role => (
-                <button
-                  key={role}
-                  className={`role-option-btn ${userRole === role ? 'active' : ''}`}
-                  onClick={() => {
-                    setRole(role)
-                    setShowRoleDropdown(false)
-                  }}
-                >
-                  <span className="option-icon-wrap">{getRoleIcon(role)}</span>
-                  <div className="option-text-wrap">
-                    <span className="option-name">{role}</span>
-                    <span className="option-desc">
-                      {role === 'Admin' && 'Full system capabilities'}
-                      {role === 'Manager' && 'Can adjust billing, no security keys'}
-                      {role === 'Analyst' && 'Data queries, no billing/settings'}
-                      {role === 'Viewer' && 'Read-only access across platform'}
-                    </span>
-                  </div>
-                  {userRole === role && <Check size={14} className="check-icon" />}
-                </button>
-              ))}
-            </div>
-          )}
+          </div>
         </div>
 
         {/* 2. NOTIFICATION CENTER */}
         <div className="notification-center-wrap" ref={notifRef}>
           <button 
-            className={`notif-bell-btn ${unreadCount > 0 ? 'unread' : ''}`}
+            className={`notif-bell-btn ${unreadCount > 0 ? 'unread' : ''} ${bellPing ? 'bell-ping' : ''}`}
             onClick={() => setShowNotifications(!showNotifications)}
             title="Notification Center"
           >
@@ -336,14 +343,14 @@ export default function Topbar() {
                 )}
               </div>
               <div className="notif-list">
-                {notifications.length === 0 ? (
+                {allNotifications.length === 0 ? (
                   <div className="notif-empty-state">No alerts in inbox</div>
                 ) : (
-                  notifications.map(n => (
+                  allNotifications.map(n => (
                     <div 
                       key={n.id} 
                       className={`notif-item ${n.read ? 'read' : 'unread'} ${n.type}`}
-                      onClick={() => markRead(n.id)}
+                      onClick={() => markRead(n)}
                     >
                       <div className="notif-dot-column">
                         <span className="notif-type-dot" />
@@ -355,16 +362,18 @@ export default function Topbar() {
                         </div>
                         <p className="notif-desc">{n.desc}</p>
                       </div>
-                      <button 
-                        className="notif-dismiss-btn"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          deleteNotif(n.id, n.title)
-                        }}
-                        title="Dismiss"
-                      >
-                        <Trash2 size={11} />
-                      </button>
+                      {!n.isRealtime && (
+                        <button 
+                          className="notif-dismiss-btn"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteNotif(n.id, n.title)
+                          }}
+                          title="Dismiss"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      )}
                     </div>
                   ))
                 )}

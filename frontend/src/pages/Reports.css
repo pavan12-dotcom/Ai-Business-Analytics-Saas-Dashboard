@@ -129,7 +129,7 @@
   border-radius: 8px;
 }
 
-:global(.dark) .audit-item {
+body.dark .audit-item {
   background: rgba(255, 255, 255, 0.01);
 }
 
@@ -300,3 +300,64 @@
 }
 
 
+/* ──────────────────────────────────────────
+   RESPONSIVE BREAKPOINTS
+   ────────────────────────────────────────── */
+
+/* Tablet: collapse 4-col metrics to 2-col, stack charts */
+@media (max-width: 992px) {
+  .report-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .reports-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .reports-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .reports-actions {
+    flex-wrap: wrap;
+  }
+
+  .reports-template-selector {
+    flex-wrap: wrap;
+  }
+
+  .template-tab-btn {
+    flex: 1 1 auto;
+  }
+}
+
+/* Mobile: single-column metrics */
+@media (max-width: 576px) {
+  .report-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .report-metric-val {
+    font-size: 20px;
+  }
+
+  /* Make tables horizontally scrollable instead of squishing */
+  .card > .data-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  .investor-kpi-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .ik-val {
+    font-size: 15px;
+  }
+}
