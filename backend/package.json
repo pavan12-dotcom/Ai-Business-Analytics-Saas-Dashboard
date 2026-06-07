@@ -11,7 +11,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "check-db": "ts-node src/check_db.ts",
-    "seed-db": "ts-node src/seed_db.ts"
+    "seed-db": "ts-node src/seed_db.ts",
+    "test-gemini": "ts-node src/test_gemini.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

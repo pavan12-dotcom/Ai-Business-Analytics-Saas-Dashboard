@@ -8,7 +8,41 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
   AreaChart, Area, CartesianGrid, LineChart, Line
 } from 'recharts'
+import {
+  LayoutDashboard,
+  FolderOpen,
+  AlertCircle,
+  Rocket,
+  Loader2,
+  Cpu,
+  CheckCircle2,
+  FileText,
+  ShoppingCart,
+  BarChart3,
+  Coins,
+  Users2,
+  GraduationCap,
+  Stethoscope,
+  Package,
+  Megaphone
+} from 'lucide-react'
 import './Dashboard.css'
+
+const getDatasetIcon = (id: string) => {
+  const iconProps = { size: 22, style: { minWidth: 22, opacity: 0.85 } }
+  switch (id) {
+    case 'retail': return <ShoppingCart {...iconProps} style={{ color: 'var(--indigo)' }} />
+    case 'sales': return <BarChart3 {...iconProps} style={{ color: 'var(--teal)' }} />
+    case 'finance': return <Coins {...iconProps} style={{ color: 'var(--amber)' }} />
+    case 'hr': return <Users2 {...iconProps} style={{ color: 'var(--pink)' }} />
+    case 'education': return <GraduationCap {...iconProps} style={{ color: 'var(--purple)' }} />
+    case 'healthcare': return <Stethoscope {...iconProps} style={{ color: 'var(--red)' }} />
+    case 'inventory': return <Package {...iconProps} style={{ color: 'var(--blue)' }} />
+    case 'marketing': return <Megaphone {...iconProps} style={{ color: 'var(--green)' }} />
+    default: return null
+  }
+}
+
 
 // ── Tooltip ───────────────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -43,7 +77,7 @@ function EmptyChart({ height = 200 }: { height?: number }) {
         background: 'rgba(99,102,241,0.02)',
       }}
     >
-      <span style={{ fontSize: 28 }}>📊</span>
+      <LayoutDashboard size={28} style={{ color: 'var(--accent)', opacity: 0.8 }} />
       <span style={{ fontSize: 13, fontWeight: 600 }}>No data available</span>
       <span style={{ fontSize: 11.5, textAlign: 'center', maxWidth: 220 }}>
         Upload a CSV, Excel, or JSON file to generate insights.
@@ -147,7 +181,7 @@ function NoDataState({ onSample, onUpload }: { onSample: (ds: SampleDataset) => 
     <div className="no-data-state">
       {/* Hero upload box */}
       <div className="no-data-hero card">
-        <div className="no-data-icon">🚀</div>
+        <Rocket size={42} className="glow-icon" style={{ color: 'var(--accent)', marginBottom: 12, filter: 'drop-shadow(0 0 10px rgba(99,102,241,0.4))' }} />
         <h2 className="no-data-title">Start Your Analysis</h2>
         <p className="no-data-sub">Upload a dataset to generate AI-powered analytics.</p>
         <div className="no-data-formats">
@@ -156,8 +190,8 @@ function NoDataState({ onSample, onUpload }: { onSample: (ds: SampleDataset) => 
           <span className="format-tag">JSON</span>
           <span className="format-tag">PDF</span>
         </div>
-        <button className="btn btn-primary no-data-upload-btn" onClick={onUpload}>
-          📂 Upload Dataset
+        <button className="btn btn-primary no-data-upload-btn" onClick={onUpload} style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', margin: '0 auto' }}>
+          <FolderOpen size={16} /> Upload Dataset
         </button>
         <div className="no-data-divider"><span>or try a sample</span></div>
         <div className="sample-cards">
@@ -167,7 +201,7 @@ function NoDataState({ onSample, onUpload }: { onSample: (ds: SampleDataset) => 
               className="sample-card"
               onClick={() => onSample(ds)}
             >
-              <span className="sample-icon">{ds.icon}</span>
+              <span className="sample-icon">{getDatasetIcon(ds.id)}</span>
               <div className="sample-info">
                 <div className="sample-name">{ds.name}</div>
                 <div className="sample-desc">{ds.description}</div>
@@ -295,7 +329,7 @@ export default function Dashboard() {
           backdropFilter: 'blur(10px)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 20 }}>⚠️</span>
+            <AlertCircle size={20} style={{ color: 'var(--warning)', flexShrink: 0 }} />
             <div>
               <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
                 {subscription?.subscription_status === 'expired' ? 'Subscription Expired' : 'Free Trial Ended'}
@@ -332,8 +366,8 @@ export default function Dashboard() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {hasData && (
-              <button className="btn btn-secondary btn-xs" onClick={handleUploadClick}>
-                📂 Change Dataset
+              <button className="btn btn-secondary btn-xs" onClick={handleUploadClick} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <FolderOpen size={13} /> Change Dataset
               </button>
             )}
             {(!subscription || subscription.subscription_status === 'trial') && (
@@ -348,7 +382,13 @@ export default function Dashboard() {
       {/* Doc banner */}
       {activeDocument && !activeSheet && (
         <div className={`doc-active-banner ${activeDocument.parsedRows?.length > 0 ? 'doc-active-banner--success' : ''}`}>
-          <span className="doc-active-icon">{activeDocument.parsedRows?.length > 0 ? '✅' : '📄'}</span>
+          <span className="doc-active-icon">
+            {activeDocument.parsedRows?.length > 0 ? (
+              <CheckCircle2 size={16} style={{ color: 'var(--success)' }} />
+            ) : (
+              <FileText size={16} style={{ color: 'var(--accent)' }} />
+            )}
+          </span>
           <div className="doc-active-info">
             {activeDocument.parsedRows?.length > 0 ? (
               <><strong>{activeDocument.filename}</strong> — <strong>{activeDocument.parsedRows.length} rows</strong> extracted.</>
@@ -365,8 +405,18 @@ export default function Dashboard() {
                   const res = await reparseDoc()
                   setReparsing(false)
                   if (!res.success) setReparseMsg(res.message || 'No data found.')
-                }}>
-                {reparsing ? '⏳ Extracting...' : '🔍 Extract Data'}
+                }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              >
+                {reparsing ? (
+                  <>
+                    <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Extracting...
+                  </>
+                ) : (
+                  <>
+                    <Cpu size={13} /> Extract Data
+                  </>
+                )}
               </button>
             )}
             <button className="btn btn-sm" style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
@@ -376,9 +426,21 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-      {reparseMsg && <div style={{ color: 'var(--amber)', fontSize: 12, padding: '4px 8px' }}>⚠️ {reparseMsg}</div>}
-      {uploadErr && <div style={{ color: 'var(--red)', fontSize: 12, padding: '4px 8px' }}>⚠️ {uploadErr}</div>}
-      {uploading && <div style={{ color: 'var(--accent2)', fontSize: 12, padding: '4px 8px' }}>⏳ Uploading dataset...</div>}
+      {reparseMsg && (
+        <div style={{ color: 'var(--amber)', fontSize: 12, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <AlertCircle size={14} /> {reparseMsg}
+        </div>
+      )}
+      {uploadErr && (
+        <div style={{ color: 'var(--red)', fontSize: 12, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <AlertCircle size={14} /> {uploadErr}
+        </div>
+      )}
+      {uploading && (
+        <div style={{ color: 'var(--accent2)', fontSize: 12, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Uploading dataset...
+        </div>
+      )}
 
       {/* ── No data state ── */}
       {!hasData ? (

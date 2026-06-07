@@ -6,6 +6,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, AreaChart, Area
 } from 'recharts'
+import { TrendingUp, Rocket, Lock, Lightbulb } from 'lucide-react'
 import './Analytics.css'
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -40,7 +41,7 @@ function EmptyChart({ message, height = 200 }: { message?: string; height?: numb
         width: '100%',
       }}
     >
-      <span style={{ fontSize: 28 }}>📊</span>
+      <TrendingUp size={28} style={{ color: 'var(--accent)' }} />
       <span style={{ fontSize: 13, fontWeight: 600 }}>No data available</span>
       <span style={{ fontSize: 11.5, textAlign: 'center', maxWidth: 220 }}>
         {message || "Upload a CSV, Excel, or JSON file to generate insights."}
@@ -139,8 +140,8 @@ export default function Analytics() {
           textAlign: 'center',
           minHeight: '450px'
         }}>
-          <div className="lock-icon-wrap" style={{ width: 64, height: 64 }}>
-            <span style={{ fontSize: 28 }}>🔒</span>
+          <div className="lock-icon-wrap" style={{ width: 64, height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Lock size={24} style={{ color: 'var(--accent)' }} />
           </div>
           <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text)' }}>Advanced Analytics Locked</h2>
           <p style={{ fontSize: '14.5px', color: 'var(--text-muted)', maxWidth: '420px', lineHeight: 1.6, margin: '4px 0 16px' }}>
@@ -167,13 +168,13 @@ export default function Analytics() {
           gap: 16,
           marginTop: 20
         }}>
-          <div style={{ fontSize: 48 }}>📊</div>
+          <div style={{ color: 'var(--accent)', opacity: 0.8 }}><TrendingUp size={48} /></div>
           <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>No Analytics Available</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 450, margin: 0, lineHeight: 1.6 }}>
             Upload a dataset to generate AI-powered analytics.
           </p>
-          <button className="btn btn-primary" onClick={() => navigate('/app')}>
-            🚀 Go to Dashboard to Upload
+          <button className="btn btn-primary" onClick={() => navigate('/app')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Rocket size={14} /> Go to Dashboard to Upload
           </button>
         </div>
       ) : (
@@ -312,8 +313,9 @@ export default function Analytics() {
                     </table>
                   </div>
                   {hoveredCell && hoveredCell.rate !== null && (
-                    <div style={{ marginTop: 12, fontSize: 12, color: 'var(--accent)', fontWeight: 650 }} className="fade-in">
-                      💡 {hoveredCell.cohort} cohort at Month {hoveredCell.monthIndex + 1} retained {hoveredCell.rate}% of {entityName.toLowerCase()}s. Churn risk: Low.
+                    <div style={{ marginTop: 12, fontSize: 12, color: 'var(--accent)', fontWeight: 650, display: 'flex', alignItems: 'center', gap: 6 }} className="fade-in">
+                      <Lightbulb size={13} style={{ color: 'var(--accent)' }} />
+                      <span>{hoveredCell.cohort} cohort at Month {hoveredCell.monthIndex + 1} retained {hoveredCell.rate}% of {entityName.toLowerCase()}s. Churn risk: Low.</span>
                     </div>
                   )}
                 </>

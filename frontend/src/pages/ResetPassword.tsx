@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth, mapAuthError } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
+import { Eye, EyeOff, Check, Circle } from 'lucide-react'
 import './Auth.css'
 
 function validatePassword(v: string) {
@@ -143,7 +144,7 @@ export default function ResetPassword() {
         ) : success ? (
           <div className="auth-success-flow">
             <div className="auth-success">
-              ✓ Password reset successfully! Redirecting you to sign in page...
+              <Check size={14} style={{ marginRight: 6, flexShrink: 0 }} /> Password reset successfully! Redirecting you to sign in page...
             </div>
             <p style={{ marginTop: '20px', textAlign: 'center' }}>
               <Link to="/login" className="btn btn-primary auth-submit" style={{ display: 'inline-flex', textDecoration: 'none' }}>
@@ -174,7 +175,7 @@ export default function ResetPassword() {
                   tabIndex={-1}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showPassword ? '🙈' : '👁️'}
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
 
@@ -204,7 +205,7 @@ export default function ResetPassword() {
                     { ok: /[0-9]/.test(password),     text: 'One number (0–9)' },
                   ].map(r => (
                     <div key={r.text} className={`pw-req-item${r.ok ? ' ok' : ''}`}>
-                      <span className="pw-req-dot">{r.ok ? '✓' : '○'}</span>
+                      <span className="pw-req-dot">{r.ok ? <Check size={11} /> : <Circle size={11} />}</span>
                       {r.text}
                     </div>
                   ))}
@@ -231,7 +232,7 @@ export default function ResetPassword() {
                   autoComplete="new-password"
                 />
                 {touched.confirmPassword && !errors.confirmPassword && confirmPassword && (
-                  <span className="field-check">✓</span>
+                  <span className="field-check"><Check size={13} /></span>
                 )}
               </div>
               {touched.confirmPassword && errors.confirmPassword && (

@@ -20,23 +20,8 @@ import {
   CartesianGrid
 } from 'recharts'
 import {
-  Send,
-  Sparkles,
-  Upload,
-  AlertTriangle,
-  TrendingUp,
-  Bot,
-  User,
-  FileText,
-  Plus,
-  Trash2,
-  HelpCircle,
-  Shield,
-  Check,
-  Info,
-  Layers,
-  ArrowRight,
-  Database
+  Bot, User, Trash2, Upload, AlertTriangle, FileText, TrendingUp, Layers,
+  ArrowRight, Database, Send, Sparkles, AlertCircle, Lock, Loader2
 } from 'lucide-react'
 import './AIAssistant.css'
 
@@ -403,7 +388,7 @@ export default function AIAssistant() {
           const last = updated[updated.length - 1]
           if (last?.role === 'ai' && last.isStreaming) {
             last.isStreaming = false
-            last.text = `⚠️ ${errMsg}`
+            last.text = `Error: ${errMsg}`
           }
           return [...updated]
         })
@@ -575,8 +560,8 @@ export default function AIAssistant() {
         >
           {isLocked && (
             <div className="premium-blur-overlay" style={{ zIndex: 50 }}>
-              <div className="lock-icon-wrap" style={{ width: 54, height: 54 }}>
-                <span style={{ fontSize: 22 }}>🔒</span>
+              <div className="lock-icon-wrap" style={{ width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Lock size={20} style={{ color: 'var(--accent)' }} />
               </div>
               <h5 className="lock-title">AI Assistant Locked</h5>
               <p className="lock-desc">Your free trial has ended. Upgrade to Premium to chat with spreadsheets, documents, and generate predictive charts.</p>
@@ -597,7 +582,7 @@ export default function AIAssistant() {
               fontSize: 12,
               color: 'var(--accent)'
             }}>
-              <span>📊</span>
+              <Database size={14} />
               <span style={{ flex: 1 }}>Using demo context. <strong>Upload a dataset</strong> to analyze your own data.</span>
               <button
                 className="btn btn-primary btn-sm"
@@ -656,8 +641,13 @@ export default function AIAssistant() {
                       {m.role === 'ai' ? <Bot size={14} /> : <User size={14} />}
                     </div>
                     <div className="bubble-body">
-                      <div className="bubble-text">
-                        {m.text}
+                      <div className="bubble-text" style={m.text.startsWith('Error:') ? { display: 'flex', alignItems: 'center', gap: 6, color: 'var(--red)' } : undefined}>
+                        {m.text.startsWith('Error:') ? (
+                          <>
+                            <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                            <span>{m.text.substring(6)}</span>
+                          </>
+                        ) : m.text}
                         {m.isStreaming && <span className="streaming-cursor" />}
                       </div>
 
@@ -741,8 +731,16 @@ export default function AIAssistant() {
           <div className="context-title">Active Context</div>
           <div className="context-card glass-card">
             <div className="context-header">
-              <span className="context-filename" title={sheetFilename}>
-                {mode === 'spreadsheet' ? '📊 ' + sheetFilename : '📄 ' + (activeDocument?.filename || 'No document')}
+              <span className="context-filename" title={sheetFilename} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {mode === 'spreadsheet' ? (
+                  <>
+                    <Database size={13} style={{ color: 'var(--accent)' }} /> {sheetFilename}
+                  </>
+                ) : (
+                  <>
+                    <FileText size={13} style={{ color: 'var(--accent)' }} /> {activeDocument?.filename || 'No document'}
+                  </>
+                )}
               </span>
               {mode === 'spreadsheet' && hasSheet && (
                 <button className="reset-context-btn" onClick={reset} title="Reset to demo data">

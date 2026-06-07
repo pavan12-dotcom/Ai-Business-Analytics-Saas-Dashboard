@@ -140,7 +140,7 @@
 }
 
 .field-error-msg::before {
-  content: '⚠';
+  content: '\26A0';
   font-size: 11px;
 }
 
@@ -239,7 +239,7 @@
   gap: 6px;
 }
 
-.auth-error::before { content: '⚠'; }
+.auth-error::before { content: '\26A0'; }
 
 /* ── Server / global success box ────────────────────────────────── */
 .auth-success {

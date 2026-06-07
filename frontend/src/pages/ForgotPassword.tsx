@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth, mapAuthError } from '../context/AuthContext'
+import { Check } from 'lucide-react'
 import './Auth.css'
 
 const EMAIL_RE = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/
@@ -57,7 +58,7 @@ export default function ForgotPassword() {
         {success ? (
           <div className="auth-success-flow">
             <div className="auth-success">
-              ✓ A password reset link has been sent to your email address. Please check your inbox.
+              <Check size={14} style={{ marginRight: 6, flexShrink: 0 }} /> A password reset link has been sent to your email address. Please check your inbox.
             </div>
             <p style={{ marginTop: '20px', textAlign: 'center' }}>
               <Link to="/login" className="btn btn-primary auth-submit" style={{ display: 'inline-flex', textDecoration: 'none' }}>
@@ -82,7 +83,7 @@ export default function ForgotPassword() {
                   autoComplete="email"
                 />
                 {touched && !emailError && email && (
-                  <span className="field-check">✓</span>
+                  <span className="field-check"><Check size={13} /></span>
                 )}
               </div>
               {touched && emailError && (

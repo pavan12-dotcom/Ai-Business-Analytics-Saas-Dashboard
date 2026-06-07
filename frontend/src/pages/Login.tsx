@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth, mapAuthError } from '../context/AuthContext'
+import { Eye, EyeOff, Zap, Lightbulb, Check } from 'lucide-react'
 import './Auth.css'
 
 const EMAIL_RE = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/
@@ -86,7 +87,7 @@ export default function Login() {
                 autoComplete="email"
               />
               {touched.email && !errors.email && email && (
-                <span className="field-check">✓</span>
+                <span className="field-check"><Check size={13} /></span>
               )}
             </div>
             {touched.email && errors.email && (
@@ -120,7 +121,7 @@ export default function Login() {
                 tabIndex={-1}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                {showPassword ? '🙈' : '👁️'}
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
             {touched.password && errors.password && (
@@ -170,15 +171,18 @@ export default function Login() {
             </>
           ) : (
             <>
-              <div>💡 <strong>Demo mode:</strong> Try the app instantly without an account.</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Lightbulb size={14} style={{ color: 'var(--accent)' }} />
+                <span><strong>Demo mode:</strong> Try the app instantly without an account.</span>
+              </div>
               <div style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>Or bypass sign in completely:</div>
               <button
                 type="button"
                 className="btn btn-secondary btn-xs"
                 onClick={() => { loginAsGuest(); nav('/app') }}
-                style={{ fontWeight: 600, color: 'var(--accent)', background: 'var(--bg-hover)', border: '1px solid var(--border)' }}
+                style={{ fontWeight: 600, color: 'var(--accent)', background: 'var(--bg-hover)', border: '1px solid var(--border)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
               >
-                See Demo Instant ⚡
+                See Demo Instant <Zap size={12} />
               </button>
             </>
           )}

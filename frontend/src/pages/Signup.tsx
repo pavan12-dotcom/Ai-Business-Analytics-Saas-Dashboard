@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth, mapAuthError } from '../context/AuthContext'
+import { Eye, EyeOff, Zap, Lightbulb, Check } from 'lucide-react'
 import './Auth.css'
 
 // ── Validators ────────────────────────────────────────────────
@@ -116,7 +117,7 @@ export default function Signup() {
         {successEmailConfirmation ? (
           <div className="auth-success-flow" style={{ marginTop: '16px' }}>
             <div className="auth-success">
-              ✓ Verification link sent! If an account exists for <strong>{email}</strong>, you will receive a verification link. Please check your inbox or try signing in.
+              <Check size={14} style={{ marginRight: 6, flexShrink: 0 }} /> Verification link sent! If an account exists for <strong>{email}</strong>, you will receive a verification link. Please check your inbox or try signing in.
             </div>
             <div style={{ marginTop: '24px' }}>
               <Link to="/login" className="btn btn-primary auth-submit" style={{ display: 'inline-flex', textDecoration: 'none' }}>
@@ -141,7 +142,7 @@ export default function Signup() {
                   autoComplete="name"
                 />
                 {touched.name && !errors.name && name && (
-                  <span className="field-check">✓</span>
+                  <span className="field-check"><Check size={13} /></span>
                 )}
               </div>
               {touched.name && errors.name && (
@@ -164,7 +165,7 @@ export default function Signup() {
                   autoComplete="email"
                 />
                 {touched.email && !errors.email && email && (
-                  <span className="field-check">✓</span>
+                  <span className="field-check"><Check size={13} /></span>
                 )}
               </div>
               {touched.email && errors.email && (
@@ -193,7 +194,7 @@ export default function Signup() {
                   tabIndex={-1}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showPassword ? '🙈' : '👁️'}
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
 
@@ -222,8 +223,12 @@ export default function Signup() {
                     { ok: /[a-z]/.test(password),     text: 'One lowercase letter (a–z)' },
                     { ok: /[0-9]/.test(password),     text: 'One number (0–9)' },
                   ].map(r => (
-                    <div key={r.text} className={`pw-req-item${r.ok ? ' ok' : ''}`}>
-                      <span className="pw-req-dot">{r.ok ? '✓' : '○'}</span>
+                    <div key={r.text} className={`pw-req-item${r.ok ? ' ok' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {r.ok ? (
+                        <Check size={12} style={{ color: 'var(--success)', flexShrink: 0 }} />
+                      ) : (
+                        <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', border: '1px solid var(--text-muted)', marginLeft: 3, marginRight: 3, flexShrink: 0 }} />
+                      )}
                       {r.text}
                     </div>
                   ))}
@@ -250,7 +255,7 @@ export default function Signup() {
                   autoComplete="new-password"
                 />
                 {touched.confirmPassword && !errors.confirmPassword && confirmPassword && (
-                  <span className="field-check">✓</span>
+                  <span className="field-check"><Check size={13} /></span>
                 )}
               </div>
               {touched.confirmPassword && errors.confirmPassword && (
@@ -286,14 +291,17 @@ export default function Signup() {
         </p>
 
         <div className="auth-demo-note" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-          <div>💡 <strong>Demo mode:</strong> Try the app instantly without an account.</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Lightbulb size={14} style={{ color: 'var(--accent)' }} />
+            <span><strong>Demo mode:</strong> Try the app instantly without an account.</span>
+          </div>
           <button
             type="button"
             className="btn btn-secondary btn-xs"
             onClick={() => { loginAsGuest(); nav('/app') }}
-            style={{ fontWeight: 600, color: 'var(--accent)', background: 'var(--bg-hover)', border: '1px solid var(--border)' }}
+            style={{ fontWeight: 600, color: 'var(--accent)', background: 'var(--bg-hover)', border: '1px solid var(--border)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
           >
-            See Demo Instant ⚡
+            See Demo Instant <Zap size={12} />
           </button>
         </div>
       </div>

@@ -14,7 +14,11 @@ import {
   AlertTriangle,
   Activity,
   Layers,
-  Info
+  Info,
+  AlertCircle,
+  CheckCircle2,
+  Moon,
+  Sun
 } from 'lucide-react'
 import { logActivity } from '../../services/audit'
 import './Topbar.css'
@@ -33,7 +37,7 @@ const titles: Record<string, string> = {
 export default function Topbar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { user, userRole, isGuest, guestQueryCount, uploadCount } = useAuth()
+  const { user, userRole, setRole, isGuest, guestQueryCount, uploadCount } = useAuth()
   const title = titles[pathname] ?? 'Dashboard'
 
   const [dbStatus, setDbStatus] = useState<{ status: string; message: string }>({
@@ -72,6 +76,8 @@ export default function Topbar() {
 
   const [showNotifications, setShowNotifications] = useState(false)
   const notifRef = useRef<HTMLDivElement>(null)
+  const [showRoleDropdown, setShowRoleDropdown] = useState(false)
+  const roleRef = useRef<HTMLDivElement>(null)
   const [bellPing, setBellPing] = useState(false)
   const prevUnreadRef = useRef(0)
 
@@ -93,6 +99,9 @@ export default function Topbar() {
     function handleClickOutside(event: MouseEvent) {
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
         setShowNotifications(false)
+      }
+      if (roleRef.current && !roleRef.current.contains(event.target as Node)) {
+        setShowRoleDropdown(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -304,21 +313,61 @@ export default function Topbar() {
                 className={isExhausted ? 'db-dot dot-red-pulse' : 'db-dot dot-green'}
                 style={{ background: isExhausted ? '#f87171' : '#4ade80' }}
               />
-              {isExhausted
-                ? '🔴 Demo Limit Reached'
-                : `🟢 Demo: ${remaining} Free Action${remaining !== 1 ? 's' : ''} Left`}
+              {isExhausted ? (
+                <>
+                  <AlertCircle size={12} style={{ color: '#f87171' }} /> Demo Limit Reached
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={12} style={{ color: '#4ade80' }} /> Demo: {remaining} Free Action{remaining !== 1 ? 's' : ''} Left
+                </>
+              )}
             </div>
           )
         })()}
 
         {getStatusBadge()}
 
-        {/* 1. STATIC ROLE DISPLAY (RBAC) */}
-        <div className="role-switcher-wrap">
-          <div className="role-selector-btn" style={{ cursor: 'default' }} title="Your user access role is Analyst">
+        {/* 1. ROLE SWITCHER (RBAC) */}
+        <div className="role-switcher-wrap" ref={roleRef}>
+          <button 
+            className="role-selector-btn" 
+            onClick={() => setShowRoleDropdown(!showRoleDropdown)}
+            title="Switch Access Role"
+            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
             {getRoleIcon(userRole)}
             <span className="role-btn-text">Role: {userRole}</span>
-          </div>
+            <span className={`arrow-icon ${showRoleDropdown ? 'open' : ''}`} style={{ fontSize: '9px', marginLeft: '2px', opacity: 0.7 }}>▼</span>
+          </button>
+
+          {showRoleDropdown && (
+            <div className="role-dropdown-menu">
+              <div className="dropdown-section-title">Select Access Role</div>
+              {[
+                { name: 'Admin', desc: 'Full privileges including API settings & seat control' },
+                { name: 'Manager', desc: 'Configure profiles and view logs. API overrides locked' },
+                { name: 'Analyst', desc: 'Default seat. Standard dashboard & analysis features' },
+                { name: 'Viewer', desc: 'Read-only dashboard. Analysis actions restricted' }
+              ].map(role => (
+                <button
+                  key={role.name}
+                  className={`role-option-btn ${userRole === role.name ? 'active' : ''}`}
+                  onClick={() => {
+                    setRole(role.name as any)
+                    setShowRoleDropdown(false)
+                  }}
+                >
+                  <div className="option-icon-wrap">{getRoleIcon(role.name as any)}</div>
+                  <div className="option-text-wrap">
+                    <span className="option-name">{role.name}</span>
+                    <span className="option-desc">{role.desc}</span>
+                  </div>
+                  {userRole === role.name && <Check className="check-icon" size={12} />}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 2. NOTIFICATION CENTER */}
@@ -388,7 +437,7 @@ export default function Topbar() {
           onClick={toggleTheme} 
           title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
         >
-          {theme === 'light' ? '🌙' : '☀️'}
+          {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
         </button>
 
         <div className="date-chip no-print">{dateStr}</div>

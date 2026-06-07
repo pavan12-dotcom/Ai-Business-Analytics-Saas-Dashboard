@@ -17,7 +17,8 @@ import {
   Calendar,
   Mail,
   Layers,
-  Info
+  Info,
+  Clock
 } from 'lucide-react'
 import './Settings.css'
 
@@ -291,13 +292,13 @@ export default function Settings() {
                     </div>
                   )}
                   {planStatus === 'trial' && remainingDays > 0 && (
-                    <div style={{ fontSize: 11, color: 'var(--amber)', fontWeight: 600 }}>
-                      ⏳ {remainingDays} trial day{remainingDays !== 1 ? 's' : ''} remaining
+                    <div style={{ fontSize: 11, color: 'var(--amber)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Clock size={11} /> {remainingDays} trial day{remainingDays !== 1 ? 's' : ''} remaining
                     </div>
                   )}
                   {planStatus === 'active' && (
-                    <div style={{ fontSize: 11, color: 'var(--green)', fontWeight: 600 }}>
-                      ✓ Active subscription
+                    <div style={{ fontSize: 11, color: 'var(--green)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Check size={11} /> Active subscription
                     </div>
                   )}
                 </div>
@@ -352,7 +353,7 @@ export default function Settings() {
               </div>
             </div>
 
-            {error && <div className="settings-error-msg">⚠️ {error}</div>}
+            {error && <div className="settings-error-msg" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={12} /> {error}</div>}
 
             <button
               className="btn btn-primary btn-sm save-btn"
@@ -360,7 +361,7 @@ export default function Settings() {
               disabled={saving || isRestricted}
               title={isRestricted ? `Access denied: ${userRole}s cannot modify profile settings` : ''}
             >
-              {saving ? 'Saving...' : saved ? '✓ Profile Saved' : 'Save Profile'}
+              {saving ? 'Saving...' : saved ? <><Check size={13} style={{ marginRight: 4 }} />Profile Saved</> : 'Save Profile'}
             </button>
           </div>
 
@@ -394,7 +395,7 @@ export default function Settings() {
               </div>
             </div>
 
-            {errorOrg && <div className="settings-error-msg">⚠️ {errorOrg}</div>}
+            {errorOrg && <div className="settings-error-msg" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={12} /> {errorOrg}</div>}
 
             <button
               className="btn btn-secondary btn-sm save-btn"
@@ -402,7 +403,7 @@ export default function Settings() {
               disabled={savingOrg || isRestricted}
               title={isRestricted ? `Access denied: ${userRole}s cannot modify organization settings` : ''}
             >
-              {savingOrg ? 'Saving...' : savedOrg ? '✓ Org Updated' : 'Update Org'}
+              {savingOrg ? 'Saving...' : savedOrg ? <><Check size={13} style={{ marginRight: 4 }} />Org Updated</> : 'Update Org'}
             </button>
           </div>
 
@@ -430,7 +431,7 @@ export default function Settings() {
               />
             </div>
 
-            {errorKey && <div className="settings-error-msg">⚠️ {errorKey}</div>}
+            {errorKey && <div className="settings-error-msg" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={12} /> {errorKey}</div>}
 
             <button
               className="btn btn-secondary btn-sm save-btn"
@@ -439,7 +440,7 @@ export default function Settings() {
               style={{ marginBottom: 16 }}
               title={isKeyRestricted ? `Access denied: ${userRole}s cannot configure API keys` : ''}
             >
-              {savingKey ? 'Configuring...' : savedKey ? '✓ Key Saved' : 'Update Gemini Override'}
+              {savingKey ? 'Configuring...' : savedKey ? <><Check size={13} style={{ marginRight: 4 }} />Key Saved</> : 'Update Gemini Override'}
             </button>
 
             <div className="api-key-list">
@@ -491,8 +492,8 @@ export default function Settings() {
               <div className="ring-details">
                 <div className="ring-status-header">{securityLabel}</div>
                 <div className="ring-status-sub">
-                  {hasSupabase ? '✓ Supabase connected' : '⚠ Supabase not configured'}<br />
-                  {hasStripe ? '✓ Stripe connected' : '⚠ Stripe not configured'}
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>{hasSupabase ? <><Check size={10} style={{ color: 'var(--green)' }} /> Supabase connected</> : <><AlertTriangle size={10} style={{ color: 'var(--amber)' }} /> Supabase not configured</>}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>{hasStripe ? <><Check size={10} style={{ color: 'var(--green)' }} /> Stripe connected</> : <><AlertTriangle size={10} style={{ color: 'var(--amber)' }} /> Stripe not configured</>}</span>
                 </div>
               </div>
             </div>

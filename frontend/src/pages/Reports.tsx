@@ -12,7 +12,11 @@ import {
   DollarSign,
   ChevronLeft,
   ChevronRight,
-  Layers
+  Layers,
+  ClipboardList,
+  Lock,
+  Rocket,
+  AlertCircle
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -203,13 +207,13 @@ export default function Reports() {
           gap: 16,
           marginTop: 20
         }}>
-          <div style={{ fontSize: 48 }}>📋</div>
+          <ClipboardList size={48} style={{ color: 'var(--accent)', opacity: 0.8 }} />
           <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>No reports available</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 450, margin: 0, lineHeight: 1.6 }}>
             Upload a dataset to generate AI-powered analytics.
           </p>
-          <button className="btn btn-primary" onClick={() => navigate('/app')}>
-            🚀 Go to Dashboard to Upload
+          <button className="btn btn-primary" onClick={() => navigate('/app')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Rocket size={14} /> Go to Dashboard to Upload
           </button>
         </div>
       ) : (
@@ -219,8 +223,8 @@ export default function Reports() {
             <div className="template-content-area premium-locked-container">
               {isLocked && (
                 <div className="premium-blur-overlay" style={{ zIndex: 10 }}>
-                  <div className="lock-icon-wrap" style={{ width: 54, height: 54 }}>
-                    <span style={{ fontSize: 24 }}>🔒</span>
+                  <div className="lock-icon-wrap" style={{ width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Lock size={20} style={{ color: 'var(--accent)' }} />
                   </div>
                   <h5 className="lock-title">Executive Summary Locked</h5>
                   <p className="lock-desc">Your free trial has ended. Upgrade to Premium to view performance audits.</p>
@@ -291,8 +295,8 @@ export default function Reports() {
             <div className="template-content-area premium-locked-container">
               {isLocked && (
                 <div className="premium-blur-overlay" style={{ zIndex: 10 }}>
-                  <div className="lock-icon-wrap" style={{ width: 54, height: 54 }}>
-                    <span style={{ fontSize: 24 }}>🔒</span>
+                  <div className="lock-icon-wrap" style={{ width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Lock size={20} style={{ color: 'var(--accent)' }} />
                   </div>
                   <h5 className="lock-title">Category Analysis Locked</h5>
                   <p className="lock-desc">Your free trial has ended. Upgrade to Premium to view category breakdowns.</p>
@@ -342,8 +346,8 @@ export default function Reports() {
             <div className="template-content-area premium-locked-container">
               {isLocked && (
                 <div className="premium-blur-overlay" style={{ zIndex: 10 }}>
-                  <div className="lock-icon-wrap" style={{ width: 54, height: 54 }}>
-                    <span style={{ fontSize: 24 }}>🔒</span>
+                  <div className="lock-icon-wrap" style={{ width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Lock size={20} style={{ color: 'var(--accent)' }} />
                   </div>
                   <h5 className="lock-title">Audited Ledger Locked</h5>
                   <p className="lock-desc">Your free trial has ended. Upgrade to Premium to view detailed data ledgers.</p>

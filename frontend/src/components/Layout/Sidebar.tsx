@@ -1,18 +1,33 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import {
+  Sparkles,
+  Layers,
+  CreditCard,
+  Settings,
+  LayoutDashboard,
+  TrendingUp,
+  Users,
+  DollarSign,
+  FileText,
+  X,
+  FolderOpen,
+  LogOut,
+  Loader2,
+  Check
+} from 'lucide-react'
 import './Sidebar.css'
 
 const aiNav = [
-  { to: '/app/ai',      label: 'AI Assistant', icon: '✦' },
-  { to: '/app/reports', label: 'Reports',       icon: '⊞' },
+  { to: '/app/ai',      label: 'AI Assistant', icon: <Sparkles size={16} /> },
+  { to: '/app/reports', label: 'Reports',       icon: <Layers size={16} /> },
 ]
 const settingsNav = [
-  { to: '/app/billing',  label: 'Billing',  icon: '💳' },
-  { to: '/app/settings', label: 'Settings', icon: '⚙' },
+  { to: '/app/billing',  label: 'Billing',  icon: <CreditCard size={16} /> },
+  { to: '/app/settings', label: 'Settings', icon: <Settings size={16} /> },
 ]
 
-import { useState } from 'react'
 import { useSpreadsheet } from '../../context/SpreadsheetContext'
 
 export default function Sidebar() {
@@ -56,10 +71,10 @@ export default function Sidebar() {
   }
 
   const dynamicNav = [
-    { to: '/app', label: 'Dashboard',    icon: '▦', end: true },
-    { to: '/app/analytics', label: 'Analytics',  icon: '◈' },
-    { to: '/app/customers', label: entityLabel,  icon: '◎' },
-    { to: '/app/revenue',   label: valueLabel,    icon: '◇' },
+    { to: '/app', label: 'Dashboard',    icon: <LayoutDashboard size={16} />, end: true },
+    { to: '/app/analytics', label: 'Analytics',  icon: <TrendingUp size={16} /> },
+    { to: '/app/customers', label: entityLabel,  icon: <Users size={16} /> },
+    { to: '/app/revenue',   label: valueLabel,    icon: <DollarSign size={16} /> },
   ]
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,10 +120,10 @@ export default function Sidebar() {
         {activeSheet ? (
           <div className="sidebar-sheet-active">
             <span className="sheet-badge" title={activeSheet.filename}>
-              📄 {activeSheet.filename}
+              <FileText size={13} style={{ marginRight: 4 }} /> {activeSheet.filename}
             </span>
             <button className="sheet-reset-btn" onClick={reset} title="Reset to Demo Data">
-              ✕
+              <X size={12} />
             </button>
           </div>
         ) : (
@@ -125,7 +140,15 @@ export default function Sidebar() {
               disabled={uploading || isLocked}
               style={isLocked ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
             >
-              📁 {uploading ? 'Uploading...' : 'Upload Dataset'}
+              {uploading ? (
+                <>
+                  <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', marginRight: 6 }} /> Uploading...
+                </>
+              ) : (
+                <>
+                  <FolderOpen size={14} style={{ marginRight: 6 }} /> Upload Dataset
+                </>
+              )}
             </button>
             <span className="sidebar-upload-tip">Max 2,000 rows (.xlsx, .xls, .csv, .json)</span>
           </div>
@@ -145,9 +168,11 @@ export default function Sidebar() {
         {activeDocument ? (
           <div className="sidebar-sheet-active">
             <span className="sheet-badge" title={activeDocument.filename}>
-              📄 {activeDocument.filename}
+              <FileText size={13} style={{ marginRight: 4 }} /> {activeDocument.filename}
             </span>
-            <button className="sheet-reset-btn" onClick={resetDoc} title="Remove Document">✕</button>
+            <button className="sheet-reset-btn" onClick={resetDoc} title="Remove Document">
+              <X size={12} />
+            </button>
           </div>
         ) : (
           <div>
@@ -163,7 +188,15 @@ export default function Sidebar() {
               disabled={uploadingDoc || isLocked}
               style={isLocked ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
             >
-              📄 {uploadingDoc ? 'Uploading...' : 'Upload PDF / TXT'}
+              {uploadingDoc ? (
+                <>
+                  <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', marginRight: 6 }} /> Uploading...
+                </>
+              ) : (
+                <>
+                  <FileText size={14} style={{ marginRight: 6 }} /> Upload PDF / TXT
+                </>
+              )}
             </button>
             <span className="sidebar-upload-tip">Max 20 pages / 10MB · SaaS data</span>
           </div>
@@ -257,14 +290,14 @@ export default function Sidebar() {
           </button>
         )}
         {!isGuest && subscription?.subscription_status === 'active' && subscription?.plan === 'Enterprise' && (
-          <span style={{ fontSize: '11px', color: 'var(--muted)', textAlign: 'center', display: 'block', marginTop: '4px' }}>
-            ✓ Premium Unlocked
+          <span style={{ fontSize: '11px', color: 'var(--muted)', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: '4px' }}>
+            <Check size={11} /> Premium Unlocked
           </span>
         )}
       </div>
 
       <button className="signout-btn" onClick={signOut}>
-        <span>⎋</span> Sign out
+        <LogOut size={14} style={{ marginRight: 6 }} /> Sign out
       </button>
     </aside>
   )
