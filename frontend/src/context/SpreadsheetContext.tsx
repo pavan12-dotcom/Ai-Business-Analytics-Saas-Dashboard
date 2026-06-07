@@ -156,10 +156,14 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
 
   const reset = async () => {
     try {
-      await deleteSpreadsheet()
-      setActiveSheet(null)
+      if (activeSheet) {
+        await deleteSpreadsheet()
+        setActiveSheet(null)
+      }
+      setSampleSheet(null)
     } catch (err) {
       console.error('Failed to reset spreadsheet:', err)
+      setSampleSheet(null)
     }
   }
 
