@@ -42,7 +42,7 @@ export default function ResetPassword() {
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const [hasSession, setHasSession] = useState<boolean | null>(null)
-  const { updatePassword } = useAuth()
+  const { updatePassword, signOut } = useAuth()
   const nav = useNavigate()
 
   useEffect(() => {
@@ -132,6 +132,11 @@ export default function ResetPassword() {
       setServerError(mapAuthError(error) || 'Failed to reset your password.')
     } else {
       setSuccess(true)
+      try {
+        await signOut()
+      } catch (err) {
+        console.warn('Sign out after successful password update failed:', err)
+      }
       setTimeout(() => {
         nav('/login')
       }, 3000)
