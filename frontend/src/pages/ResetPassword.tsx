@@ -46,40 +46,65 @@ export default function ResetPassword() {
   const nav = useNavigate()
 
   useEffect(() => {
+    let active = true
+    let unsubscribeFn: (() => void) | null = null
+    let timer: any = null
+
     const checkRecoverySession = async () => {
+      // Parse URL hash or search params for redirect/auth errors
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      const searchParams = new URLSearchParams(window.location.search)
+      const errorDescription = hashParams.get('error_description') || searchParams.get('error_description')
+      
+      if (errorDescription) {
+        const decodedError = decodeURIComponent(errorDescription.replace(/\+/g, ' '))
+        console.warn(`[AUTH] Recovery flow URL error: ${decodedError}`)
+        if (active) {
+          setServerError(mapAuthError(decodedError) || decodedError)
+          setHasSession(false)
+        }
+        return
+      }
+
       const isDemoMode = import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co'
       if (isDemoMode) {
-        setHasSession(true)
+        if (active) setHasSession(true)
         return
       }
       
       const { data: { session } } = await supabase.auth.getSession()
+      if (!active) return
+
       if (session) {
         setHasSession(true)
       } else {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
-          if (currentSession) {
+          if (currentSession && active) {
             setHasSession(true)
           }
         })
+        unsubscribeFn = () => subscription.unsubscribe()
         
-        const timer = setTimeout(() => {
-          supabase.auth.getSession().then(({ data: { session: finalSession } }) => {
+        timer = setTimeout(async () => {
+          const { data: { session: finalSession } } = await supabase.auth.getSession()
+          if (active) {
             if (!finalSession) {
               setHasSession(false)
             } else {
               setHasSession(true)
             }
-          })
+          }
         }, 1500)
-
-        return () => {
-          subscription.unsubscribe()
-          clearTimeout(timer)
-        }
       }
     }
+    
     checkRecoverySession()
+
+    return () => {
+      active = false
+      if (unsubscribeFn) unsubscribeFn()
+      if (timer) clearTimeout(timer)
+    }
   }, [])
 
   const errors = useMemo(() => ({
@@ -135,7 +160,7 @@ export default function ResetPassword() {
         ) : hasSession === false ? (
           <div className="auth-error-flow" style={{ marginTop: '16px' }}>
             <div className="auth-error" style={{ marginBottom: '20px' }}>
-              This recovery link is invalid or has expired. Password reset links are single-use.
+              {serverError || 'This recovery link is invalid or has expired. Password reset links are single-use.'}
             </div>
             <Link to="/forgot-password" className="btn btn-primary auth-submit" style={{ display: 'inline-flex', textDecoration: 'none' }}>
               Request New Reset Link →

@@ -3,6 +3,7 @@ import { supabase } from '../services/supabase'
 import type { User } from '@supabase/supabase-js'
 import { logActivity } from '../services/audit'
 import { fetchSubscription } from '../services/api'
+import { useNavigate } from 'react-router-dom'
 
 interface SubscriptionType {
   plan: string
@@ -53,6 +54,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({} as AuthContextType)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const navigate = useNavigate()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [userRole, setRoleState] = useState<'Admin' | 'Manager' | 'Analyst' | 'Viewer'>(() => {
@@ -166,8 +168,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
+      if (event === 'PASSWORD_RECOVERY') {
+        console.log('[AUTH] PASSWORD_RECOVERY event detected, redirecting to /reset-password')
+        navigate('/reset-password')
+      }
     })
 
     return () => subscription.unsubscribe()
