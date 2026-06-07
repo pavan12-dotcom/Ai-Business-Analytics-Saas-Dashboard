@@ -407,60 +407,7 @@ export default function Settings() {
             </button>
           </div>
 
-          {/* API Keys */}
-          <div className="card settings-section glass-card">
-            <div className="settings-section-title">
-              <Key size={14} /> Connected Integrations
-            </div>
-            <div className="settings-section-sub">Manage secure endpoints and billing nodes</div>
 
-            <div className="field" style={{ marginBottom: 12 }}>
-              <label className="field-label flex-between">
-                <span>Custom Gemini API Key Override</span>
-                <span className={`badge ${geminiKey ? 'badge-green' : 'badge-red'}`} style={{ fontSize: 9 }}>
-                  {geminiKey ? 'KEY ACTIVE' : 'NO OVERRIDE'}
-                </span>
-              </label>
-              <input
-                type="password"
-                placeholder={isKeyRestricted ? `API Key override locked for ${userRole}` : 'Paste Gemini token (will be masked securely)...'}
-                className={`field-input ${isKeyRestricted ? 'disabled-input' : ''}`}
-                value={geminiKey}
-                onChange={e => setGeminiKey(e.target.value)}
-                disabled={isKeyRestricted}
-              />
-            </div>
-
-            {errorKey && <div className="settings-error-msg" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={12} /> {errorKey}</div>}
-
-            <button
-              className="btn btn-secondary btn-sm save-btn"
-              onClick={saveGeminiKey}
-              disabled={savingKey || isKeyRestricted}
-              style={{ marginBottom: 16 }}
-              title={isKeyRestricted ? `Access denied: ${userRole}s cannot configure API keys` : ''}
-            >
-              {savingKey ? 'Configuring...' : savedKey ? <><Check size={13} style={{ marginRight: 4 }} />Key Saved</> : 'Update Gemini Override'}
-            </button>
-
-            <div className="api-key-list">
-              {[
-                { name: 'Default AI Engine API', env: 'GEMINI_API_KEY (Backend)', status: true },
-                { name: 'Supabase Database', env: 'VITE_SUPABASE_URL', status: hasSupabase },
-                { name: 'Stripe Gateway', env: 'VITE_STRIPE_PUBLISHABLE_KEY', status: hasStripe }
-              ].map(k => (
-                <div key={k.name} className="api-key-row">
-                  <div>
-                    <div className="api-key-name">{k.name}</div>
-                    <div className="api-key-env">{k.env}</div>
-                  </div>
-                  <span className={`badge ${k.status ? 'badge-green' : 'badge-red'}`}>
-                    {k.status ? 'CONNECTED' : 'DISCONNECTED'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Right side: Security Score & Logs */}
