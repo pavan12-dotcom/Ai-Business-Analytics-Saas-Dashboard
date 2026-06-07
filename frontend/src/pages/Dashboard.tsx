@@ -175,10 +175,13 @@ function NoDataState({ onSample, onUpload }: { onSample: (ds: SampleDataset) => 
               onClick={() => onSample(ds)}
             >
               <div className="sample-info">
-                <div className="sample-name">{ds.name}</div>
+                <div className="sample-name">
+                  <span className="sample-name-icon">{ds.icon}</span>
+                  <span>{ds.name}</span>
+                </div>
                 <div className="sample-desc">{ds.description}</div>
               </div>
-              <span className="sample-tag" style={{ background: ds.tagColor + '22', color: ds.tagColor, borderColor: ds.tagColor + '44' }}>
+              <span className="sample-tag" style={{ background: ds.tagColor + '15', color: ds.tagColor, borderColor: ds.tagColor + '30' }}>
                 {ds.tag}
               </span>
             </button>
