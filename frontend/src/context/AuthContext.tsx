@@ -125,6 +125,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    // Check for recovery/error hash on load and redirect if necessary
+    const checkHashRedirect = () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      const searchParams = new URLSearchParams(window.location.search)
+      const isRecovery = hashParams.get('type') === 'recovery' || searchParams.get('type') === 'recovery'
+      const hasError = hashParams.get('error_description') || searchParams.get('error_description')
+      
+      if ((isRecovery || hasError) && window.location.pathname !== '/reset-password') {
+        console.log('[AUTH] Hash recovery/error detected on load, redirecting to /reset-password')
+        navigate('/reset-password' + window.location.search + window.location.hash)
+      }
+    }
+    checkHashRedirect()
+
     let guestSessionId = localStorage.getItem('guest_session_id')
     if (!guestSessionId) {
       guestSessionId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
