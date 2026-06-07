@@ -5,7 +5,7 @@ import { useRealtime } from '../hooks/useRealtime'
 import { useSpreadsheet } from '../context/SpreadsheetContext'
 import { SAMPLE_DATASETS } from '../data/sampleDatasets'
 import type { SampleDataset } from '../data/sampleDatasets'
-import { Zap, Bot, TrendingUp, Users, Sparkles, Globe, ArrowRight, ShieldCheck, Database, Check, Sun, Moon, ShoppingCart, BarChart3, Coins, Users2, GraduationCap, Stethoscope, Package, Megaphone, FolderOpen, Rocket, Loader2, AlertTriangle } from 'lucide-react'
+import { Zap, Bot, TrendingUp, Users, ArrowRight, ShieldCheck, Database, Check, Sun, Moon, FolderOpen, Loader2, AlertTriangle } from 'lucide-react'
 import './Landing.css'
 
 const FEATURES = [
@@ -46,21 +46,6 @@ export default function Landing() {
   const { loginAsGuest } = useAuth()
   const { upload: ctxUpload, uploadDoc, loadSample } = useSpreadsheet()
   const { status: realtimeStatus } = useRealtime()
-
-  const getDatasetIcon = (id: string) => {
-    const iconProps = { size: 22, style: { minWidth: 22, opacity: 0.85 } }
-    switch (id) {
-      case 'retail': return <ShoppingCart {...iconProps} style={{ color: 'var(--indigo)' }} />
-      case 'sales': return <BarChart3 {...iconProps} style={{ color: 'var(--teal)' }} />
-      case 'finance': return <Coins {...iconProps} style={{ color: 'var(--amber)' }} />
-      case 'hr': return <Users2 {...iconProps} style={{ color: 'var(--pink)' }} />
-      case 'education': return <GraduationCap {...iconProps} style={{ color: 'var(--purple)' }} />
-      case 'healthcare': return <Stethoscope {...iconProps} style={{ color: 'var(--red)' }} />
-      case 'inventory': return <Package {...iconProps} style={{ color: 'var(--blue)' }} />
-      case 'marketing': return <Megaphone {...iconProps} style={{ color: 'var(--green)' }} />
-      default: return null
-    }
-  }
 
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -273,39 +258,34 @@ export default function Landing() {
           <div className="mock-window-content">
             {/* Start Your Analysis Hero */}
             <div className="no-data-hero card" style={{ background: 'transparent', border: 'none', boxShadow: 'none', padding: '24px 0', margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <Rocket size={42} className="glow-icon" style={{ color: 'var(--accent)', marginBottom: 12, filter: 'drop-shadow(0 0 10px rgba(99,102,241,0.4))' }} />
-              <h2 className="no-data-title" style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', marginBottom: 8, textAlign: 'center' }}>Start Your Analysis</h2>
-              <p className="no-data-sub" style={{ fontSize: 14, color: 'var(--text-muted)', maxWidth: 500, margin: '0 auto 24px', lineHeight: 1.6, textAlign: 'center' }}>
-                Upload CSV, Excel, or JSON/PDF files to instantly run dynamic KPIs, interactive charts, and stream AI insights.
+              <h2 className="no-data-title" style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', marginBottom: 8, textAlign: 'center' }}>Try the Live Demo</h2>
+              <p className="no-data-sub" style={{ fontSize: 13.5, color: 'var(--text-muted)', maxWidth: 460, margin: '0 auto 20px', lineHeight: 1.65, textAlign: 'center' }}>
+                Upload your CSV, Excel, or PDF — or pick a sample dataset below to see AI analytics in action.
               </p>
               
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: '100%' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
                 <button 
                   className="btn btn-primary btn-lg-glow" 
                   onClick={handleUploadClick} 
                   disabled={uploading} 
-                  style={{ padding: '14px 40px', display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}
+                  style={{ padding: '13px 36px', display: 'flex', alignItems: 'center', gap: 7, justifyContent: 'center' }}
                 >
                   {uploading ? (
-                    <>
-                      <Loader2 size={18} style={{ animation: 'spin-slow 1.5s linear infinite' }} /> Processing Dataset...
-                    </>
+                    <><Loader2 size={15} style={{ animation: 'spin-slow 1.5s linear infinite' }} /> Processing...</>
                   ) : (
-                    <>
-                      <FolderOpen size={18} /> Upload Dataset
-                    </>
+                    <><FolderOpen size={15} /> Upload Dataset</>
                   )}
                 </button>
-                {uploadErr && <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}><AlertTriangle size={12} /> {uploadErr}</div>}
+                {uploadErr && <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}><AlertTriangle size={12} /> {uploadErr}</div>}
               </div>
 
-              <div className="no-data-divider" style={{ width: '100%', maxWidth: 440, margin: '28px auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'var(--text-muted)', fontSize: 12 }}>
+              <div className="no-data-divider" style={{ width: '100%', maxWidth: 440, margin: '24px auto 18px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'var(--text-muted)', fontSize: 11.5 }}>
                 <span style={{ height: 1, background: 'var(--border)', flex: 1 }} />
                 <span>OR TRY A SAMPLE DATASET</span>
                 <span style={{ height: 1, background: 'var(--border)', flex: 1 }} />
               </div>
 
-              <div className="sample-cards" style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', width: '100%', maxWidth: 800, margin: '0 auto' }}>
+              <div className="sample-cards" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', width: '100%', maxWidth: 760, margin: '0 auto' }}>
                 {SAMPLE_DATASETS.map(ds => (
                   <button
                     key={ds.id}
@@ -314,25 +294,23 @@ export default function Landing() {
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 12,
+                      gap: 10,
                       background: 'var(--bg-card)',
                       border: '1px solid var(--border)',
                       borderRadius: 'var(--radius-sm)',
-                      padding: '14px 18px',
+                      padding: '11px 16px',
                       cursor: 'pointer',
                       transition: 'all 0.2s ease',
-                      flex: '1 1 220px',
-                      maxWidth: '260px',
+                      flex: '1 1 200px',
+                      maxWidth: '240px',
                       color: 'var(--text)',
                       textAlign: 'left'
                     }}
                   >
-                    <span className="sample-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 24 }}>
-                      {getDatasetIcon(ds.id)}
-                    </span>
-                    <div className="sample-info" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <div className="sample-name" style={{ fontWeight: 700, fontSize: 13.5 }}>{ds.name}</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{ds.tag}</div>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: ds.tagColor, flexShrink: 0 }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{ds.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{ds.tag}</div>
                     </div>
                   </button>
                 ))}
@@ -350,7 +328,7 @@ export default function Landing() {
         <div className="features-grid">
           {FEATURES.map((f, i) => (
             <div key={i} className="feature-card glass-card hover-lift">
-              <div className="feature-icon-wrapper">{f.icon}</div>
+              <div className="feature-icon-inline">{f.icon}</div>
               <h3 className="feature-card-title">{f.title}</h3>
               <p className="feature-card-desc">{f.desc}</p>
             </div>

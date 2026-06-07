@@ -9,39 +9,14 @@ import {
   AreaChart, Area, CartesianGrid, LineChart, Line
 } from 'recharts'
 import {
-  LayoutDashboard,
   FolderOpen,
   AlertCircle,
-  Rocket,
   Loader2,
   Cpu,
   CheckCircle2,
-  FileText,
-  ShoppingCart,
-  BarChart3,
-  Coins,
-  Users2,
-  GraduationCap,
-  Stethoscope,
-  Package,
-  Megaphone
+  FileText
 } from 'lucide-react'
 import './Dashboard.css'
-
-const getDatasetIcon = (id: string) => {
-  const iconProps = { size: 22, style: { minWidth: 22, opacity: 0.85 } }
-  switch (id) {
-    case 'retail': return <ShoppingCart {...iconProps} style={{ color: 'var(--indigo)' }} />
-    case 'sales': return <BarChart3 {...iconProps} style={{ color: 'var(--teal)' }} />
-    case 'finance': return <Coins {...iconProps} style={{ color: 'var(--amber)' }} />
-    case 'hr': return <Users2 {...iconProps} style={{ color: 'var(--pink)' }} />
-    case 'education': return <GraduationCap {...iconProps} style={{ color: 'var(--purple)' }} />
-    case 'healthcare': return <Stethoscope {...iconProps} style={{ color: 'var(--red)' }} />
-    case 'inventory': return <Package {...iconProps} style={{ color: 'var(--blue)' }} />
-    case 'marketing': return <Megaphone {...iconProps} style={{ color: 'var(--green)' }} />
-    default: return null
-  }
-}
 
 
 // ── Tooltip ───────────────────────────────────────────────────
@@ -70,14 +45,13 @@ function EmptyChart({ height = 200 }: { height?: number }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
+        gap: 6,
         color: 'var(--text-muted)',
         border: '1.5px dashed var(--border2)',
         borderRadius: 'var(--radius-sm)',
         background: 'rgba(99,102,241,0.02)',
       }}
     >
-      <LayoutDashboard size={28} style={{ color: 'var(--accent)', opacity: 0.8 }} />
       <span style={{ fontSize: 13, fontWeight: 600 }}>No data available</span>
       <span style={{ fontSize: 11.5, textAlign: 'center', maxWidth: 220 }}>
         Upload a CSV, Excel, or JSON file to generate insights.
@@ -181,7 +155,6 @@ function NoDataState({ onSample, onUpload }: { onSample: (ds: SampleDataset) => 
     <div className="no-data-state">
       {/* Hero upload box */}
       <div className="no-data-hero card">
-        <Rocket size={42} className="glow-icon" style={{ color: 'var(--accent)', marginBottom: 12, filter: 'drop-shadow(0 0 10px rgba(99,102,241,0.4))' }} />
         <h2 className="no-data-title">Start Your Analysis</h2>
         <p className="no-data-sub">Upload a dataset to generate AI-powered analytics.</p>
         <div className="no-data-formats">
@@ -191,7 +164,7 @@ function NoDataState({ onSample, onUpload }: { onSample: (ds: SampleDataset) => 
           <span className="format-tag">PDF</span>
         </div>
         <button className="btn btn-primary no-data-upload-btn" onClick={onUpload} style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', margin: '0 auto' }}>
-          <FolderOpen size={16} /> Upload Dataset
+          <FolderOpen size={14} /> Upload Dataset
         </button>
         <div className="no-data-divider"><span>or try a sample</span></div>
         <div className="sample-cards">
@@ -201,7 +174,6 @@ function NoDataState({ onSample, onUpload }: { onSample: (ds: SampleDataset) => 
               className="sample-card"
               onClick={() => onSample(ds)}
             >
-              <span className="sample-icon">{getDatasetIcon(ds.id)}</span>
               <div className="sample-info">
                 <div className="sample-name">{ds.name}</div>
                 <div className="sample-desc">{ds.description}</div>

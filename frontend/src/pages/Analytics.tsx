@@ -6,7 +6,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, AreaChart, Area
 } from 'recharts'
-import { TrendingUp, Rocket, Lock, Lightbulb } from 'lucide-react'
+import { TrendingUp, Lock, Lightbulb } from 'lucide-react'
 import './Analytics.css'
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -33,7 +33,7 @@ function EmptyChart({ message, height = 200 }: { message?: string; height?: numb
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
+        gap: 6,
         color: 'var(--text-muted)',
         border: '1.5px dashed var(--border2)',
         borderRadius: 'var(--radius-sm)',
@@ -41,7 +41,6 @@ function EmptyChart({ message, height = 200 }: { message?: string; height?: numb
         width: '100%',
       }}
     >
-      <TrendingUp size={28} style={{ color: 'var(--accent)' }} />
       <span style={{ fontSize: 13, fontWeight: 600 }}>No data available</span>
       <span style={{ fontSize: 11.5, textAlign: 'center', maxWidth: 220 }}>
         {message || "Upload a CSV, Excel, or JSON file to generate insights."}
@@ -168,13 +167,12 @@ export default function Analytics() {
           gap: 16,
           marginTop: 20
         }}>
-          <div style={{ color: 'var(--accent)', opacity: 0.8 }}><TrendingUp size={48} /></div>
-          <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>No Analytics Available</h2>
+          <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>No Analytics Available</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 450, margin: 0, lineHeight: 1.6 }}>
             Upload a dataset to generate AI-powered analytics.
           </p>
           <button className="btn btn-primary" onClick={() => navigate('/app')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <Rocket size={14} /> Go to Dashboard to Upload
+            Go to Dashboard
           </button>
         </div>
       ) : (

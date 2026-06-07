@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Treemap, ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, ZAxis, Tooltip
 } from 'recharts'
-import { Users, Rocket, AlertCircle } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import './Customers.css'
 
 export interface Customer {
@@ -31,7 +31,7 @@ function EmptyChart({ message, height = 200 }: { message?: string; height?: numb
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
+        gap: 6,
         color: 'var(--text-muted)',
         border: '1.5px dashed var(--border2)',
         borderRadius: 'var(--radius-sm)',
@@ -39,7 +39,6 @@ function EmptyChart({ message, height = 200 }: { message?: string; height?: numb
         width: '100%',
       }}
     >
-      <Users size={28} style={{ color: 'var(--accent)' }} />
       <span style={{ fontSize: 13, fontWeight: 600 }}>No data available</span>
       <span style={{ fontSize: 11.5, textAlign: 'center', maxWidth: 220 }}>
         {message || "Upload a CSV, Excel, or JSON file to generate insights."}
@@ -164,23 +163,22 @@ export default function Customers() {
   return (
     <div className="customers-page fade-in">
       {!hasData ? (
-        <div className="card glass-card no-print" style={{
+        <div className="card no-print" style={{
           padding: '60px 40px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           textAlign: 'center',
-          gap: 16,
+          gap: 12,
           marginTop: 20
         }}>
-          <Users size={48} style={{ color: 'var(--accent)', opacity: 0.8 }} />
-          <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>No Data Available</h2>
+          <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>No Data Available</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 450, margin: 0, lineHeight: 1.6 }}>
             Upload a dataset to generate AI-powered analytics.
           </p>
           <button className="btn btn-primary" onClick={() => navigate('/app')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <Rocket size={14} /> Go to Dashboard to Upload
+            Go to Dashboard
           </button>
         </div>
       ) : (

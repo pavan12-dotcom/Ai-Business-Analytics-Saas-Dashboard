@@ -540,17 +540,12 @@ body.dark .gradient-text {
   padding: 30px;
 }
 
-.feature-icon-wrapper {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+.feature-icon-inline {
   color: var(--accent);
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
+  opacity: 0.9;
 }
 
 .feature-card-title {
