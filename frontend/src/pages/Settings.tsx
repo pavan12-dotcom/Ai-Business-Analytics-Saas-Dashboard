@@ -505,55 +505,7 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* System Activity Logs */}
-          <div className="card settings-section glass-card">
-            <div className="settings-section-title">
-              <Activity size={14} /> System Activity Logs
-            </div>
-            <div className="settings-section-sub">Real-time audit timeline of workspace operations</div>
 
-            <div className="audit-timeline">
-              {loadingLogs && logs.length === 0 ? (
-                <div className="timeline-empty">Syncing audit history...</div>
-              ) : logs.length === 0 ? (
-                <div className="timeline-empty">No activity logs recorded yet.</div>
-              ) : (
-                logs.slice(0, 8).map((log) => (
-                  <div key={log.id} className="timeline-item">
-                    <div className="timeline-badge" />
-                    <div className="timeline-content">
-                      <div className="timeline-action">{log.action}</div>
-                      <div className="timeline-meta">
-                        <span className="timeline-user">{log.user}</span>
-                        <span className="timeline-dot">·</span>
-                        <span className="timeline-time">{log.timestamp}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Danger zone */}
-          <div className="card settings-section settings-danger glass-card">
-            <div className="danger-header">
-              <AlertTriangle size={16} />
-              <div>
-                <div className="danger-title">Danger Zone</div>
-                <div className="danger-sub">Irreversible actions on this workspace</div>
-              </div>
-            </div>
-            <button
-              className="btn delete-account-btn"
-              onClick={handleDeleteAccount}
-              disabled={isDangerRestricted}
-              title={isDangerRestricted ? `Access denied: ${userRole}s cannot deactivate seats` : ''}
-            >
-              <Trash2 size={13} style={{ marginRight: 6 }} />
-              {isGuest ? 'Clear Guest Session' : 'Deactivate Enterprise Seat'}
-            </button>
-          </div>
         </div>
       </div>
     </div>
