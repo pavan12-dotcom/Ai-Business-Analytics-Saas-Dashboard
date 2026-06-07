@@ -201,6 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const fakeUser = { id: 'demo-1', email, user_metadata: { name: 'Demo User' } } as unknown as User
       setUser(fakeUser)
       localStorage.setItem('demo_user', JSON.stringify(fakeUser))
+      localStorage.removeItem('demo_guest_user')
       return { error: null }
     }
     const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -208,6 +209,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.warn(`[AUTH] Sign-in failed for ${email}: ${error.message}`)
     } else {
       console.log(`[AUTH] Sign-in successful for ${email}`)
+      localStorage.removeItem('demo_guest_user')
+      localStorage.removeItem('demo_user')
+      localStorage.removeItem('demo_used')
+      setGuestQueryCount(0)
+      setUploadCount(0)
     }
     return { error: error?.message ?? null }
   }
@@ -237,6 +243,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       console.log(`[AUTH] Sign-up completed for ${email}. Session established: ${!!data?.session}`)
       localStorage.setItem('last_signup_request', String(Date.now()))
+      if (data?.session) {
+        localStorage.removeItem('demo_guest_user')
+        localStorage.removeItem('demo_user')
+        localStorage.removeItem('demo_used')
+        setGuestQueryCount(0)
+        setUploadCount(0)
+      }
     }
     return { error: error?.message ?? null, session: data?.session ?? null }
   }
