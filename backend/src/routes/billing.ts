@@ -43,25 +43,30 @@ router.post('/checkout', requireAuth, async (req: Request, res: Response) => {
   const origin = (req.headers.origin as string) || process.env.FRONTEND_URL || 'http://localhost:5173'
   const cleanOrigin = origin.replace(/\/$/, '')
 
-  const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
-    payment_method_types: ['card'],
-    line_items: [{
-      price_data: {
-        currency: 'usd',
-        product: productInfo.id,
-        recurring: { interval: 'month' },
-        unit_amount: productInfo.amount,
-      },
-      quantity: 1,
-    }],
-    client_reference_id: (req as any).userId,
-    metadata: { plan },
-    success_url: `${cleanOrigin}/app/billing?success=1`,
-    cancel_url: `${cleanOrigin}/app/billing`,
-  })
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product: productInfo.id,
+          recurring: { interval: 'month' },
+          unit_amount: productInfo.amount,
+        },
+        quantity: 1,
+      }],
+      client_reference_id: (req as any).userId,
+      metadata: { plan },
+      success_url: `${cleanOrigin}/app/billing?success=1`,
+      cancel_url: `${cleanOrigin}/app/billing`,
+    })
 
-  res.json({ url: session.url })
+    res.json({ url: session.url })
+  } catch (err: any) {
+    console.error('Stripe session creation failed:', err.message)
+    res.status(500).json({ error: `Stripe Error: ${err.message}` })
+  }
 })
 
 router.post('/portal', requireAuth, async (_req: Request, res: Response) => {
