@@ -111,8 +111,9 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
             return
           }
 
-          if (json.length > 2000) {
-            resolve({ success: false, error: 'Dataset exceeds the limit of 2000 rows. Please upload a smaller file.' })
+          const maxRows = (extension === 'xlsx' || extension === 'xls') ? 10000 : 2000
+          if (json.length > maxRows) {
+            resolve({ success: false, error: `Dataset exceeds the limit of ${maxRows.toLocaleString()} rows. Please upload a smaller file.` })
             return
           }
 

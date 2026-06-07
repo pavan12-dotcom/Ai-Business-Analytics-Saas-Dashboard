@@ -2,7 +2,7 @@
  * sampleDatasets.ts
  * Sample datasets for instant universal demo — no upload required.
  * Each matches the format SpreadsheetContext expects.
- * programmatically generates 1000+ rows to maintain a lightweight bundle size.
+ * programmatically generates 5000+ rows to maintain a lightweight bundle size.
  */
 
 export interface SampleDataset {
@@ -26,7 +26,7 @@ const randomDate = (start: Date, end: Date): string => {
   return date.toISOString().split('T')[0]
 }
 
-// ── 1. Retail Sales (1200 rows) ───────────────────────────────
+// ── 1. Retail Sales (5200 rows) ───────────────────────────────
 const generateRetailRows = (): Record<string, any>[] => {
   const rows: Record<string, any>[] = []
   const categories = {
@@ -39,19 +39,26 @@ const generateRetailRows = (): Record<string, any>[] => {
   const statuses = ['Completed', 'Completed', 'Completed', 'Pending', 'Refunded']
   const customers = ['Emma Johnson', 'James Smith', 'Sarah Lee', 'Mike Davis', 'Anna White', 'Chris Brown', 'Olivia Taylor', 'Noah Martinez', 'Sophia Anderson', 'Liam Jackson', 'Ava Thomas', 'Mason Harris', 'Isabella Clark', 'Ethan Lewis', 'Mia Robinson', 'Lucas Walker', 'Charlotte Hall', 'Henry Allen', 'Amelia Young', 'Jack King']
 
-  for (let i = 1; i <= 1200; i++) {
+  for (let i = 1; i <= 5200; i++) {
     const cat = randomChoice(Object.keys(categories) as Array<keyof typeof categories>)
     const prod = randomChoice(categories[cat])
+    // Generate realistic base prices
     const basePrice = cat === 'Electronics' ? randomRange(150, 1200) : cat === 'Home' ? randomRange(50, 350) : randomRange(15, 150)
     const qty = randomChoice([1, 1, 1, 2, 2, 3])
+    
+    // Create an upwards trend in sales by scaling the date and prices
+    const purchaseDate = randomDate(new Date(2024, 0, 1), new Date(2024, 5, 30))
+    const monthIndex = new Date(purchaseDate).getMonth() // 0 to 5
+    const trendMultiplier = 1 + (monthIndex * 0.08) // up to 40% growth by June
+    
     rows.push({
-      OrderID: `ORD-${String(i).padStart(4, '0')}`,
+      OrderID: `ORD-${String(i).padStart(5, '0')}`,
       Customer: randomChoice(customers),
       Category: cat,
       Product: prod,
-      Revenue: basePrice * qty,
+      Revenue: Math.round(basePrice * qty * trendMultiplier),
       Quantity: qty,
-      Date: randomDate(new Date(2024, 0, 1), new Date(2024, 5, 30)),
+      Date: purchaseDate,
       Region: randomChoice(regions),
       Status: randomChoice(statuses)
     })
@@ -59,7 +66,7 @@ const generateRetailRows = (): Record<string, any>[] => {
   return rows
 }
 
-// ── 2. SaaS Sales Pipeline (1050 rows) ─────────────────────────
+// ── 2. SaaS Sales Pipeline (5050 rows) ─────────────────────────
 const generateSalesRows = (): Record<string, any>[] => {
   const rows: Record<string, any>[] = []
   const companies = ['TechNova Inc', 'PixelCraft', 'CloudBridge', 'VortexMetrics', 'ScaleUp Labs', 'QuantumFlow', 'NexGen Analytics', 'SkyDash Corp', 'PulseTrack', 'InnovateSphere', 'BrightEdge AI', 'CoreStack', 'DataMesh', 'OmniCloud', 'Hyperion AI', 'ZenithData', 'FusionTech', 'ApexSystems', 'GlobalInsights', 'NovaLink', 'FlowState', 'SyncLogic']
@@ -69,26 +76,29 @@ const generateSalesRows = (): Record<string, any>[] => {
   const regions = ['APAC', 'EMEA', 'NA', 'LATAM']
   const leadSources = ['Inbound Organic', 'LinkedIn Outreach', 'Google Ads', 'Product Hunt', 'Partner Referral']
 
-  for (let i = 1; i <= 1050; i++) {
+  for (let i = 1; i <= 5050; i++) {
     const plan = randomChoice(plans)
+    // Coherent MRR ranges based on Plan
     const mrr = plan === 'Enterprise' ? randomRange(3000, 6000) : plan === 'Pro' ? randomRange(750, 1500) : 0
     const acv = mrr * 12
+    const closeDate = randomDate(new Date(2024, 0, 1), new Date(2024, 5, 30))
+    
     rows.push({
-      DealID: `D-${String(i).padStart(4, '0')}`,
-      Company: randomChoice(companies) + ' ' + randomRange(10, 99),
+      DealID: `D-${String(i).padStart(5, '0')}`,
+      Company: randomChoice(companies) + ' ' + randomRange(100, 999),
       Plan: plan,
       Stage: randomChoice(stages),
       MRR: mrr,
       ACV: acv,
       LeadSource: randomChoice(leadSources),
       Region: randomChoice(regions),
-      CloseDate: randomDate(new Date(2024, 0, 1), new Date(2024, 5, 30))
+      CloseDate: closeDate
     })
   }
   return rows
 }
 
-// ── 3. Finance / P&L (1100 rows) ───────────────────────────────
+// ── 3. Finance / P&L (5100 rows) ───────────────────────────────
 const generateFinanceRows = (): Record<string, any>[] => {
   const rows: Record<string, any>[] = []
   const departments = ['Engineering', 'Sales', 'Marketing', 'Operations', 'HR', 'Product', 'Design']
@@ -97,16 +107,27 @@ const generateFinanceRows = (): Record<string, any>[] => {
     Income: ['SaaS Revenue', 'Professional Services', 'Enterprise Contracts', 'API Usage Fees']
   }
 
-  for (let i = 1; i <= 1100; i++) {
+  for (let i = 1; i <= 5100; i++) {
+    const txDate = randomDate(new Date(2024, 0, 1), new Date(2024, 5, 30))
+    const month = new Date(txDate).getMonth()
+    
+    // Structure income to show a healthy growth curve, and expenses to scale moderately
     const type = randomChoice(['Expense', 'Expense', 'Expense', 'Income', 'Income'])
     const category = randomChoice(categories[type as keyof typeof categories])
-    const amount = type === 'Income' ? randomRange(5000, 45000) : randomRange(200, 15000)
+    
+    let amount = 0
+    if (type === 'Income') {
+      amount = randomRange(5000, 35000) * (1 + month * 0.12) // positive revenue trend
+    } else {
+      amount = category === 'Salaries' ? randomRange(8000, 15000) : randomRange(150, 8000)
+    }
+
     rows.push({
-      TransactionID: `TX-${String(i).padStart(4, '0')}`,
-      Date: randomDate(new Date(2024, 0, 1), new Date(2024, 5, 30)),
+      TransactionID: `TX-${String(i).padStart(5, '0')}`,
+      Date: txDate,
       Department: randomChoice(departments),
       Category: category,
-      Amount: amount,
+      Amount: Math.round(amount),
       Type: type,
       Account: randomChoice(['SVB Checking', 'Mercury Operating', 'Stripe Clearing'])
     })
@@ -114,7 +135,7 @@ const generateFinanceRows = (): Record<string, any>[] => {
   return rows
 }
 
-// ── 4. HR Employees (1020 rows) ────────────────────────────────
+// ── 4. HR Employees (5020 rows) ────────────────────────────────
 const generateHRRows = (): Record<string, any>[] => {
   const rows: Record<string, any>[] = []
   const firstNames = ['James', 'Mary', 'John', 'Patricia', 'Robert', 'Jennifer', 'Michael', 'Linda', 'William', 'Elizabeth', 'David', 'Barbara', 'Richard', 'Susan', 'Joseph', 'Jessica', 'Thomas', 'Sarah', 'Charles', 'Karen']
@@ -131,38 +152,41 @@ const generateHRRows = (): Record<string, any>[] => {
     HR: ['HR Generalist', 'Recruiter']
   }
 
-  for (let i = 1; i <= 1020; i++) {
+  for (let i = 1; i <= 5020; i++) {
     const dept = randomChoice(departments)
     const role = randomChoice(roles[dept as keyof typeof roles])
-    const salary = dept === 'Engineering' ? randomRange(90000, 160000) : dept === 'Product' ? randomRange(85000, 145000) : randomRange(50000, 110000)
+    // Generate realistic salary bounds per department
+    const salary = dept === 'Engineering' ? randomRange(90000, 165000) : dept === 'Product' ? randomRange(85000, 145000) : randomRange(50000, 115000)
     rows.push({
-      EmployeeID: `EMP-${String(i).padStart(4, '0')}`,
+      EmployeeID: `EMP-${String(i).padStart(5, '0')}`,
       Name: `${randomChoice(firstNames)} ${randomChoice(lastNames)}`,
       Department: dept,
       Role: role,
       Salary: salary,
       Status: randomChoice(['Active', 'Active', 'Active', 'Active', 'On Leave']),
       JoinDate: randomDate(new Date(2020, 0, 1), new Date(2024, 5, 30)),
-      Rating: Number((randomRange(30, 50) / 10).toFixed(1))
+      Rating: Number((randomRange(32, 50) / 10).toFixed(1))
     })
   }
   return rows
 }
 
-// ── 5. Marketing Spend (1000 rows) ──────────────────────────────
+// ── 5. Marketing Spend (5000 rows) ──────────────────────────────
 const generateMarketingRows = (): Record<string, any>[] => {
   const rows: Record<string, any>[] = []
   const channels = ['Google Search Ads', 'Facebook Social', 'LinkedIn B2B', 'Email Newsletter', 'YouTube Video', 'Organic SEO']
 
-  for (let i = 1; i <= 1000; i++) {
+  for (let i = 1; i <= 5000; i++) {
     const channel = randomChoice(channels)
+    // Correlate adSpend, clicks, conversions, and revenue for premium analytics
     const spend = channel === 'LinkedIn B2B' ? randomRange(800, 5000) : channel === 'Organic SEO' ? 0 : randomRange(100, 3000)
-    const clicks = channel === 'Organic SEO' ? randomRange(1000, 5000) : Math.floor(spend / (randomRange(10, 50) / 10))
-    const conversions = Math.floor(clicks * (randomRange(1, 8) / 100))
-    const revenue = conversions * randomRange(40, 200)
+    const clicks = channel === 'Organic SEO' ? randomRange(1000, 5000) : Math.floor(spend / (randomRange(12, 45) / 10))
+    const convRate = channel === 'Email Newsletter' ? randomRange(4, 9) : randomRange(1, 6)
+    const conversions = Math.floor(clicks * (convRate / 100))
+    const revenue = conversions * randomRange(50, 250)
 
     rows.push({
-      CampaignID: `MKT-${String(i).padStart(4, '0')}`,
+      CampaignID: `MKT-${String(i).padStart(5, '0')}`,
       Date: randomDate(new Date(2024, 0, 1), new Date(2024, 5, 30)),
       Channel: channel,
       AdSpend: spend,
@@ -178,7 +202,7 @@ export const SAMPLE_DATASETS: SampleDataset[] = [
   {
     id: 'retail',
     name: 'Retail Sales',
-    description: '1,200 orders across categories, regions & products',
+    description: '5,200 orders across categories, regions & products',
     icon: '🛒',
     tag: 'Sales',
     tagColor: '#6366f1',
@@ -200,7 +224,7 @@ export const SAMPLE_DATASETS: SampleDataset[] = [
   {
     id: 'sales',
     name: 'SaaS Pipeline',
-    description: '1,050 deals with plans, reps, ACV & lead sources',
+    description: '5,050 deals with plans, reps, ACV & lead sources',
     icon: '📈',
     tag: 'Sales Pipeline',
     tagColor: '#14b8a6',
@@ -222,7 +246,7 @@ export const SAMPLE_DATASETS: SampleDataset[] = [
   {
     id: 'finance',
     name: 'P&L General Ledger',
-    description: '1,100 transactions across departments, accounts & P&L types',
+    description: '5,100 transactions across departments, accounts & P&L types',
     icon: '💰',
     tag: 'Finance',
     tagColor: '#f59e0b',
@@ -242,7 +266,7 @@ export const SAMPLE_DATASETS: SampleDataset[] = [
   {
     id: 'hr',
     name: 'HR Employees',
-    description: '1,020 employee profiles with roles, salaries & ratings',
+    description: '5,020 employee profiles with roles, salaries & ratings',
     icon: '👥',
     tag: 'HR / Operations',
     tagColor: '#ec4899',
@@ -263,7 +287,7 @@ export const SAMPLE_DATASETS: SampleDataset[] = [
   {
     id: 'marketing',
     name: 'Marketing Spend',
-    description: '1,000 ad performance records across channels, spend & revenue',
+    description: '5,000 ad performance records across channels, spend & revenue',
     icon: '📢',
     tag: 'Marketing',
     tagColor: '#10b981',
