@@ -46,6 +46,11 @@ export default function Layout() {
 
   return (
     <div className="app-shell">
+      <div className="bg-orbs">
+        <div className="bg-orb orb-1" />
+        <div className="bg-orb orb-2" />
+        <div className="bg-orb orb-3" />
+      </div>
       <Sidebar />
       <div className="shell-main">
         <Topbar />

@@ -5,7 +5,14 @@ import { detectColumnTypes } from '../services/columnDetection'
 import { fetchSpreadsheet, uploadSpreadsheet, deleteSpreadsheet, fetchDocument, uploadDocument, deleteDocument, reparseDocument } from '../services/api'
 import { useAuth } from './AuthContext'
 import { computeAnalytics, type AnalyticsResult } from '../services/analyticsEngine'
+import { cleanNumericValue, formatNumber } from '../services/dataCleaner'
 import type { SampleDataset } from '../data/sampleDatasets'
+
+// ── Sheet info for multi-sheet Excel workbooks ────────────────────
+export interface SheetInfo {
+  name: string
+  rowCount: number
+}
 
 interface SpreadsheetContextType {
   activeSheet: any
@@ -25,9 +32,29 @@ interface SpreadsheetContextType {
   hasData: boolean
   datasetName: string
   loadSample: (dataset: SampleDataset) => void
+  // Multi-sheet support
+  sheetNames: SheetInfo[]
+  activeSheetName: string
+  selectSheet: (name: string) => Promise<void>
 }
 
 const SpreadsheetContext = createContext<SpreadsheetContextType>({} as SpreadsheetContextType)
+
+// Session storage keys
+const SS_KEY_SHEETS_DATA  = 'ss_sheets_data'    // { [sheetName]: { rows, headers, columns_metadata } }
+const SS_KEY_FILENAME     = 'ss_filename'
+const SS_KEY_ACTIVE_SHEET = 'ss_active_sheet'
+
+const cleanMetadata = (meta: any) => {
+  if (!meta) return {}
+  const cleaned: any = {}
+  for (const key in meta) {
+    if (!key.startsWith('__')) {
+      cleaned[key] = meta[key]
+    }
+  }
+  return cleaned
+}
 
 export function SpreadsheetProvider({ children }: { children: React.ReactNode }) {
   const [activeSheet, setActiveSheet] = useState<any>(null)
@@ -36,6 +63,38 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
   const [loadingDoc, setLoadingDoc] = useState(true)
   const [sampleSheet, setSampleSheet] = useState<any>(null) // loaded sample dataset
   const { user, incrementUploadCount, isGuest, isGuestTrialExhausted, setShowSignupModal, refreshSubscription } = useAuth()
+
+  // ── Restore multi-sheet state from sessionStorage on mount ────
+  const _restoredSheets = (() => {
+    try {
+      const raw = sessionStorage.getItem(SS_KEY_SHEETS_DATA)
+      return raw ? JSON.parse(raw) : {}
+    } catch { return {} }
+  })()
+  const _restoredFilename = sessionStorage.getItem(SS_KEY_FILENAME) || ''
+  const _restoredActiveName = sessionStorage.getItem(SS_KEY_ACTIVE_SHEET) || ''
+  const _restoredSheetInfos: SheetInfo[] = Object.keys(_restoredSheets).map((name: string) => ({
+    name,
+    rowCount: (_restoredSheets[name]?.rows?.length ?? 0)
+  }))
+
+  // Multi-sheet state — initialized from sessionStorage if available
+  const [sheetNames, setSheetNames] = useState<SheetInfo[]>(_restoredSheetInfos)
+  const [activeSheetName, setActiveSheetName] = useState(_restoredActiveName)
+  const [sheetsData, setSheetsData] = useState<Record<string, any>>(_restoredSheets)
+  const [sheetsFilename, setSheetsFilename] = useState(_restoredFilename)
+
+  // Helper: persist to sessionStorage whenever multi-sheet state changes
+  const persistSheetsData = (data: Record<string, any>, filename: string, activeName: string) => {
+    try {
+      sessionStorage.setItem(SS_KEY_SHEETS_DATA, JSON.stringify(data))
+      sessionStorage.setItem(SS_KEY_FILENAME, filename)
+      sessionStorage.setItem(SS_KEY_ACTIVE_SHEET, activeName)
+    } catch (e) {
+      // sessionStorage may be full for very large files — silently ignore
+      console.warn('sessionStorage write failed (possibly too large):', e)
+    }
+  }
 
   useEffect(() => {
     if (!user) {
@@ -46,12 +105,115 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
     setLoading(true)
     fetchSpreadsheet()
       .then((sheet) => {
-        if (sheet) setActiveSheet(sheet)
-        else setActiveSheet(null)
+        const restoredActiveName = sessionStorage.getItem(SS_KEY_ACTIVE_SHEET)
+        const restoredData = (() => {
+          try {
+            const raw = sessionStorage.getItem(SS_KEY_SHEETS_DATA)
+            return raw ? JSON.parse(raw) : null
+          } catch { return null }
+        })()
+        const restoredFilename = sessionStorage.getItem(SS_KEY_FILENAME) || ''
+
+        if (sheet && restoredActiveName && restoredData?.[restoredActiveName] && sheet.filename === restoredFilename) {
+          const sd = restoredData[restoredActiveName]
+          const sheetInfoList: SheetInfo[] = Object.keys(restoredData).map((name: string) => ({
+            name,
+            rowCount: restoredData[name]?.rows?.length ?? 0
+          }))
+          setSheetNames(sheetInfoList)
+          setActiveSheetName(restoredActiveName)
+          setSheetsData(restoredData)
+          setSheetsFilename(restoredFilename)
+
+          setActiveSheet({
+            filename: restoredFilename,
+            headers: sd.headers,
+            columns_metadata: cleanMetadata(sd.columns_metadata),
+            rows: sd.rows,
+          })
+        } else if (sheet) {
+          const meta = sheet.columns_metadata || {}
+          let finalMetadata = { ...meta }
+          if (meta.__sheetNames && meta.__sheetsData) {
+            try {
+              const parsedSheetNames = JSON.parse(meta.__sheetNames)
+              const parsedSheetsData = JSON.parse(meta.__sheetsData)
+              
+              // Find the sheet with the most rows as default fallback
+              const bestSheet = parsedSheetNames.reduce((best: any, s: any) =>
+                s.rowCount > best.rowCount ? s : best
+              , parsedSheetNames[0])
+              const activeName = meta.__activeSheetName || bestSheet?.name || ''
+              
+              setSheetNames(parsedSheetNames)
+              setActiveSheetName(activeName)
+              setSheetsData(parsedSheetsData)
+              setSheetsFilename(sheet.filename)
+
+              // Persist to session storage
+              persistSheetsData(parsedSheetsData, sheet.filename, activeName)
+
+              // Clean metadata
+              finalMetadata = cleanMetadata(meta)
+
+              // Load active sheet's data from sheetsData if present
+              const activeSheetData = parsedSheetsData[activeName]
+              if (activeSheetData) {
+                setActiveSheet({
+                  filename: sheet.filename,
+                  headers: activeSheetData.headers,
+                  columns_metadata: cleanMetadata(activeSheetData.columns_metadata),
+                  rows: activeSheetData.rows,
+                })
+              } else {
+                setActiveSheet({
+                  ...sheet,
+                  columns_metadata: finalMetadata
+                })
+              }
+            } catch (e) {
+              console.error('Error parsing sheet metadata from backend:', e)
+              setActiveSheet({
+                ...sheet,
+                columns_metadata: finalMetadata
+              })
+            }
+          } else {
+            setSheetNames([])
+            setActiveSheetName('')
+            setSheetsData({})
+            setSheetsFilename('')
+            finalMetadata = cleanMetadata(meta)
+            setActiveSheet({
+              ...sheet,
+              columns_metadata: finalMetadata
+            })
+          }
+        } else {
+          setSheetNames([])
+          setActiveSheetName('')
+          setSheetsData({})
+          setSheetsFilename('')
+          try {
+            sessionStorage.removeItem(SS_KEY_SHEETS_DATA)
+            sessionStorage.removeItem(SS_KEY_FILENAME)
+            sessionStorage.removeItem(SS_KEY_ACTIVE_SHEET)
+          } catch {}
+          setActiveSheet(null)
+        }
         setLoading(false)
       })
       .catch((err) => {
         console.error('Error loading active spreadsheet:', err)
+        setSheetNames([])
+        setActiveSheetName('')
+        setSheetsData({})
+        setSheetsFilename('')
+        try {
+          sessionStorage.removeItem(SS_KEY_SHEETS_DATA)
+          sessionStorage.removeItem(SS_KEY_FILENAME)
+          sessionStorage.removeItem(SS_KEY_ACTIVE_SHEET)
+        } catch {}
         setActiveSheet(null)
         setLoading(false)
       })
@@ -94,16 +256,59 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       reader.onload = async (e) => {
         try {
           let json: any[] = []
+          let allSheetsData: Record<string, { rows: any[]; headers: string[]; columns_metadata: Record<string, string> }> = {}
+          let sheetInfoList: SheetInfo[] = []
+          let bestSheet: SheetInfo | null = null
+
           if (extension === 'json') {
             const text = e.target?.result as string
             const parsed = JSON.parse(text)
             json = Array.isArray(parsed) ? parsed : [parsed]
-          } else {
+
+            // Reset multi-sheet state for non-Excel files
+            setSheetNames([])
+            setActiveSheetName('')
+            setSheetsData({})
+            setSheetsFilename('')
+          } else if (extension === 'csv') {
             const ab = e.target?.result as ArrayBuffer
             const wb = XLSX.read(ab, { type: 'array', cellDates: true })
-            const sheetName = wb.SheetNames[0]
-            const ws = wb.Sheets[sheetName]
+            const ws = wb.Sheets[wb.SheetNames[0]]
             json = XLSX.utils.sheet_to_json(ws)
+
+            // Reset multi-sheet state for CSV
+            setSheetNames([])
+            setActiveSheetName('')
+            setSheetsData({})
+            setSheetsFilename('')
+          } else {
+            // Excel: parse ALL sheets ─────────────────────────────
+            const ab = e.target?.result as ArrayBuffer
+            const wb = XLSX.read(ab, { type: 'array', cellDates: true })
+
+            // Build a map of all sheets with their row counts
+            wb.SheetNames.forEach(sheetName => {
+              const ws = wb.Sheets[sheetName]
+              const sheetRows: any[] = XLSX.utils.sheet_to_json(ws)
+              const headers = sheetRows.length > 0 ? Object.keys(sheetRows[0]) : []
+              const columns_metadata = sheetRows.length > 0 ? detectColumnTypes(sheetRows, headers) : {}
+              allSheetsData[sheetName] = { rows: sheetRows, headers, columns_metadata }
+              sheetInfoList.push({ name: sheetName, rowCount: sheetRows.length })
+            })
+
+            // Auto-select sheet with the most rows
+            bestSheet = sheetInfoList.reduce((best, s) =>
+              s.rowCount > best.rowCount ? s : best
+            , sheetInfoList[0])
+
+            // Update multi-sheet state and persist to sessionStorage
+            setSheetsData(allSheetsData)
+            setSheetsFilename(file.name)
+            setSheetNames(sheetInfoList)
+            setActiveSheetName(bestSheet.name)
+            persistSheetsData(allSheetsData, file.name, bestSheet.name)
+
+            json = allSheetsData[bestSheet.name].rows
           }
 
           if (json.length === 0) {
@@ -113,23 +318,34 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
 
           const maxRows = (extension === 'xlsx' || extension === 'xls') ? 10000 : 2000
           if (json.length > maxRows) {
-            resolve({ success: false, error: `Dataset exceeds the limit of ${maxRows.toLocaleString()} rows. Please upload a smaller file.` })
+            resolve({ success: false, error: `Dataset exceeds the limit of ${formatNumber(maxRows)} rows. Please upload a smaller file.` })
             return
           }
 
           const headers = Object.keys(json[0])
           const columnsMetadata = detectColumnTypes(json, headers)
 
+          const isExcel = extension === 'xlsx' || extension === 'xls'
           const payload = {
             filename: file.name,
             headers,
-            columns_metadata: columnsMetadata,
+            columns_metadata: {
+              ...columnsMetadata,
+              ...(isExcel && bestSheet ? {
+                __sheetNames: JSON.stringify(sheetInfoList),
+                __activeSheetName: bestSheet.name,
+                __sheetsData: JSON.stringify(allSheetsData)
+              } : {})
+            },
             rows: json
           }
 
           const response = await uploadSpreadsheet(payload)
           if (response.success) {
-            setActiveSheet(payload)
+            setActiveSheet({
+              ...payload,
+              columns_metadata: columnsMetadata // clean version for state
+            })
             if (isGuest) {
               incrementUploadCount()
             } else {
@@ -155,6 +371,42 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
     })
   }
 
+  /**
+   * Switch the active sheet in a multi-sheet workbook.
+   * Updates dashboard state and posts the new sheet's rows to the backend.
+   */
+  const selectSheet = async (name: string) => {
+    const sheetData = sheetsData[name]
+    if (!sheetData) return
+
+    setActiveSheetName(name)
+    // Persist active sheet change to sessionStorage
+    persistSheetsData(sheetsData, sheetsFilename, name)
+
+    const payload = {
+      filename: sheetsFilename,
+      headers: sheetData.headers,
+      columns_metadata: {
+        ...sheetData.columns_metadata,
+        __sheetNames: JSON.stringify(sheetNames),
+        __activeSheetName: name,
+        __sheetsData: JSON.stringify(sheetsData)
+      },
+      rows: sheetData.rows
+    }
+
+    setActiveSheet({
+      ...payload,
+      columns_metadata: sheetData.columns_metadata // clean version for state
+    })
+    // Sync to backend (fire-and-forget — not blocking UX)
+    try {
+      await uploadSpreadsheet(payload)
+    } catch (err) {
+      console.warn('selectSheet: failed to sync to backend', err)
+    }
+  }
+
   const reset = async () => {
     try {
       if (activeSheet) {
@@ -162,9 +414,28 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
         setActiveSheet(null)
       }
       setSampleSheet(null)
+      setSheetNames([])
+      setActiveSheetName('')
+      setSheetsData({})
+      setSheetsFilename('')
+      // Clear session storage
+      try {
+        sessionStorage.removeItem(SS_KEY_SHEETS_DATA)
+        sessionStorage.removeItem(SS_KEY_FILENAME)
+        sessionStorage.removeItem(SS_KEY_ACTIVE_SHEET)
+      } catch {}
     } catch (err) {
       console.error('Failed to reset spreadsheet:', err)
       setSampleSheet(null)
+      setSheetNames([])
+      setActiveSheetName('')
+      setSheetsData({})
+      setSheetsFilename('')
+      try {
+        sessionStorage.removeItem(SS_KEY_SHEETS_DATA)
+        sessionStorage.removeItem(SS_KEY_FILENAME)
+        sessionStorage.removeItem(SS_KEY_ACTIVE_SHEET)
+      } catch {}
     }
   }
 
@@ -278,30 +549,29 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
     if (!sheet) return []
     const meta = sheet.columns_metadata || sheet.columnsMetadata || {}
     const rows = sheet.rows || []
-    
-    const nameHeader = Object.keys(meta).find(h => h.toLowerCase().includes('name') || h.toLowerCase().includes('customer')) || 
-                       Object.keys(meta).find(h => meta[h] === 'identifier') || 
+
+    const nameHeader = Object.keys(meta).find(h => h.toLowerCase().includes('name') || h.toLowerCase().includes('customer')) ||
+                       Object.keys(meta).find(h => meta[h] === 'identifier') ||
                        Object.keys(meta)[0] || 'Name'
-                       
+
     const emailHeader = Object.keys(meta).find(h => h.toLowerCase().includes('email'))
-    
-    const planHeader = Object.keys(meta).find(h => h.toLowerCase().includes('plan')) || 
+
+    const planHeader = Object.keys(meta).find(h => h.toLowerCase().includes('plan')) ||
                        Object.keys(meta).find(h => meta[h] === 'category')
-                       
+
     const mrrHeader = Object.keys(meta).find(h => h.toLowerCase().includes('mrr') || h.toLowerCase().includes('revenue') || h.toLowerCase().includes('amount') || h.toLowerCase().includes('spend') || h.toLowerCase().includes('price')) ||
                       Object.keys(meta).find(h => meta[h] === 'metric')
-                      
-    const statusHeader = Object.keys(meta).find(h => h.toLowerCase().includes('status')) || 
+
+    const statusHeader = Object.keys(meta).find(h => h.toLowerCase().includes('status')) ||
                          Object.keys(meta).find(h => meta[h] === 'category' && h !== planHeader)
 
     return rows.map((r: any, index: number) => {
       const name = r[nameHeader] ? String(r[nameHeader]) : `Customer ${index + 1}`
       const email = emailHeader && r[emailHeader] ? String(r[emailHeader]) : `${name.toLowerCase().replace(/\s+/g, '')}@example.com`
       const plan = planHeader && r[planHeader] ? String(r[planHeader]) : 'Pro'
-      const mrrVal = mrrHeader ? Number(String(r[mrrHeader]).replace(/[^\d\.-]/g, '').trim()) : 0
-      const mrr = isNaN(mrrVal) ? 0 : mrrVal
+      const mrr = mrrHeader ? (cleanNumericValue(r[mrrHeader]) ?? 0) : 0
       const status = statusHeader && r[statusHeader] ? String(r[statusHeader]) : 'Active'
-      
+
       return {
         id: r.id || String(index + 1),
         name,
@@ -322,13 +592,13 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
     if (!sheet) return []
     const meta = sheet.columns_metadata || sheet.columnsMetadata || {}
     const rows = sheet.rows || []
-    
-    const dateHeader = Object.keys(meta).find(h => meta[h] === 'date' || meta[h] === 'time') || 
+
+    const dateHeader = Object.keys(meta).find(h => meta[h] === 'date' || meta[h] === 'time') ||
                        Object.keys(meta).find(h => h.toLowerCase().includes('date') || h.toLowerCase().includes('month') || h.toLowerCase().includes('time'))
-                       
+
     const revHeader = Object.keys(meta).find(h => h.toLowerCase().includes('revenue') || h.toLowerCase().includes('amount') || h.toLowerCase().includes('spend')) ||
                       Object.keys(meta).find(h => meta[h] === 'metric')
-                      
+
     const mrrHeader = Object.keys(meta).find(h => h.toLowerCase().includes('mrr') || h.toLowerCase().includes('new mrr'))
 
     if (dateHeader && revHeader) {
@@ -341,20 +611,19 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       validRows.forEach((r: any) => {
         const parsed = new Date(r[dateHeader])
         const monthName = parsed.toLocaleString('en-US', { month: 'short', year: 'numeric' })
-        
-        const revVal = Number(String(r[revHeader]).replace(/[^\d\.-]/g, '').trim())
-        const revenue = isNaN(revVal) ? 0 : revVal
-        
-        const mrrVal = mrrHeader ? Number(String(r[mrrHeader]).replace(/[^\d\.-]/g, '').trim()) : revenue * 0.75
-        const mrr = isNaN(mrrVal) ? 0 : mrrVal
-        
+
+        const revenue = cleanNumericValue(r[revHeader]) ?? 0
+
+        const mrrVal = mrrHeader ? cleanNumericValue(r[mrrHeader]) : null
+        const mrr = mrrVal !== null ? mrrVal : revenue * 0.75
+
         if (!monthlyGroups[monthName]) {
           monthlyGroups[monthName] = { revenue: 0, mrr: 0 }
         }
         monthlyGroups[monthName].revenue += revenue
         monthlyGroups[monthName].mrr += mrr
       })
-      
+
       const monthOrder: Record<string, number> = {
         Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
         Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12
@@ -370,10 +639,10 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       })
     } else {
       const totalRev = rows.reduce((sum: number, r: any) => {
-        const val = revHeader ? Number(String(r[revHeader]).replace(/[^\d\.-]/g, '').trim()) : 0
-        return sum + (isNaN(val) ? 0 : val)
+        const val = revHeader ? (cleanNumericValue(r[revHeader]) ?? 0) : 0
+        return sum + val
       }, 0)
-      
+
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
       return months.map((m, idx) => ({
         month: m,
@@ -389,20 +658,20 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       columns_metadata: activeDocument.columnsMetadata || {}
     } : null)
     if (!sheet) return null
-    
+
     const custs = getSpreadsheetCustomers()
     const activeCusts = custs.filter((c: any) => c.status === 'Active')
     const churnedCusts = custs.filter((c: any) => c.status === 'Churned')
-    
+
     const totalRevenue = activeCusts.reduce((sum: number, c: any) => sum + c.mrr, 0)
     const activeUsers = activeCusts.length
     const arpu = activeUsers > 0 ? (totalRevenue / activeUsers) : 0
     const totalCustomers = custs.length
     const churnRate = totalCustomers > 0 ? (churnedCusts.length / totalCustomers) * 100 : 0
-    
+
     return {
-      revenue: { value: `$${totalRevenue.toLocaleString()}`, change: '+12.4%', up: true },
-      users: { value: activeUsers.toLocaleString(), change: '+8.1%', up: true },
+      revenue: { value: formatNumber(totalRevenue, true), change: '+12.4%', up: true },
+      users: { value: formatNumber(activeUsers), change: '+8.1%', up: true },
       churn: { value: `${churnRate.toFixed(1)}%`, change: '-0.4%', up: false },
       arpu: { value: `$${arpu.toFixed(2)}`, change: '+2.1%', up: true }
     }
@@ -419,6 +688,10 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
     // Clear real uploads so sample takes precedence
     setActiveSheet(null)
     setActiveDocument(null)
+    setSheetNames([])
+    setActiveSheetName('')
+    setSheetsData({})
+    setSheetsFilename('')
   }
 
   // ── Compute analytics whenever any data source changes ────────
@@ -460,6 +733,9 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       hasData,
       datasetName,
       loadSample,
+      sheetNames,
+      activeSheetName,
+      selectSheet,
     }}>
       {children}
     </SpreadsheetContext.Provider>

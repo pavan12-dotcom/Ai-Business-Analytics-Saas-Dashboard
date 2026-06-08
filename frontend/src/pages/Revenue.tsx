@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useSpreadsheet } from '../context/SpreadsheetContext'
 import { useNavigate } from 'react-router-dom'
+import { formatNumber, formatYAxisTick } from '../services/dataCleaner'
 import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area,
   BarChart, Bar, Cell
@@ -17,7 +18,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         <div key={p.name} className="tooltip-row">
           <span style={{ color: p.color || 'var(--accent)' }}>{p.name}</span>
           <span style={{ fontWeight: 600 }}>
-            {p.value.toLocaleString()}
+            {formatNumber(p.value)}
           </span>
         </div>
       ))}
@@ -54,7 +55,7 @@ export default function Revenue() {
   const { analytics, hasData } = useSpreadsheet()
   const navigate = useNavigate()
 
-  const { customers = [], kpis = [], monthly = [], categories = [], datasetType, valueMetricName } = analytics
+  const { customers = [], kpis = [], monthly = [], categories = [], datasetType, valueMetricName, rows = [], primaryMetricKey = '' } = analytics
 
   const [revenueView, setRevenueView] = useState<'monthly' | 'quarterly' | 'annual'>('monthly')
 
@@ -69,9 +70,25 @@ export default function Revenue() {
     : '0'
 
   const revKpi = kpis.find(k => k.label.toLowerCase().includes('revenue') || k.label.toLowerCase().includes('mrr') || k.label.toLowerCase().includes('amount') || k.label.toLowerCase().includes('salary') || k.label.toLowerCase().includes('cost'))
-  const revenueVal = revKpi ? revKpi.value : '$0'
   const revenueChange = revKpi ? revKpi.change : '0% MoM'
   const revenueUp = revKpi ? revKpi.up : true
+
+  // Compute Avg Actual and Median Actual from analytics.rows
+  const primaryMetricValues = (rows || [])
+    .map((r: any) => r[primaryMetricKey])
+    .filter((v: any): v is number => typeof v === 'number' && v !== null && isFinite(v))
+
+  let averageActual = 0
+  let medianActual = 0
+
+  if (primaryMetricValues.length > 0) {
+    const sum = primaryMetricValues.reduce((a, b) => a + b, 0)
+    averageActual = sum / primaryMetricValues.length
+
+    const sorted = [...primaryMetricValues].sort((a, b) => a - b)
+    const mid = Math.floor(sorted.length / 2)
+    medianActual = sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+  }
 
   // Dynamic Grouping
   const getGroupedRevenueData = () => {
@@ -125,7 +142,7 @@ export default function Revenue() {
   }))
 
   const isCurrencyMetric = /revenue|mrr|acv|amount|price|sales|income|spend|profit|earn|salary|wage|cost|treatment/i.test(valueMetricName)
-  const formatValSymbol = (v: number) => isCurrencyMetric ? `$${v.toLocaleString()}` : v.toLocaleString()
+  const formatValSymbol = (v: number) => formatNumber(v, isCurrencyMetric)
 
   return (
     <div className="revenue-page fade-in">
@@ -154,25 +171,31 @@ export default function Revenue() {
           <div className="rev-kpis">
             <div className="card rev-kpi hover-lift">
               <div className="rev-kpi-label">Cumulative {valueMetricName} ({latestMonth ? latestMonth.month : 'Latest'})</div>
-              <div className="rev-kpi-val">{revenueVal}</div>
+              <div className="rev-kpi-val">
+                {formatNumber(revKpi ? revKpi.rawValue : 0, isCurrencyMetric ? 'currency' : 'number', true)}
+              </div>
               <div className="tag-up">{revenueUp ? '▲' : '▼'} {revenueChange}</div>
             </div>
             <div className="card rev-kpi hover-lift">
               <div className="rev-kpi-label">Monthly Average ({valueMetricName})</div>
-              <div className="rev-kpi-val">{formatValSymbol(latestMRR)}</div>
+              <div className="rev-kpi-val">
+                {formatNumber(latestMRR, isCurrencyMetric ? 'currency' : 'number', true)}
+              </div>
               <div className="tag-up">▲ {mrrChangePct}% MoM Change</div>
             </div>
             <div className="card rev-kpi hover-lift">
-              <div className="rev-kpi-label">Annualized {valueMetricName} Projection</div>
-              <div className="rev-kpi-val">{formatValSymbol(latestMRR * 12)}</div>
-              <div className="tag-up">▲ Estimated run-rate</div>
+              <div className="rev-kpi-label">Avg Actual</div>
+              <div className="rev-kpi-val">
+                {formatNumber(averageActual, isCurrencyMetric ? 'currency' : 'number', true)}
+              </div>
+              <div className="tag-up">▲ Mean of clean records</div>
             </div>
             <div className="card rev-kpi hover-lift">
-              <div className="rev-kpi-label">Net Yield Position</div>
+              <div className="rev-kpi-label">Median Actual</div>
               <div className="rev-kpi-val" style={{ color: 'var(--success)' }}>
-                {formatValSymbol(totalMRR * 0.85)}
+                {formatNumber(medianActual, isCurrencyMetric ? 'currency' : 'number', true)}
               </div>
-              <div className="tag-up">▲ Post-operational yield (85%)</div>
+              <div className="tag-up">▲ Median of clean records</div>
             </div>
           </div>
 
@@ -200,7 +223,7 @@ export default function Revenue() {
                   </defs>
                   <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={formatYAxisTick} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
                   <Area type="monotone" dataKey="revenue" name={valueMetricName} stroke="var(--chart-1)" strokeWidth={2.5} fill="url(#growthGrad)" dot />
                 </AreaChart>
@@ -221,7 +244,7 @@ export default function Revenue() {
                   <BarChart data={processedWaterfall} stackOffset="sign">
                     <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="name" tick={{ fontSize: 9, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 9, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                    <YAxis tickFormatter={formatYAxisTick} tick={{ fontSize: 9, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                     <Tooltip formatter={(value, name, props) => [formatValSymbol(props.payload.displayVal), props.payload.val >= 0 ? 'Increase' : 'Decrease']} />
                     <Bar dataKey="spacer" stackId="a" fill="transparent" />
                     <Bar dataKey="displayVal" stackId="a" radius={4}>

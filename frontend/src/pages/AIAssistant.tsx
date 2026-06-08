@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { streamAI } from '../services/api'
 import { useSpreadsheet } from '../context/SpreadsheetContext'
 import { useAuth } from '../context/AuthContext'
+import { formatNumber, formatYAxisTick } from '../services/dataCleaner'
 import {
   ResponsiveContainer,
   AreaChart,
@@ -17,7 +18,8 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  CartesianGrid
+  CartesianGrid,
+  LabelList
 } from 'recharts'
 import {
   Bot, User, Trash2, Upload, AlertTriangle, FileText, TrendingUp, Layers,
@@ -79,7 +81,7 @@ function ChatChart({
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
             <XAxis dataKey="month" tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={formatYAxisTick} tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
             <Tooltip contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '11px', color: 'var(--text)' }} />
             <Area type="monotone" dataKey="revenue" stroke="var(--chart-1)" strokeWidth={2} fillOpacity={1} fill="url(#chatColorRev)" />
           </AreaChart>
@@ -104,7 +106,7 @@ function ChatChart({
           <LineChart data={data} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
             <XAxis dataKey="month" tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={formatYAxisTick} tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
             <Tooltip contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '11px', color: 'var(--text)' }} />
             <Line type="monotone" dataKey="churn" stroke="var(--chart-6)" strokeWidth={2} activeDot={{ r: 5 }} dot={{ r: 3 }} />
           </LineChart>
@@ -129,10 +131,12 @@ function ChatChart({
         <ResponsiveContainer width="100%" height={140}>
           <BarChart data={data} layout="vertical" margin={{ top: 5, right: 5, left: -5, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
-            <XAxis type="number" tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+            <XAxis type="number" tickFormatter={formatYAxisTick} tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
             <YAxis type="category" dataKey="name" tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} width={75} />
             <Tooltip contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '11px', color: 'var(--text)' }} />
-            <Bar dataKey="mrr" fill="var(--chart-1)" radius={[0, 4, 4, 0]} barSize={10} />
+            <Bar dataKey="mrr" fill="var(--chart-1)" radius={[0, 4, 4, 0]} barSize={10}>
+              <LabelList position="right" formatter={(v: any) => formatNumber(Number(v), 'currency', true)} style={{ fill: 'var(--text-muted)', fontSize: 9, fontWeight: 500 }} />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -180,7 +184,7 @@ function ChatChart({
               <div key={entry.name} className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', marginBottom: '4px' }}>
                 <span className="legend-dot" style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: COLORS[index % COLORS.length] }}></span>
                 <span style={{ color: 'var(--text2)', fontWeight: 500 }}>{entry.name}:</span>
-                <span style={{ color: 'var(--muted)' }}>${entry.value.toLocaleString()}</span>
+                <span style={{ color: 'var(--muted)' }}>{formatNumber(entry.value, true)}</span>
               </div>
             ))}
           </div>
@@ -205,9 +209,11 @@ function ChatChart({
           <BarChart data={data} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
             <XAxis dataKey="month" tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={formatYAxisTick} tick={{ fontSize: 9, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
             <Tooltip contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '11px', color: 'var(--text)' }} />
-            <Bar dataKey="users" fill="var(--chart-5)" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="users" fill="var(--chart-5)" radius={[3, 3, 0, 0]}>
+              <LabelList position="top" formatter={(v: any) => formatNumber(Number(v), false, true)} style={{ fill: 'var(--text-muted)', fontSize: 9, fontWeight: 500 }} />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>

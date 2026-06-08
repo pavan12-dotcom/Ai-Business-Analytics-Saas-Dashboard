@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { fetchDBStatus, markNotificationRead as apiMarkRead, clearNotifications as apiClear } from '../../services/api'
 import { useRealtime } from '../../hooks/useRealtime'
+import { useSpreadsheet } from '../../context/SpreadsheetContext'
 import {
   Bell,
   Shield,
@@ -21,6 +22,7 @@ import {
   Sun
 } from 'lucide-react'
 import { logActivity } from '../../services/audit'
+import { formatNumber } from '../../services/dataCleaner'
 import './Topbar.css'
 
 const titles: Record<string, string> = {
@@ -38,6 +40,7 @@ export default function Topbar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { user, userRole, setRole, isGuest, guestQueryCount, uploadCount } = useAuth()
+  const { sheetNames, activeSheetName, selectSheet } = useSpreadsheet()
   const title = titles[pathname] ?? 'Dashboard'
 
   const [dbStatus, setDbStatus] = useState<{ status: string; message: string }>({
@@ -46,7 +49,7 @@ export default function Topbar() {
   })
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    return (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
+    return (localStorage.getItem('theme') as 'light' | 'dark') || 'dark'
   })
 
   // Live notifications from Supabase Realtime
@@ -325,6 +328,37 @@ export default function Topbar() {
             </div>
           )
         })()}
+
+        {sheetNames.length > 1 && (
+          <div className="global-sheet-selector-wrap" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Layers size={13} style={{ color: 'var(--text-muted)' }} />
+            <select
+              id="global-sheet-selector"
+              value={activeSheetName}
+              onChange={e => selectSheet(e.target.value)}
+              style={{
+                padding: '5px 10px',
+                borderRadius: 'var(--radius-xs)',
+                border: '1px solid var(--border)',
+                background: 'var(--bg2)',
+                color: 'var(--text)',
+                fontSize: 11,
+                fontWeight: 500,
+                cursor: 'pointer',
+                outline: 'none',
+                height: 34,
+                boxShadow: 'var(--shadow-sm)'
+              }}
+              title="Switch active Excel sheet"
+            >
+              {sheetNames.map(s => (
+                <option key={s.name} value={s.name}>
+                  {s.name} ({formatNumber(s.rowCount)} rows)
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {getStatusBadge()}
 

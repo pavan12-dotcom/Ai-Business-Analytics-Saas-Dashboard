@@ -60,14 +60,17 @@
 
 /* Chat panel */
 .ai-chat-panel {
-  background: var(--bg2);
-  border: 1px solid var(--border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
   transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: var(--shadow);
 }
 
 .ai-chat-panel.dragging {
@@ -127,11 +130,11 @@ body.dark .drag-overlay {
   display: flex;
   gap: 12px;
   max-width: 80%;
-  animation: slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -145,22 +148,24 @@ body.dark .drag-overlay {
 }
 
 .bubble-icon-wrap {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  color: var(--muted);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
   flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
 }
 
 .ai-bubble.user .bubble-icon-wrap {
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--secondary) 100%);
   color: #fff;
-  border-color: var(--accent);
+  border-color: transparent;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
 }
 
 .bubble-body {
@@ -170,32 +175,36 @@ body.dark .drag-overlay {
 }
 
 .bubble-text {
-  padding: 10px 14px;
-  border-radius: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
   font-size: 13.5px;
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--text);
-  background: var(--bg3);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
   position: relative;
   word-break: break-word;
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(8px);
 }
 
 .ai-bubble.user .bubble-text {
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--secondary) 100%);
   color: #fff;
-  border-color: var(--accent);
+  border-color: transparent;
   border-bottom-right-radius: 2px;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.2);
 }
 
 .ai-bubble.ai .bubble-text {
   border-bottom-left-radius: 2px;
-  background: var(--bg2);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .bubble-ts {
   font-size: 10px;
-  color: var(--muted);
+  color: var(--text-muted);
   padding: 0 4px;
 }
 
@@ -285,24 +294,26 @@ body.dark .chat-chart-card {
   padding: 8px 16px;
   flex-wrap: wrap;
   border-top: 1px solid var(--border);
-  background: var(--bg2);
+  background: rgba(255, 255, 255, 0.01);
 }
 
 .ai-sug-btn {
-  background: var(--bg3);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
   border-radius: 99px;
-  padding: 5px 12px;
+  padding: 6px 14px;
   font-size: 11.5px;
   color: var(--text2);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
 }
 
 .ai-sug-btn:hover:not(:disabled) {
   border-color: var(--accent);
-  color: var(--accent);
-  background: rgba(99, 102, 241, 0.04);
+  color: #fff;
+  background: rgba(99, 102, 241, 0.15);
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
 }
 
 /* Input Bar */
@@ -311,32 +322,34 @@ body.dark .chat-chart-card {
   border-top: 1px solid var(--border);
   display: flex;
   gap: 8px;
-  background: var(--bg2);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .ai-input-field {
   flex: 1;
-  background: var(--bg3);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
   border-radius: 99px;
-  padding: 8px 16px;
+  padding: 10px 18px;
   font-size: 13px;
   color: var(--text);
   outline: none;
-  transition: border-color 0.15s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .ai-input-field:focus {
   border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
 }
 
 .ai-input-field::placeholder {
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .ai-send-btn {
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -347,14 +360,17 @@ body.dark .chat-chart-card {
 
 /* Context/Insights Panel */
 .ai-context-panel {
-  background: var(--bg2);
-  border: 1px solid var(--border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
+  box-shadow: var(--shadow);
 }
 
 .context-title {
@@ -665,20 +681,21 @@ body.dark .chat-chart-card {
   display: flex;
   gap: 10px;
   align-items: center;
-  padding: 10px 12px;
-  background: var(--bg3);
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   text-align: left;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
 }
 
 .copilot-task-card:hover:not(:disabled) {
   border-color: var(--accent);
-  background: rgba(99, 102, 241, 0.04);
-  transform: translateY(-1px);
+  background: rgba(99, 102, 241, 0.08);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.15);
 }
 
 .copilot-task-card:disabled {
@@ -687,30 +704,31 @@ body.dark .chat-chart-card {
 }
 
 .task-card-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background: rgba(99, 102, 241, 0.08);
-  color: var(--accent);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--accent-light);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
 }
 
 .copilot-task-card:nth-child(2) .task-card-icon {
-  background: rgba(16, 185, 129, 0.08);
-  color: var(--green);
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
 }
 
 .copilot-task-card:nth-child(3) .task-card-icon {
-  background: rgba(245, 158, 11, 0.08);
-  color: var(--amber);
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning);
 }
 
 .copilot-task-card:nth-child(4) .task-card-icon {
-  background: rgba(124, 58, 237, 0.08);
-  color: var(--purple);
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--secondary);
 }
 
 .task-card-details {
@@ -721,14 +739,14 @@ body.dark .chat-chart-card {
 }
 
 .task-card-title {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text);
 }
 
 .task-card-desc {
-  font-size: 10px;
-  color: var(--muted);
+  font-size: 10.5px;
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

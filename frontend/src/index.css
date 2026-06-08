@@ -1,120 +1,140 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  /* Light Mode Variables */
-  --bg: #f8fafc;
-  --bg-sidebar: #ffffff;
-  --bg-card: #ffffff;
-  --bg-hover: #f1f5f9;
-  --bg2: #ffffff;
-  --bg3: #f1f5f9;
-  --border: rgba(148, 163, 184, 0.12);
-  --border-focus: #6366f1;
-  --text: #0f172a;
-  --text-muted: #64748b;
-  --text2: #334155;
+  /* Default Base (Dark/Glass Theme) */
+  --bg: #0A0F1E;
+  --bg-sidebar: rgba(15, 20, 40, 0.8);
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --bg-hover: rgba(255, 255, 255, 0.08);
+  --bg2: rgba(255, 255, 255, 0.02);
+  --bg3: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-focus: #6366F1;
+  --text: #F8FAFC;
+  --text-muted: #94A3B8;
+  --text2: #CBD5E1;
   
-  --accent: #4F46E5;       /* Primary Indigo */
-  --accent-light: #818cf8;
-  --accent-dark: #3730a3;
-  --secondary: #7C3AED;    /* Purple */
-  --success: #10B981;      /* Emerald Green */
+  --accent: #6366F1;       /* Indigo */
+  --accent-light: #A5B4FC;
+  --accent-dark: #312E81;
+  --secondary: #8B5CF6;    /* Purple */
+  --success: #10B981;      /* Emerald */
   --warning: #F59E0B;      /* Amber */
-  --danger: #EF4444;       /* Crimson Red */
+  --danger: #EF4444;       /* Red */
+  --info: #06B6D4;         /* Cyan */
 
-  /* Premium Chart Color Palette (Light Mode) */
-  --chart-1: #4F46E5;       /* Indigo */
-  --chart-1-rgb: 79, 70, 229;
-  --chart-2: #7C3AED;       /* Purple */
-  --chart-3: #EC4899;       /* Pink */
-  --chart-4: #06B6D4;       /* Cyan */
-  --chart-5: #10B981;       /* Emerald */
-  --chart-6: #F59E0B;       /* Amber */
-  --chart-7: #F97316;       /* Orange */
-  --chart-8: #EF4444;       /* Red */
-  --chart-9: #14B8A6;       /* Teal */
+  /* Premium Chart Palette (Glows & Neons) */
+  --chart-1: #6366F1;
+  --chart-1-rgb: 99, 102, 241;
+  --chart-2: #8B5CF6;
+  --chart-3: #EC4899;
+  --chart-4: #06B6D4;
+  --chart-5: #10B981;
+  --chart-6: #F59E0B;
+  --chart-7: #F97316;
+  --chart-8: #EF4444;
+  --chart-9: #14B8A6;
 
   --green: #10B981;
   --amber: #F59E0B;
   --teal: #14B8A6;
-  --indigo: #4F46E5;
-  --violet: #7C3AED;
-  --rose: #F43F5E;
-  --cyan: #06B6D4;
-  --red: #ef4444;
-  
-  --sidebar-w: 240px;
-  --topbar-h: 64px;
-  --radius: 16px;
-  --radius-sm: 10px;
-  --radius-xs: 6px;
-  
-  --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
-  --shadow-sm: 0 4px 12px -2px rgba(0, 0, 0, 0.02);
-  --shadow-lg: 0 20px 40px -15px rgba(0, 0, 0, 0.08);
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.4);
-  --glass-blur: 16px;
-}
-
-body.dark {
-  /* Dark Mode Variables */
-  --bg: #090d16;
-  --bg-sidebar: #0f1524;
-  --bg-card: #121b2e;
-  --bg-hover: #1e293b;
-  --bg2: #121b2e;
-  --bg3: #1e293b;
-  --border: rgba(255, 255, 255, 0.06);
-  --border-focus: #818cf8;
-  --text: #f8fafc;
-  --text-muted: #94a3b8;
-  --text2: #cbd5e1;
-  
-  --accent: #6366f1;
-  --accent-light: #a5b4fc;
-  --accent-dark: #312e81;
-
-  /* Premium Chart Color Palette (Dark Mode - Pastels & Brights) */
-  --chart-1: #6366F1;       /* Indigo */
-  --chart-1-rgb: 99, 102, 241;
-  --chart-2: #8B5CF6;       /* Violet */
-  --chart-3: #F472B6;       /* Pink */
-  --chart-4: #22D3EE;       /* Cyan */
-  --chart-5: #34D399;       /* Emerald */
-  --chart-6: #FBBF24;       /* Amber */
-  --chart-7: #FB923C;       /* Orange */
-  --chart-8: #F87171;       /* Red */
-  --chart-9: #2DD4BF;       /* Teal */
-
-  --green: #34D399;
-  --amber: #FBBF24;
-  --teal: #2DD4BF;
   --indigo: #6366F1;
   --violet: #8B5CF6;
-  --rose: #FB7185;
-  --cyan: #22D3EE;
-  --red: #f87171;
+  --rose: #F43F5E;
+  --cyan: #06B6D4;
+  --red: #EF4444;
+  
+  --sidebar-w: 260px;
+  --topbar-h: 70px;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-xs: 8px;
+  
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 24px 48px rgba(0, 0, 0, 0.5);
+  
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: 20px;
+}
 
-  --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.1);
-  --shadow-sm: 0 4px 12px -2px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 20px 40px -15px rgba(0, 0, 0, 0.4);
-  --glass-bg: rgba(18, 27, 46, 0.7);
+/* For fallback if dark body class is set, keep colors consistent */
+body.dark {
+  --bg: #0A0F1E;
+  --bg-sidebar: rgba(15, 20, 40, 0.8);
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --bg-hover: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(255, 255, 255, 0.08);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { font-size: 16px; }
+html { font-size: 16px; scroll-behavior: smooth; }
 
 body {
   font-family: 'Inter', sans-serif;
-  background: var(--bg);
+  background-color: var(--bg);
   color: var(--text);
   min-height: 100vh;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Background Grid Overlay */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Floating Gradient Orbs */
+.bg-orbs {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: -2;
+  overflow: hidden;
+}
+.bg-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(140px);
+  opacity: 0.12;
+  animation: orbFloat 25s infinite alternate ease-in-out;
+}
+.orb-1 {
+  width: 500px; height: 500px;
+  background: var(--accent);
+  top: -10%; left: -5%;
+  animation-delay: 0s;
+}
+.orb-2 {
+  width: 600px; height: 600px;
+  background: var(--secondary);
+  bottom: -15%; right: -5%;
+  animation-delay: -6s;
+}
+.orb-3 {
+  width: 400px; height: 400px;
+  background: var(--info);
+  top: 35%; left: 55%;
+  animation-delay: -12s;
+}
+
+@keyframes orbFloat {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(60px, 40px) scale(1.15); }
+  100% { transform: translate(-30px, -60px) scale(0.9); }
 }
 
 a { color: inherit; text-decoration: none; }

@@ -913,7 +913,9 @@ router.get('/db-status', async (_req, res) => {
 
     return res.json({
       status: 'connected',
-      message: 'Connected to Supabase database. Live tables detected.'
+      message: 'Connected to Supabase database. Live tables detected.',
+      supabaseUrl: process.env.SUPABASE_URL,
+      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
     })
   } catch (err: any) {
     return res.json({
@@ -921,6 +923,25 @@ router.get('/db-status', async (_req, res) => {
       message: `Internal server error: ${err.message}`
     })
   }
+})
+
+router.get('/debug-sub', async (_req, res) => {
+  const userId = 'a75350f7-2648-4403-aaf8-03c3554c27a6'
+  try {
+    const sub = await getOrInitSubscription(userId)
+    return res.json({ success: true, sub })
+  } catch (err: any) {
+    return res.json({ success: false, error: err.message })
+  }
+})
+
+router.get('/debug-env', async (_req, res) => {
+  return res.json({
+    VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL,
+    SUPABASE_URL: process.env.SUPABASE_URL,
+    VITE_API_URL: process.env.VITE_API_URL,
+    NODE_ENV: process.env.NODE_ENV
+  })
 })
 
 // ── Audit Logs ─────────────────────────────────────────────────
@@ -1008,24 +1029,74 @@ export async function getOrInitSubscription(userId: string, guestId?: string, de
     sub = memorySubscriptions.get(userId)
   }
 
+  // Check database customers table for active subscription plans
+  if (supabase) {
+    try {
+      const { data: custData } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle()
+
+      if (custData && custData.status === 'Active') {
+        const planLower = custData.plan.toLowerCase()
+        if (planLower === 'pro' || planLower === 'enterprise') {
+          if (!sub) {
+            const now = new Date()
+            const end = new Date()
+            end.setFullYear(end.getFullYear() + 10)
+            sub = {
+              user_id: userId,
+              analyses_used: 0,
+              analyses_remaining: 999999,
+              subscription_status: 'active',
+              subscription_start: now.toISOString(),
+              subscription_end: end.toISOString(),
+              plan_type: planLower,
+              mrr: planLower === 'pro' ? 29 : 99
+            }
+          } else {
+            sub.plan_type = planLower
+            sub.subscription_status = 'active'
+            sub.analyses_remaining = 999999
+            const end = new Date()
+            end.setFullYear(end.getFullYear() + 10)
+            sub.subscription_end = end.toISOString()
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('Supabase customers check failed:', err.message)
+    }
+  }
+
   // If subscription already exists but we have demo usage to merge (e.g., returning user)
   if (sub && demoCount > 0 && demoCount > (sub.analyses_used || 0)) {
-    const mergedUsed = Math.min(5, demoCount)
-    const mergedRemaining = Math.max(0, 5 - mergedUsed)
-    const mergedStatus = mergedUsed >= 5 ? 'trial_exhausted' : 'trial'
-    sub.analyses_used = mergedUsed
-    sub.analyses_remaining = mergedRemaining
-    sub.subscription_status = mergedStatus
+    const planLower = (sub.plan_type || 'free').toLowerCase()
+    const isPremium = planLower === 'pro' || planLower === 'enterprise'
 
-    if (supabase) {
-      try {
-        await supabase.from('user_subscriptions').update({
-          analyses_used: mergedUsed,
-          analyses_remaining: mergedRemaining,
-          subscription_status: mergedStatus
-        }).eq('user_id', userId)
-      } catch (err: any) {
-        console.warn('Failed to merge demo usage into subscription:', err.message)
+    if (isPremium) {
+      sub.analyses_used = demoCount
+      sub.analyses_remaining = 999999
+      sub.subscription_status = 'active'
+    } else {
+      const mergedUsed = Math.min(5, demoCount)
+      const mergedRemaining = Math.max(0, 5 - mergedUsed)
+      const mergedStatus = mergedUsed >= 5 ? 'trial_exhausted' : 'trial'
+      sub.analyses_used = mergedUsed
+      sub.analyses_remaining = mergedRemaining
+      sub.subscription_status = mergedStatus
+
+      if (supabase) {
+        try {
+          await supabase.from('user_subscriptions').update({
+            analyses_used: mergedUsed,
+            analyses_remaining: mergedRemaining,
+            subscription_status: mergedStatus
+          }).eq('user_id', userId)
+        } catch (err: any) {
+          console.warn('Failed to merge demo usage into subscription:', err.message)
+        }
       }
     }
     memorySubscriptions.set(userId, sub)

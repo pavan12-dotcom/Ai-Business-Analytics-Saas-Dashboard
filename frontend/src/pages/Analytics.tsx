@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useSpreadsheet } from '../context/SpreadsheetContext'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
+import { formatNumber, formatYAxisTick } from '../services/dataCleaner'
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, AreaChart, Area
@@ -17,7 +18,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       {payload.map((p: any) => (
         <div key={p.name} className="tooltip-row">
           <span style={{ color: p.color || 'var(--accent)' }}>{p.name}</span>
-          <span style={{ fontWeight: 600 }}>{p.value.toLocaleString()}</span>
+          <span style={{ fontWeight: 600 }}>{formatNumber(p.value)}</span>
         </div>
       ))}
     </div>
@@ -211,7 +212,7 @@ export default function Analytics() {
                   <LineChart data={monthlyGrowthData}>
                     <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="left" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                    <YAxis yAxisId="left" tickFormatter={formatYAxisTick} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                     <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomTooltip />} />
                     <Line yAxisId="left" type="monotone" dataKey={`Active ${entityName}s`} name={entityName} stroke="var(--chart-1)" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} />
@@ -240,7 +241,7 @@ export default function Analytics() {
                         <div className="funnel-label-wrap">
                           <span className="funnel-step-name">{step.name}</span>
                           <span className="funnel-step-val">
-                            {step.value.toLocaleString()} 
+                            {formatNumber(step.value)} 
                             <span className="funnel-step-pct">
                               ({visuallyCappedPercent}% / {stepConversion}% step)
                             </span>
@@ -337,7 +338,7 @@ export default function Analytics() {
                     </defs>
                     <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                    <YAxis tickFormatter={formatYAxisTick} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                     <Tooltip />
                     <Area type="monotone" dataKey="upper" stroke="transparent" fill="url(#forecastArea)" />
                     <Area type="monotone" dataKey="lower" stroke="transparent" fill="transparent" />

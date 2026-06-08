@@ -3,6 +3,7 @@ import { useSpreadsheet } from '../context/SpreadsheetContext'
 import * as XLSX from 'xlsx'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
+import { formatNumber, formatYAxisTick } from '../services/dataCleaner'
 import {
   FileText,
   Download,
@@ -25,7 +26,8 @@ import {
   Tooltip,
   CartesianGrid,
   LineChart,
-  Line
+  Line,
+  LabelList
 } from 'recharts'
 import './Reports.css'
 
@@ -250,9 +252,11 @@ export default function Reports() {
                       <BarChart data={monthly} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                         <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
-                        <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
+                        <YAxis tickFormatter={formatYAxisTick} tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
                         <Tooltip contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text)' }} />
-                        <Bar dataKey="revenue" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="revenue" fill="var(--chart-1)" radius={[4, 4, 0, 0]}>
+                          <LabelList position="top" formatter={(v: any) => formatNumber(Number(v), /revenue|mrr|acv|amount|price|sales|income|spend|profit|earn|salary|wage|cost|treatment/i.test(valueMetricName), true)} style={{ fill: 'var(--text-muted)', fontSize: 9, fontWeight: 500 }} />
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -263,7 +267,7 @@ export default function Reports() {
                     <div className="card-sub" style={{ marginBottom: 16 }}>Engineered Insight Metrics</div>
                     <div className="audit-list">
                       {aiInsights.keyFindings.map((finding, idx) => (
-                        <div key={idx} className="audit-item">
+                        <div key={idx} className="audit-item compliant">
                           <div className="audit-body">
                             <div className="audit-title">Audit Flag #{idx + 1}</div>
                             <div className="audit-desc">{finding}</div>
@@ -272,7 +276,7 @@ export default function Reports() {
                         </div>
                       ))}
                       {aiInsights.anomalies.map((anomaly, idx) => (
-                        <div key={idx} className="audit-item">
+                        <div key={idx} className="audit-item audited">
                           <div className="audit-body">
                             <div className="audit-title">Variance Flag #{idx + 1}</div>
                             <div className="audit-desc">{anomaly}</div>
@@ -311,9 +315,11 @@ export default function Reports() {
                       <BarChart data={categories} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                         <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
-                        <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
+                        <YAxis tickFormatter={formatYAxisTick} tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
                         <Tooltip contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text)' }} />
-                        <Bar dataKey="count" fill="var(--chart-5)" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="count" fill="var(--chart-5)" radius={[4, 4, 0, 0]}>
+                          <LabelList position="top" formatter={(v: any) => formatNumber(Number(v), false, true)} style={{ fill: 'var(--text-muted)', fontSize: 9, fontWeight: 500 }} />
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -372,7 +378,7 @@ export default function Reports() {
                           const prev = i > 0 ? monthly[i - 1].revenue : null
                           const diff = prev ? m.revenue - prev : 0
                           const isCurrency = /revenue|mrr|acv|amount|price|sales|income|spend|profit|earn|salary|wage|cost|treatment/i.test(valueMetricName)
-                          const formatVal = (v: number) => isCurrency ? `$${v.toLocaleString()}` : v.toLocaleString()
+                          const formatVal = (v: number) => formatNumber(v, isCurrency)
                           return (
                             <tr key={m.month}>
                               <td>{m.month}</td>
@@ -407,9 +413,7 @@ export default function Reports() {
                             <td>{c.name}</td>
                             <td style={{ color: 'var(--muted)', fontSize: 12 }}>{c.plan}</td>
                             <td className="mono" style={{ textAlign: 'right' }}>
-                              {/revenue|mrr|acv|amount|price|sales|income|spend|profit|earn|salary|wage|cost|treatment/i.test(valueMetricName)
-                                ? `$${c.mrr.toLocaleString()}`
-                                : c.mrr.toLocaleString()}
+                              {formatNumber(c.mrr, /revenue|mrr|acv|amount|price|sales|income|spend|profit|earn|salary|wage|cost|treatment/i.test(valueMetricName))}
                             </td>
                             <td style={{ textAlign: 'center' }}>
                               <span className={`badge ${statusClass[c.status] || 'badge-green'}`}>

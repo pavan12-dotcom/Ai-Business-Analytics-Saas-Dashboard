@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSpreadsheet } from '../context/SpreadsheetContext'
 import { useNavigate } from 'react-router-dom'
+import { formatNumber, formatYAxisTick } from '../services/dataCleaner'
 import {
   Treemap, ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, ZAxis, Tooltip
 } from 'recharts'
@@ -149,7 +150,7 @@ export default function Customers() {
     if (!active || !payload?.length) return null
     const data = payload[0].payload
     const isCurrency = /revenue|mrr|acv|amount|price|sales|income|spend|profit|earn|salary|wage|cost|treatment/i.test(valueMetricName)
-    const formatValue = (v: number) => isCurrency ? `$${Math.round(v).toLocaleString()}` : Math.round(v).toLocaleString()
+    const formatValue = (v: number) => formatNumber(Math.round(v), isCurrency)
     return (
       <div className="chart-tooltip">
         <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{data.name}</div>
@@ -218,7 +219,7 @@ export default function Customers() {
                 <ResponsiveContainer width="100%" height={220} style={{ marginTop: 16 }}>
                   <ScatterChart>
                     <XAxis type="number" dataKey="engagement" name="Engagement" unit="%" tick={{ fontSize: 9 }} stroke="var(--text-muted)" />
-                    <YAxis type="number" dataKey="mrr" name={valueMetricName} unit="" tick={{ fontSize: 9 }} stroke="var(--text-muted)" />
+                    <YAxis tickFormatter={formatYAxisTick} type="number" dataKey="mrr" name={valueMetricName} unit="" tick={{ fontSize: 9 }} stroke="var(--text-muted)" />
                     <ZAxis type="number" dataKey="z" range={[60, 400]} />
                     <Tooltip content={<CustomTooltip />} />
                     <Scatter name={entityName} data={bubbleData} fill="var(--chart-2)" fillOpacity={0.7} />
@@ -276,9 +277,7 @@ export default function Customers() {
                         <span className="plan-tag">{c.plan}</span>
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: 600 }} className="mono">
-                        {/revenue|mrr|acv|amount|price|sales|income|spend|profit|earn|salary|wage|cost|treatment/i.test(valueMetricName)
-                          ? `$${Math.round(c.mrr).toLocaleString()}`
-                          : Math.round(c.mrr).toLocaleString()}
+                        {formatNumber(Math.round(c.mrr), /revenue|mrr|acv|amount|price|sales|income|spend|profit|earn|salary|wage|cost|treatment/i.test(valueMetricName))}
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         <span className={`badge ${statusClass[c.status]}`}>{c.status}</span>
