@@ -7,7 +7,7 @@ import { SAMPLE_DATASETS } from '../data/sampleDatasets'
 import type { SampleDataset } from '../data/sampleDatasets'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-  AreaChart, Area, CartesianGrid, LineChart, Line, PieChart, Pie
+  AreaChart, Area, CartesianGrid, LineChart, Line
 } from 'recharts'
 import {
   FolderOpen,
@@ -19,11 +19,7 @@ import {
   Layers,
   GitFork,
   Wand2,
-  CalendarX,
-  Users,
-  DollarSign,
-  Activity,
-  Sparkles
+  CalendarX
 } from 'lucide-react'
 import './Dashboard.css'
 
@@ -69,144 +65,48 @@ function EmptyChart({ height = 200 }: { height?: number }) {
   )
 }
 
-// ── Count-up animation for KPI numbers ──────────────────────────
-function CountUp({ value }: { value: string }) {
-  const [displayValue, setDisplayValue] = React.useState('0')
-
-  React.useEffect(() => {
-    const numMatch = value.match(/[\d.]+/g)
-    if (!numMatch) {
-      setDisplayValue(value)
-      return
-    }
-    
-    const target = parseFloat(numMatch[0].replace(/,/g, ''))
-    if (isNaN(target)) {
-      setDisplayValue(value)
-      return
-    }
-
-    const prefix = value.split(numMatch[0])[0] || ''
-    const suffix = value.split(numMatch[0])[1] || ''
-
-    let start = 0
-    const duration = 1000
-    const startTime = performance.now()
-    let animationFrameId: number
-
-    const update = (now: number) => {
-      const elapsed = now - startTime
-      const progress = Math.min(elapsed / duration, 1)
-      const easeProgress = progress * (2 - progress) // Ease out quad
-      const current = start + easeProgress * (target - start)
-
-      const decs = numMatch[0].includes('.') ? numMatch[0].split('.')[1].length : 0
-      let formattedNum = current.toFixed(decs)
-      if (!value.includes('%') && target > 100) {
-        const parts = formattedNum.split('.')
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-        formattedNum = parts.join('.')
-      }
-
-      setDisplayValue(`${prefix}${formattedNum}${suffix}`)
-
-      if (progress < 1) {
-        animationFrameId = requestAnimationFrame(update)
-      }
-    }
-
-    animationFrameId = requestAnimationFrame(update)
-    return () => cancelAnimationFrame(animationFrameId)
-  }, [value])
-
-  return <>{displayValue}</>
-}
-
-// ── KPI Icon map helper ─────────────────────────────────────────
-function getKPIIcon(label: string) {
-  const norm = label.toLowerCase()
-  let icon = <DollarSign size={16} />
-  let colorClass = 'kpi-icon-indigo'
-
-  if (norm.includes('revenue') || norm.includes('sales') || norm.includes('mrr') || norm.includes('actual') || norm.includes('median')) {
-    icon = <DollarSign size={16} />
-    colorClass = 'kpi-icon-indigo'
-  } else if (norm.includes('user') || norm.includes('customer') || norm.includes('record')) {
-    icon = <Users size={16} />
-    colorClass = 'kpi-icon-purple'
-  } else if (norm.includes('churn') || norm.includes('category') || norm.includes('segment') || norm.includes('rate')) {
-    icon = <GitFork size={16} />
-    colorClass = 'kpi-icon-teal'
-  } else {
-    icon = <Activity size={16} />
-    colorClass = 'kpi-icon-amber'
-  }
-
-  return (
-    <div className={`kpi-icon-wrap ${colorClass}`}>
-      {icon}
-    </div>
-  )
-}
-
 // ── KPI Card ──────────────────────────────────────────────────
 function KPICard({
   label, value, change, up, sparkData, outliersExcludedCount
 }: {
   label: string; value: string; change: string; up: boolean; sparkData?: { v: number }[]; outliersExcludedCount?: number
 }) {
-  const isPercent = change.includes('%')
-  const cleanChange = isPercent ? change : `${change}`
-
   return (
-    <div className="card kpi-card-glass hover-lift">
+    <div className="card kpi-card-interactive hover-lift">
       <div className="kpi-card-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {getKPIIcon(label)}
-          <div className="kpi-card-title">{label}</div>
-        </div>
+        <div className="kpi-card-title">{label}</div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-          <span className={`badge ${up ? 'badge-green' : 'badge-red'}`} style={{ textTransform: 'none', borderRadius: '20px', padding: '3px 10px' }}>
-            {up ? '▲' : '▼'} {cleanChange}
+          <span className={`badge ${up ? 'badge-green' : 'badge-red'}`} style={{ textTransform: 'none' }}>
+            {up ? '▲' : '▼'} {change}
           </span>
+          {outliersExcludedCount !== undefined && outliersExcludedCount > 0 && (
+            <span style={{
+              background: 'rgba(245,158,11,0.12)',
+              color: 'var(--warning)',
+              padding: '2px 7px',
+              borderRadius: '999px',
+              fontSize: '10.5px',
+              fontWeight: 600,
+              textTransform: 'none',
+              whiteSpace: 'nowrap'
+            }}>
+              ⚠️ {outliersExcludedCount} outliers excluded
+            </span>
+          )}
         </div>
       </div>
-      
-      <div className="kpi-card-value">
-        <CountUp value={value} />
-      </div>
-
-      {outliersExcludedCount !== undefined && outliersExcludedCount > 0 && (
-        <div style={{
-          background: 'rgba(245,158,11,0.06)',
-          border: '1px solid rgba(245,158,11,0.15)',
-          color: 'var(--warning)',
-          padding: '2px 8px',
-          borderRadius: '20px',
-          fontSize: '10.5px',
-          fontWeight: 600,
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 4,
-          marginTop: -6,
-          marginBottom: 10,
-          alignSelf: 'flex-start'
-        }}>
-          ⚠️ {outliersExcludedCount} outliers excluded
-        </div>
-      )}
-
+      <div className="kpi-card-value">{value}</div>
       {sparkData && sparkData.length > 0 ? (
         <div className="kpi-sparkline">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={sparkData}>
               <defs>
                 <linearGradient id="kpiGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.25} />
+                  <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.15} />
                   <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <Area type="monotone" dataKey="v" stroke="var(--accent)" strokeWidth={2} fill="url(#kpiGrad)" dot={false} />
+              <Area type="monotone" dataKey="v" stroke="var(--accent)" strokeWidth={1.5} fill="url(#kpiGrad)" dot={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -222,9 +122,8 @@ function KPICard({
 // ── Empty KPI Card ─────────────────────────────────────────────
 function EmptyKPICard({ label }: { label: string }) {
   return (
-    <div className="card kpi-card-glass" style={{ opacity: 0.45 }}>
-      <div className="kpi-card-header" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        {getKPIIcon(label)}
+    <div className="card kpi-card-interactive" style={{ opacity: 0.5 }}>
+      <div className="kpi-card-header">
         <div className="kpi-card-title">{label}</div>
       </div>
       <div className="kpi-card-value" style={{ color: 'var(--text-muted)' }}>--</div>
@@ -884,15 +783,12 @@ export default function Dashboard() {
                         <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.25} />
                         <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0} />
                       </linearGradient>
-                      <filter id="areaGlow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor="var(--chart-1)" floodOpacity="0.3" />
-                      </filter>
                     </defs>
-                    <CartesianGrid stroke="rgba(255, 255, 255, 0.04)" strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                    <YAxis tickFormatter={formatYAxisTick} tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                    <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                    <YAxis tickFormatter={formatYAxisTick} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Area type="monotone" dataKey="revenue" name={primaryMetricKey || 'Revenue'} stroke="var(--chart-1)" strokeWidth={3} filter="url(#areaGlow)" fill="url(#colorRevenue)" />
+                    <Area type="monotone" dataKey="revenue" name={primaryMetricKey || 'Revenue'} stroke="var(--chart-1)" strokeWidth={2.5} fill="url(#colorRevenue)" />
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
@@ -927,48 +823,15 @@ export default function Dashboard() {
               </div>
               <div className="card-sub">Breakdown by segment</div>
               {donutData.length > 0 ? (
-                <div className="donut-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                  <div style={{ position: 'relative', width: 120, height: 120 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={categories.map(c => ({ name: c.label, value: c.pct, color: c.color }))}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={38}
-                          outerRadius={48}
-                          paddingAngle={3}
-                          dataKey="value"
-                        >
-                          {categories.map((entry, idx) => (
-                            <Cell key={`cell-${idx}`} fill={entry.color} style={{ filter: `drop-shadow(0 0 4px ${entry.color}35)`, cursor: 'pointer' }} />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<CustomTooltip />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div style={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      textAlign: 'center',
-                      pointerEvents: 'none'
-                    }}>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>
-                        {categories[0]?.pct}%
-                      </div>
-                      <div style={{ fontSize: 8.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: -2 }}>
-                        {categories[0]?.label.slice(0, 8)}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="donut-legend" style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
-                    {categories.slice(0, 5).map(d => (
-                      <div key={d.label} className="donut-legend-item" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5 }}>
-                        <span className="donut-dot" style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: d.color, boxShadow: `0 0 8px ${d.color}` }} />
-                        <span style={{ color: 'var(--text-muted)' }}>{d.label}</span>
-                        <span style={{ marginLeft: 'auto', fontWeight: 700, color: '#fff' }}>{d.pct}%</span>
+                <div className="donut-wrap">
+                  <svg width="100" height="100" viewBox="0 0 110 110">
+                    <DonutChart data={donutData} />
+                  </svg>
+                  <div className="donut-legend">
+                    {donutData.slice(0, 5).map(d => (
+                      <div key={d.label} className="donut-legend-item">
+                        <span className="donut-dot" style={{ background: d.color }} />
+                        <span style={{ fontSize: 11.5 }}>{d.label} · {d.pct}%</span>
                       </div>
                     ))}
                   </div>
@@ -983,9 +846,9 @@ export default function Dashboard() {
                     justifyContent: 'center',
                     gap: 6,
                     color: 'var(--text-muted)',
-                    border: '1.5px dashed var(--border)',
+                    border: '1.5px dashed var(--border2)',
                     borderRadius: 'var(--radius-sm)',
-                    background: 'rgba(255,255,255,0.01)',
+                    background: 'rgba(99,102,241,0.02)',
                     padding: 12,
                     textAlign: 'center'
                   }}
@@ -1060,30 +923,13 @@ export default function Dashboard() {
                     <tbody>
                       {paginatedRows.length > 0 ? paginatedRows.map((row, idx) => (
                         <tr key={idx} className={highlightedRows.has(row.__originalIndex) ? 'highlighted-row' : ''}>
-                          {analytics.columns.map(col => {
-                            const cellVal = row[col];
-                            let cellContent: React.ReactNode = cellVal !== undefined && cellVal !== null ? String(cellVal) : '—';
-                            if (cellVal !== undefined && cellVal !== null) {
-                              const strVal = String(cellVal).trim();
-                              const lowerVal = strVal.toLowerCase();
-                              if (lowerVal === 'won') {
-                                cellContent = <span className="status-pill status-won">Won</span>;
-                              } else if (lowerVal === 'lost') {
-                                cellContent = <span className="status-pill status-lost">Lost</span>;
-                              } else if (lowerVal === 'pending') {
-                                cellContent = <span className="status-pill status-pending">Pending</span>;
-                              } else if (lowerVal === 'error') {
-                                cellContent = <span className="status-pill status-error">Error</span>;
-                              }
-                            }
-                            return (
-                              <td key={col}
-                                className={dataSource?.columns_metadata?.[col] === 'metric' ? 'mono' : ''}
-                                style={{ fontWeight: dataSource?.columns_metadata?.[col] === 'identifier' ? 500 : 400 }}>
-                                {cellContent}
-                              </td>
-                            );
-                          })}
+                          {analytics.columns.map(col => (
+                            <td key={col}
+                              className={dataSource?.columns_metadata?.[col] === 'metric' ? 'mono' : ''}
+                              style={{ fontWeight: dataSource?.columns_metadata?.[col] === 'identifier' ? 500 : 400 }}>
+                              {row[col] !== undefined && row[col] !== null ? String(row[col]) : '—'}
+                            </td>
+                          ))}
                         </tr>
                       )) : (
                         <tr>

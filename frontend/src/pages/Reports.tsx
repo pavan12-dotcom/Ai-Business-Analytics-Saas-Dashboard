@@ -267,7 +267,7 @@ export default function Reports() {
                     <div className="card-sub" style={{ marginBottom: 16 }}>Engineered Insight Metrics</div>
                     <div className="audit-list">
                       {aiInsights.keyFindings.map((finding, idx) => (
-                        <div key={idx} className="audit-item compliant">
+                        <div key={idx} className="audit-item">
                           <div className="audit-body">
                             <div className="audit-title">Audit Flag #{idx + 1}</div>
                             <div className="audit-desc">{finding}</div>
@@ -276,7 +276,7 @@ export default function Reports() {
                         </div>
                       ))}
                       {aiInsights.anomalies.map((anomaly, idx) => (
-                        <div key={idx} className="audit-item audited">
+                        <div key={idx} className="audit-item">
                           <div className="audit-body">
                             <div className="audit-title">Variance Flag #{idx + 1}</div>
                             <div className="audit-desc">{anomaly}</div>

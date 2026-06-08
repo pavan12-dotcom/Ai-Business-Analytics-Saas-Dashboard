@@ -49,7 +49,7 @@ export default function Topbar() {
   })
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    return (localStorage.getItem('theme') as 'light' | 'dark') || 'dark'
+    return (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
   })
 
   // Live notifications from Supabase Realtime
