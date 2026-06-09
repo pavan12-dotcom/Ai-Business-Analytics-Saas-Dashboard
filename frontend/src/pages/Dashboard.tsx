@@ -210,12 +210,7 @@ function NoDataState({ onSample, onUpload }: { onSample: (ds: SampleDataset) => 
         </div>
       </div>
 
-      {/* Empty KPI row */}
-      <div className="kpi-grid">
-        {['Total Revenue', 'Total Records', 'Categories', 'Growth Rate'].map(label => (
-          <EmptyKPICard key={label} label={label} />
-        ))}
-      </div>
+
 
       {/* Empty charts */}
       <div className="charts-row">
@@ -719,9 +714,9 @@ export default function Dashboard() {
                 outliersExcludedCount={kpi.outliersExcludedCount}
               />
             )) : (
-              ['Total Revenue', 'Total Records', 'Categories', 'Growth Rate'].map(l => (
-                <EmptyKPICard key={l} label={l} />
-              ))
+              <div className="card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>
+                No metrics available for this dataset
+              </div>
             )}
           </div>
 

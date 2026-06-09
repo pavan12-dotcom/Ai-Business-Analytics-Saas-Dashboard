@@ -836,140 +836,21 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
   }
 
   const getSpreadsheetCustomers = (): any[] => {
-    const sheet = activeSheet || (activeDocument?.parsedRows?.length > 0 ? {
-      rows: activeDocument.parsedRows,
-      columns_metadata: activeDocument.columnsMetadata || {}
-    } : null)
-
-    if (!sheet) return []
-    const meta = sheet.columns_metadata || sheet.columnsMetadata || {}
-    const rows = sheet.rows || []
-
-    const nameHeader = Object.keys(meta).find(h => h.toLowerCase().includes('name') || h.toLowerCase().includes('customer')) ||
-                       Object.keys(meta).find(h => meta[h] === 'identifier') ||
-                       Object.keys(meta)[0] || 'Name'
-
-    const emailHeader = Object.keys(meta).find(h => h.toLowerCase().includes('email'))
-
-    const planHeader = Object.keys(meta).find(h => h.toLowerCase().includes('plan')) ||
-                       Object.keys(meta).find(h => meta[h] === 'category')
-
-    const mrrHeader = Object.keys(meta).find(h => h.toLowerCase().includes('mrr') || h.toLowerCase().includes('revenue') || h.toLowerCase().includes('amount') || h.toLowerCase().includes('spend') || h.toLowerCase().includes('price')) ||
-                      Object.keys(meta).find(h => meta[h] === 'metric')
-
-    const statusHeader = Object.keys(meta).find(h => h.toLowerCase().includes('status')) ||
-                         Object.keys(meta).find(h => meta[h] === 'category' && h !== planHeader)
-
-    return rows.map((r: any, index: number) => {
-      const name = r[nameHeader] ? String(r[nameHeader]) : `Customer ${index + 1}`
-      const email = emailHeader && r[emailHeader] ? String(r[emailHeader]) : `${name.toLowerCase().replace(/\s+/g, '')}@example.com`
-      const plan = planHeader && r[planHeader] ? String(r[planHeader]) : 'Pro'
-      const mrr = mrrHeader ? (cleanNumericValue(r[mrrHeader]) ?? 0) : 0
-      const status = statusHeader && r[statusHeader] ? String(r[statusHeader]) : 'Active'
-
-      return {
-        id: r.id || String(index + 1),
-        name,
-        email,
-        plan,
-        mrr,
-        status
-      }
-    })
+    return analytics.customers || []
   }
 
   const getSpreadsheetMonthlyMetrics = (): any[] => {
-    const sheet = activeSheet || (activeDocument?.parsedRows?.length > 0 ? {
-      rows: activeDocument.parsedRows,
-      columns_metadata: activeDocument.columnsMetadata || {}
-    } : null)
-
-    if (!sheet) return []
-    const meta = sheet.columns_metadata || sheet.columnsMetadata || {}
-    const rows = sheet.rows || []
-
-    const dateHeader = Object.keys(meta).find(h => meta[h] === 'date' || meta[h] === 'time') ||
-                       Object.keys(meta).find(h => h.toLowerCase().includes('date') || h.toLowerCase().includes('month') || h.toLowerCase().includes('time'))
-
-    const revHeader = Object.keys(meta).find(h => h.toLowerCase().includes('revenue') || h.toLowerCase().includes('amount') || h.toLowerCase().includes('spend')) ||
-                      Object.keys(meta).find(h => meta[h] === 'metric')
-
-    const mrrHeader = Object.keys(meta).find(h => h.toLowerCase().includes('mrr') || h.toLowerCase().includes('new mrr'))
-
-    if (dateHeader && revHeader) {
-      const validRows = rows.filter((row: any) => {
-        const d = new Date(row[dateHeader])
-        return d instanceof Date && !isNaN(d.getTime())
-      })
-
-      const monthlyGroups: Record<string, { revenue: number; mrr: number }> = {}
-      validRows.forEach((r: any) => {
-        const parsed = new Date(r[dateHeader])
-        const monthName = parsed.toLocaleString('en-US', { month: 'short', year: 'numeric' })
-
-        const revenue = cleanNumericValue(r[revHeader]) ?? 0
-
-        const mrrVal = mrrHeader ? cleanNumericValue(r[mrrHeader]) : null
-        const mrr = mrrVal !== null ? mrrVal : revenue * 0.75
-
-        if (!monthlyGroups[monthName]) {
-          monthlyGroups[monthName] = { revenue: 0, mrr: 0 }
-        }
-        monthlyGroups[monthName].revenue += revenue
-        monthlyGroups[monthName].mrr += mrr
-      })
-
-      const monthOrder: Record<string, number> = {
-        Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
-        Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12
-      }
-      return (Object.entries(monthlyGroups) as [string, { revenue: number; mrr: number }][]).map(([month, data]) => ({
-        month,
-        revenue: Math.round(data.revenue),
-        mrr: Math.round(data.mrr)
-      })).sort((a, b) => {
-        const m1 = a.month.split(' ')[0]
-        const m2 = b.month.split(' ')[0]
-        return (monthOrder[m1] || 0) - (monthOrder[m2] || 0)
-      })
-    } else {
-      const totalRev = rows.reduce((sum: number, r: any) => {
-        const val = revHeader ? (cleanNumericValue(r[revHeader]) ?? 0) : 0
-        return sum + val
-      }, 0)
-
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
-      return months.map((m, idx) => ({
-        month: m,
-        revenue: Math.round((totalRev / 6) * (0.8 + idx * 0.1)),
-        mrr: Math.round((totalRev / 8) * (0.8 + idx * 0.1))
-      }))
-    }
+    return analytics.monthly || []
   }
 
   const getSpreadsheetKPIs = (): any => {
-    const sheet = activeSheet || (activeDocument?.parsedRows?.length > 0 ? {
-      rows: activeDocument.parsedRows,
-      columns_metadata: activeDocument.columnsMetadata || {}
-    } : null)
-    if (!sheet) return null
-
-    const custs = getSpreadsheetCustomers()
-    const activeCusts = custs.filter((c: any) => c.status === 'Active')
-    const churnedCusts = custs.filter((c: any) => c.status === 'Churned')
-
-    const totalRevenue = activeCusts.reduce((sum: number, c: any) => sum + c.mrr, 0)
-    const activeUsers = activeCusts.length
-    const arpu = activeUsers > 0 ? (totalRevenue / activeUsers) : 0
-    const totalCustomers = custs.length
-    const churnRate = totalCustomers > 0 ? (churnedCusts.length / totalCustomers) * 100 : 0
-
-    return {
-      revenue: { value: formatNumber(totalRevenue, true), change: '+12.4%', up: true },
-      users: { value: formatNumber(activeUsers), change: '+8.1%', up: true },
-      churn: { value: `${churnRate.toFixed(1)}%`, change: '-0.4%', up: false },
-      arpu: { value: `$${arpu.toFixed(2)}`, change: '+2.1%', up: true }
-    }
+    if (!analytics.hasData) return null
+    const kpiObj: Record<string, any> = {}
+    analytics.kpis.forEach((k) => {
+      const key = k.label.toLowerCase().replace(/[^a-z0-9]/g, '_')
+      kpiObj[key] = { value: k.value, change: k.change, up: k.up }
+    })
+    return kpiObj
   }
 
   // ── Load a sample dataset without backend ────────────────────

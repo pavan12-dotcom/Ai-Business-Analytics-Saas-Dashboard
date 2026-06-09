@@ -104,7 +104,7 @@ export default function Sidebar() {
       <div className="sidebar-logo" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span className="logo-dot" />
-          <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', fontWeight: 600 }}>SaaS Dashboard</span>
+          <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', fontWeight: 600 }}>AI Data Dashboard</span>
         </div>
         <span style={{ fontSize: '14px', fontWeight: 700, lineHeight: 1.3 }}>AI-Powered Business Analytics</span>
       </div>
@@ -198,7 +198,7 @@ export default function Sidebar() {
                 </>
               )}
             </button>
-            <span className="sidebar-upload-tip">Max 20 pages / 10MB · SaaS data</span>
+            <span className="sidebar-upload-tip">Max 20 pages / 10MB · Structured data</span>
           </div>
         )}
         {docError && <div className="sidebar-upload-error">{docError}</div>}

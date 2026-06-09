@@ -252,9 +252,6 @@ export default function AIAssistant() {
     resetDoc,
     upload,
     reset,
-    getSpreadsheetCustomers,
-    getSpreadsheetMonthlyMetrics,
-    getSpreadsheetKPIs,
     hasData,
     analytics,
     datasetName

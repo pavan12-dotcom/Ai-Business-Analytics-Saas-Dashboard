@@ -47,7 +47,7 @@ export default function ForgotPassword() {
         <div className="auth-logo" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginBottom: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span className="logo-dot" />
-            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)', fontWeight: 600 }}>SaaS Dashboard</span>
+            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)', fontWeight: 600 }}>AI Data Dashboard</span>
           </div>
           <span style={{ fontSize: '20px', fontWeight: 800 }}>AI-Powered Business Analytics</span>
         </div>
