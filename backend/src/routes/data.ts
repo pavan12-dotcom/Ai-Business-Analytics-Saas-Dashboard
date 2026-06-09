@@ -986,17 +986,79 @@ export async function addAuditLog(userId: string, userName: string, action: stri
 }
 
 export const memorySubscriptions = new Map<string, any>()
-export const guestAnalyses = new Map<string, number>()
+export const guestTrials = new Map<string, number>()
+export const guestAnalyses = guestTrials
+export const guestQuestions = new Map<string, number>()
 
-export async function getOrInitSubscription(userId: string, guestId?: string, demoCount: number = 0) {
-  const isGuest = userId === '00000000-0000-0000-0000-000000000000'
+async function saveSubscriptionToDB(supabase: any, sub: any) {
+  if (!supabase) return;
+  try {
+    const { error } = await supabase
+      .from('user_subscriptions')
+      .upsert({
+        user_id: sub.user_id,
+        analyses_used: sub.analyses_used,
+        analyses_remaining: sub.analyses_remaining,
+        questions_used: sub.questions_used,
+        questions_remaining: sub.questions_remaining,
+        trials_limit: sub.trials_limit,
+        questions_limit: sub.questions_limit,
+        subscription_status: sub.subscription_status,
+        subscription_start: sub.subscription_start,
+        subscription_end: sub.subscription_end,
+        plan_type: sub.plan_type,
+        mrr: sub.mrr
+      }, { onConflict: 'user_id' })
+
+    if (error) {
+      if (error.code === '42703') {
+        console.warn('⚠️ Supabase schema is missing schema_v4.sql columns. Retrying with legacy columns only...')
+        const { error: retryError } = await supabase
+          .from('user_subscriptions')
+          .upsert({
+            user_id: sub.user_id,
+            analyses_used: sub.analyses_used,
+            analyses_remaining: sub.analyses_remaining,
+            subscription_status: sub.subscription_status,
+            subscription_start: sub.subscription_start,
+            subscription_end: sub.subscription_end,
+            plan_type: sub.plan_type,
+            mrr: sub.mrr
+          }, { onConflict: 'user_id' })
+        if (retryError) {
+          console.error('Failed retry database update:', retryError.message)
+        }
+      } else {
+        console.error('Failed database update:', error.message)
+      }
+    }
+  } catch (err: any) {
+    console.warn('Database save exception:', err.message)
+  }
+}
+
+export async function getOrInitSubscription(
+  userId: string,
+  guestId?: string,
+  demoTrialsCount?: number,
+  demoQuestionsCount?: number,
+  demoCount: number = 0
+) {
+  const isGuest = userId === '00000000-0000-0000-0000-000000000000' || userId.startsWith('guest-')
+  
   if (isGuest) {
-    const used = guestId ? (guestAnalyses.get(guestId) || 0) : 0
+    const finalGuestId = guestId || userId.replace('guest-', '') || 'default-guest'
+    const usedTrials = guestTrials.get(finalGuestId) || 0
+    const usedQuestions = guestQuestions.get(finalGuestId) || 0
     return {
       user_id: userId,
-      analyses_used: used,
-      analyses_remaining: Math.max(0, 2 - used),
-      subscription_status: used >= 2 ? 'trial_exhausted' : 'demo',
+      analyses_used: usedTrials,
+      analyses_remaining: Math.max(0, 5 - usedTrials),
+      questions_used: usedQuestions,
+      questions_remaining: Math.max(0, 11 - usedQuestions),
+      trials_limit: 5,
+      questions_limit: 11,
+      subscription_status: (usedTrials >= 5 || usedQuestions >= 11) ? 'trial_exhausted' : 'demo',
       subscription_start: new Date().toISOString(),
       subscription_end: new Date().toISOString(),
       plan_type: 'free',
@@ -1049,6 +1111,10 @@ export async function getOrInitSubscription(userId: string, guestId?: string, de
               user_id: userId,
               analyses_used: 0,
               analyses_remaining: 999999,
+              questions_used: 0,
+              questions_remaining: 999999,
+              trials_limit: 999999,
+              questions_limit: 999999,
               subscription_status: 'active',
               subscription_start: now.toISOString(),
               subscription_end: end.toISOString(),
@@ -1059,6 +1125,9 @@ export async function getOrInitSubscription(userId: string, guestId?: string, de
             sub.plan_type = planLower
             sub.subscription_status = 'active'
             sub.analyses_remaining = 999999
+            sub.questions_remaining = 999999
+            sub.trials_limit = 999999
+            sub.questions_limit = 999999
             const end = new Date()
             end.setFullYear(end.getFullYear() + 10)
             sub.subscription_end = end.toISOString()
@@ -1070,33 +1139,47 @@ export async function getOrInitSubscription(userId: string, guestId?: string, de
     }
   }
 
+  const dTrials = demoTrialsCount !== undefined ? demoTrialsCount : (demoCount || 0)
+  const dQuestions = demoQuestionsCount !== undefined ? demoQuestionsCount : (demoCount || 0)
+  const hasUsedDemo = dTrials > 0 || dQuestions > 0
+
   // If subscription already exists but we have demo usage to merge (e.g., returning user)
-  if (sub && demoCount > 0 && demoCount > (sub.analyses_used || 0)) {
+  if (sub) {
     const planLower = (sub.plan_type || 'free').toLowerCase()
     const isPremium = planLower === 'pro' || planLower === 'enterprise'
 
     if (isPremium) {
-      sub.analyses_used = demoCount
+      if (hasUsedDemo) {
+        sub.analyses_used = Math.max(sub.analyses_used || 0, dTrials)
+        sub.questions_used = Math.max(sub.questions_used || 0, dQuestions)
+      }
       sub.analyses_remaining = 999999
+      sub.questions_remaining = 999999
+      sub.trials_limit = 999999
+      sub.questions_limit = 999999
       sub.subscription_status = 'active'
     } else {
-      const mergedUsed = Math.min(5, demoCount)
-      const mergedRemaining = Math.max(0, 5 - mergedUsed)
-      const mergedStatus = mergedUsed >= 5 ? 'trial_exhausted' : 'trial'
-      sub.analyses_used = mergedUsed
-      sub.analyses_remaining = mergedRemaining
+      // Free plan limit update
+      const limitTrials = hasUsedDemo ? 15 : (sub.trials_limit || 10)
+      const limitQuestions = hasUsedDemo ? 26 : (sub.questions_limit || 15)
+      
+      const mergedUsedTrials = Math.max(sub.analyses_used || 0, dTrials)
+      const mergedUsedQuestions = Math.max(sub.questions_used || 0, dQuestions)
+
+      const mergedRemainingTrials = Math.max(0, limitTrials - mergedUsedTrials)
+      const mergedRemainingQuestions = Math.max(0, limitQuestions - mergedUsedQuestions)
+      const mergedStatus = (mergedUsedTrials >= limitTrials || mergedUsedQuestions >= limitQuestions) ? 'trial_exhausted' : 'trial'
+
+      sub.analyses_used = mergedUsedTrials
+      sub.analyses_remaining = mergedRemainingTrials
+      sub.questions_used = mergedUsedQuestions
+      sub.questions_remaining = mergedRemainingQuestions
+      sub.trials_limit = limitTrials
+      sub.questions_limit = limitQuestions
       sub.subscription_status = mergedStatus
 
       if (supabase) {
-        try {
-          await supabase.from('user_subscriptions').update({
-            analyses_used: mergedUsed,
-            analyses_remaining: mergedRemaining,
-            subscription_status: mergedStatus
-          }).eq('user_id', userId)
-        } catch (err: any) {
-          console.warn('Failed to merge demo usage into subscription:', err.message)
-        }
+        await saveSubscriptionToDB(supabase, sub)
       }
     }
     memorySubscriptions.set(userId, sub)
@@ -1108,12 +1191,20 @@ export async function getOrInitSubscription(userId: string, guestId?: string, de
     const expiry = new Date()
     expiry.setMonth(expiry.getMonth() + 1)
     
-    const used = Math.min(5, Math.max(0, demoCount))
+    const limitTrials = hasUsedDemo ? 15 : 10
+    const limitQuestions = hasUsedDemo ? 26 : 15
+    const usedTrials = hasUsedDemo ? dTrials : 0
+    const usedQuestions = hasUsedDemo ? dQuestions : 0
+
     sub = {
       user_id: userId,
-      analyses_used: used,
-      analyses_remaining: Math.max(0, 5 - used),
-      subscription_status: used >= 5 ? 'trial_exhausted' : 'trial',
+      analyses_used: usedTrials,
+      analyses_remaining: Math.max(0, limitTrials - usedTrials),
+      questions_used: usedQuestions,
+      questions_remaining: Math.max(0, limitQuestions - usedQuestions),
+      trials_limit: limitTrials,
+      questions_limit: limitQuestions,
+      subscription_status: (usedTrials >= limitTrials || usedQuestions >= limitQuestions) ? 'trial_exhausted' : 'trial',
       subscription_start: now.toISOString(),
       subscription_end: expiry.toISOString(),
       plan_type: 'free',
@@ -1121,16 +1212,7 @@ export async function getOrInitSubscription(userId: string, guestId?: string, de
     }
 
     if (supabase) {
-      try {
-        const { error } = await supabase
-          .from('user_subscriptions')
-          .insert(sub)
-        if (error && error.code !== '42P01') {
-          console.error('Error inserting subscription in database:', error.message)
-        }
-      } catch (err: any) {
-        console.warn('Supabase subscription insert failed, using memory fallback:', err.message)
-      }
+      await saveSubscriptionToDB(supabase, sub)
     }
 
     memorySubscriptions.set(userId, sub)
@@ -1149,26 +1231,19 @@ export async function getOrInitSubscription(userId: string, guestId?: string, de
       updated = true
     }
   } else {
-    if (sub.analyses_used >= 5 && sub.subscription_status === 'trial') {
+    const limitTrials = sub.trials_limit || 10
+    const limitQuestions = sub.questions_limit || 15
+    if ((sub.analyses_used >= limitTrials || sub.questions_used >= limitQuestions) && sub.subscription_status === 'trial') {
       sub.subscription_status = 'trial_exhausted'
-      sub.analyses_remaining = 0
+      sub.analyses_remaining = Math.max(0, limitTrials - sub.analyses_used)
+      sub.questions_remaining = Math.max(0, limitQuestions - sub.questions_used)
       updated = true
     }
   }
 
   if (updated) {
     if (supabase) {
-      try {
-        await supabase
-          .from('user_subscriptions')
-          .update({
-            subscription_status: sub.subscription_status,
-            analyses_remaining: sub.analyses_remaining
-          })
-          .eq('user_id', userId)
-      } catch (err: any) {
-        console.error('Error updating status in database:', err.message)
-      }
+      await saveSubscriptionToDB(supabase, sub)
     }
     memorySubscriptions.set(userId, sub)
   }
@@ -1178,8 +1253,14 @@ export async function getOrInitSubscription(userId: string, guestId?: string, de
     plan: sub.plan_type === 'pro' ? 'Pro' : sub.plan_type === 'enterprise' ? 'Enterprise' : 'Free',
     status: sub.subscription_status === 'active' ? 'Active' : sub.subscription_status === 'trial' ? 'Trial' : sub.subscription_status === 'expired' ? 'Expired' : 'Trial Exhausted',
     mrr: sub.plan_type === 'pro' ? 29 : sub.plan_type === 'enterprise' ? 99 : 0,
-    aiQueryCount: sub.analyses_used,
-    aiQueryLimit: sub.plan_type === 'pro' ? 999999 : sub.plan_type === 'enterprise' ? 999999 : 5,
+    aiQueryCount: sub.questions_used || 0,
+    aiQueryLimit: sub.plan_type === 'pro' || sub.plan_type === 'enterprise' ? 999999 : (sub.questions_limit || 15),
+    analyses_used: sub.analyses_used || 0,
+    analyses_remaining: sub.analyses_remaining ?? 10,
+    trials_limit: sub.trials_limit ?? 10,
+    questions_used: sub.questions_used || 0,
+    questions_remaining: sub.questions_remaining ?? 15,
+    questions_limit: sub.questions_limit ?? 15,
     remaining_days
   }
 }
@@ -1196,42 +1277,64 @@ export async function checkSubscriptionLock(userId: string, guestId?: string) {
 }
 
 export async function incrementSubscriptionAnalyses(userId: string, guestId?: string) {
-  const isGuest = userId === '00000000-0000-0000-0000-000000000000'
+  const isGuest = userId === '00000000-0000-0000-0000-000000000000' || userId.startsWith('guest-')
   if (isGuest) {
-    if (guestId) {
-      const current = guestAnalyses.get(guestId) || 0
-      guestAnalyses.set(guestId, current + 1)
-    }
+    const finalGuestId = guestId || userId.replace('guest-', '') || 'default-guest'
+    const current = guestTrials.get(finalGuestId) || 0
+    guestTrials.set(finalGuestId, current + 1)
     return
   }
 
   const sub = await getOrInitSubscription(userId, guestId)
   if (sub.plan_type === 'free') {
-    const nextUsed = sub.analyses_used + 1
-    const nextRemaining = Math.max(0, 5 - nextUsed)
-    const nextStatus = nextUsed >= 5 ? 'trial_exhausted' : 'trial'
+    const trialsLimit = sub.trials_limit || 10
+    const nextUsed = (sub.analyses_used || 0) + 1
+    const nextRemaining = Math.max(0, trialsLimit - nextUsed)
+    const nextStatus = (nextUsed >= trialsLimit || (sub.questions_used || 0) >= (sub.questions_limit || 15)) ? 'trial_exhausted' : 'trial'
+
+    sub.analyses_used = nextUsed
+    sub.analyses_remaining = nextRemaining
+    sub.subscription_status = nextStatus
 
     const supabase = getSupabase()
-    if (supabase) {
-      try {
-        await supabase
-          .from('user_subscriptions')
-          .update({
-            analyses_used: nextUsed,
-            analyses_remaining: nextRemaining,
-            subscription_status: nextStatus
-          })
-          .eq('user_id', userId)
-      } catch (err: any) {
-        console.error('Failed to update subscription count in database:', err.message)
-      }
-    }
+    await saveSubscriptionToDB(supabase, sub)
 
-    // Update memory
     const memSub = memorySubscriptions.get(userId)
     if (memSub) {
       memSub.analyses_used = nextUsed
       memSub.analyses_remaining = nextRemaining
+      memSub.subscription_status = nextStatus
+    }
+  }
+}
+
+export async function incrementSubscriptionQuestions(userId: string, guestId?: string) {
+  const isGuest = userId === '00000000-0000-0000-0000-000000000000' || userId.startsWith('guest-')
+  if (isGuest) {
+    const finalGuestId = guestId || userId.replace('guest-', '') || 'default-guest'
+    const current = guestQuestions.get(finalGuestId) || 0
+    guestQuestions.set(finalGuestId, current + 1)
+    return
+  }
+
+  const sub = await getOrInitSubscription(userId, guestId)
+  if (sub.plan_type === 'free') {
+    const questionsLimit = sub.questions_limit || 15
+    const nextUsed = (sub.questions_used || 0) + 1
+    const nextRemaining = Math.max(0, questionsLimit - nextUsed)
+    const nextStatus = (((sub.analyses_used || 0) >= (sub.trials_limit || 10)) || nextUsed >= questionsLimit) ? 'trial_exhausted' : 'trial'
+
+    sub.questions_used = nextUsed
+    sub.questions_remaining = nextRemaining
+    sub.subscription_status = nextStatus
+
+    const supabase = getSupabase()
+    await saveSubscriptionToDB(supabase, sub)
+
+    const memSub = memorySubscriptions.get(userId)
+    if (memSub) {
+      memSub.questions_used = nextUsed
+      memSub.questions_remaining = nextRemaining
       memSub.subscription_status = nextStatus
     }
   }
@@ -1247,8 +1350,8 @@ router.get('/subscription', requireAuth, async (req: Request, res: Response) => 
 router.post('/subscription/init', requireAuth, async (req: Request, res: Response) => {
   const userId = (req as any).userId
   const guestId = (req as any).guestId
-  const { demoCount } = req.body
-  const sub = await getOrInitSubscription(userId, guestId, demoCount)
+  const { demoTrialsCount, demoQuestionsCount, demoCount } = req.body
+  const sub = await getOrInitSubscription(userId, guestId, demoTrialsCount, demoQuestionsCount, demoCount)
   res.json(sub)
 })
 

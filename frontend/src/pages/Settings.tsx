@@ -52,8 +52,8 @@ export default function Settings() {
       : 'Free'
   const planStatus = subscription?.subscription_status || 'demo'
   const remainingDays = subscription?.remaining_days ?? 0
-  const aiUsed = subscription?.analyses_used ?? 0
-  const aiLimit = subscription?.aiQueryLimit ?? 5
+  const aiUsed = subscription?.questions_used ?? 0
+  const aiLimit = subscription?.questions_limit ?? 15
 
   // Joined date (Supabase createdAt)
   const createdAt: string | undefined = (user as any)?.created_at

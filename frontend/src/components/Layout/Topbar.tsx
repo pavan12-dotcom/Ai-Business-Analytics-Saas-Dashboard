@@ -289,8 +289,9 @@ export default function Topbar() {
       <h1 className="topbar-title">{title}</h1>
       <div className="topbar-right">
         {isGuest && (() => {
-          const remaining = Math.max(0, 2 - uploadCount)
-          const isExhausted = remaining === 0
+          const remainingTrials = Math.max(0, 5 - uploadCount)
+          const remainingQuestions = Math.max(0, 11 - guestQueryCount)
+          const isExhausted = remainingTrials === 0 || remainingQuestions === 0
           return (
             <div
               className="db-status-badge"
@@ -322,7 +323,7 @@ export default function Topbar() {
                 </>
               ) : (
                 <>
-                  <CheckCircle2 size={12} style={{ color: '#4ade80' }} /> Demo: {remaining} Free Action{remaining !== 1 ? 's' : ''} Left
+                  <CheckCircle2 size={12} style={{ color: '#4ade80' }} /> Demo: {remainingTrials} Trial{remainingTrials !== 1 ? 's' : ''} & {remainingQuestions} Q{remainingQuestions !== 1 ? 's' : ''} Left
                 </>
               )}
             </div>

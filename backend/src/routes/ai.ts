@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { requireAuth, getSupabase } from '../middleware/auth'
-import { memorySpreadsheets, memoryDocuments, addAuditLog, mockUserPlans, memoryAuditLogs, getOrInitSubscription, incrementSubscriptionAnalyses } from './data'
+import { memorySpreadsheets, memoryDocuments, addAuditLog, mockUserPlans, memoryAuditLogs, getOrInitSubscription, incrementSubscriptionQuestions } from './data'
 
 const router = Router()
 const supabase = getSupabase()
@@ -213,7 +213,7 @@ TOP CUSTOMERS: ${topCustStr}
         
         // Log successful query
         await addAuditLog(userId, userName, `AI Assistant Query: "${question.substring(0, 60)}${question.length > 60 ? '...' : ''}"`)
-        await incrementSubscriptionAnalyses(userId, guestId)
+        await incrementSubscriptionQuestions(userId, guestId)
 
         return res.json({ answer, demo: false, engine: `gemini (${modelName})` })
       } catch (err: any) {
@@ -240,7 +240,7 @@ TOP CUSTOMERS: ${topCustStr}
 
   // Log successful query
   await addAuditLog(userId, userName, `AI Assistant Query: "${question.substring(0, 60)}${question.length > 60 ? '...' : ''}"`)
-  await incrementSubscriptionAnalyses(userId, guestId)
+  await incrementSubscriptionQuestions(userId, guestId)
 
   return res.json({ answer, demo: true, engine: 'fallback' })
 })
@@ -380,7 +380,7 @@ TOP CUSTOMERS: Acme Corp Enterprise $4,200 Active | TechFlow Team $1,800 Active 
         }
 
         await addAuditLog(userId, userName, `AI Assistant Query: "${question.substring(0, 60)}${question.length > 60 ? '...' : ''}"`)
-        await incrementSubscriptionAnalyses(userId, guestId)
+        await incrementSubscriptionQuestions(userId, guestId)
         sendDone()
         return
       } catch (err: any) {
@@ -411,7 +411,7 @@ TOP CUSTOMERS: Acme Corp Enterprise $4,200 Active | TechFlow Team $1,800 Active 
   }
 
   await addAuditLog(userId, userName, `AI Assistant Query: "${question.substring(0, 60)}${question.length > 60 ? '...' : ''}"`)
-  await incrementSubscriptionAnalyses(userId, guestId)
+  await incrementSubscriptionQuestions(userId, guestId)
   sendDone()
 })
 

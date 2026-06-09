@@ -138,26 +138,54 @@ export default function Billing() {
   return (
     <div className="billing-page fade-in">
       {/* Current usage */}
-      <div className="card billing-usage glass-card">
-        <div className="usage-left">
-          <div className="usage-title">
-            Current Subscription plan: <span className="usage-plan-name">{subscription ? `${subscription.plan} Plan` : 'Free Plan'}</span>
+      <div className="card billing-usage glass-card" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '16px' }}>
+        <div className="usage-title" style={{ fontSize: '15px', borderBottom: '1px solid var(--border)', paddingBottom: '10px', marginBottom: '4px' }}>
+          Current Subscription plan: <span className="usage-plan-name">{subscription ? `${subscription.plan} Plan` : 'Free Plan'}</span>
+        </div>
+        
+        {/* Row 1: AI queries */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+          <div className="usage-left">
+            <div className="usage-title" style={{ fontSize: '13px', marginBottom: '2px' }}>AI Assistant Questions</div>
+            <div className="usage-sub">
+              {subscription ? subscription.questions_used : 0} of {subscription ? subscription.questions_limit : 15} queries consumed this month.
+            </div>
           </div>
-          <div className="usage-sub">
-            {subscription ? subscription.aiQueryCount : 0} of {subscription ? subscription.aiQueryLimit : 100} AI queries consumed this month. Quota resets in 24 days.
+          <div className="usage-bar-wrap">
+            <div className="usage-bar-bg">
+              <div 
+                className="usage-bar-fg" 
+                style={{ 
+                  width: `${Math.min(100, Math.round(((subscription?.questions_used || 0) / (subscription?.questions_limit || 15)) * 100))}%` 
+                }} 
+              />
+            </div>
+            <div className="usage-pct">
+              {Math.min(100, Math.round(((subscription?.questions_used || 0) / (subscription?.questions_limit || 15)) * 100))}%
+            </div>
           </div>
         </div>
-        <div className="usage-bar-wrap">
-          <div className="usage-bar-bg">
-            <div 
-              className="usage-bar-fg" 
-              style={{ 
-                width: `${Math.min(100, Math.round(((subscription?.aiQueryCount || 0) / (subscription?.aiQueryLimit || 100)) * 100))}%` 
-              }} 
-            />
+
+        {/* Row 2: Trials / Uploads */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+          <div className="usage-left">
+            <div className="usage-title" style={{ fontSize: '13px', marginBottom: '2px' }}>Spreadsheet & Document Trials</div>
+            <div className="usage-sub">
+              {subscription ? subscription.analyses_used : 0} of {subscription ? subscription.trials_limit : 10} uploads/trials consumed.
+            </div>
           </div>
-          <div className="usage-pct">
-            {Math.min(100, Math.round(((subscription?.aiQueryCount || 0) / (subscription?.aiQueryLimit || 100)) * 100))}%
+          <div className="usage-bar-wrap">
+            <div className="usage-bar-bg">
+              <div 
+                className="usage-bar-fg" 
+                style={{ 
+                  width: `${Math.min(100, Math.round(((subscription?.analyses_used || 0) / (subscription?.trials_limit || 10)) * 100))}%` 
+                }} 
+              />
+            </div>
+            <div className="usage-pct">
+              {Math.min(100, Math.round(((subscription?.analyses_used || 0) / (subscription?.trials_limit || 10)) * 100))}%
+            </div>
           </div>
         </div>
       </div>

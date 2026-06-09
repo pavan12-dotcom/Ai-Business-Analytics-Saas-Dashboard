@@ -13,6 +13,10 @@ interface SubscriptionType {
   aiQueryLimit: number
   analyses_used: number
   analyses_remaining: number
+  questions_used: number
+  questions_remaining: number
+  trials_limit: number
+  questions_limit: number
   subscription_status: 'demo' | 'trial' | 'active' | 'expired' | 'trial_exhausted'
   subscription_start: string | null
   subscription_end: string | null
@@ -68,37 +72,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const [showSignupModal, setShowSignupModal] = useState(false)
-  // Unified demo usage counter (used by both guest uploads and AI queries)
+  // Demo usage counters for separate trials (uploads) and queries (AI)
   const [guestQueryCount, setGuestQueryCount] = useState<number>(() => {
-    return Number(localStorage.getItem('demo_used') || '0')
+    const legacy = localStorage.getItem('demo_used')
+    if (legacy) {
+      localStorage.setItem('demo_questions_used', legacy)
+      localStorage.removeItem('demo_used')
+    }
+    return Number(localStorage.getItem('demo_questions_used') || '0')
   })
 
   const [uploadCount, setUploadCount] = useState<number>(() => {
-    return Number(localStorage.getItem('demo_used') || '0')
+    return Number(localStorage.getItem('demo_trials_used') || '0')
   })
   const [showProModal, setShowProModal] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [showRenewalModal, setShowRenewalModal] = useState(false)
 
-  // Increment the unified demo_used counter (for guests: uploads + AI queries)
+  // Increment trials count for guest uploads
   const incrementUploadCount = () => {
-    const current = Number(localStorage.getItem('demo_used') || '0')
+    const current = Number(localStorage.getItem('demo_trials_used') || '0')
     const nextCount = current + 1
-    localStorage.setItem('demo_used', String(nextCount))
+    localStorage.setItem('demo_trials_used', String(nextCount))
     setUploadCount(nextCount)
-    setGuestQueryCount(nextCount)
-    // After 2 free actions → guest sign-in gate
-    if (nextCount >= 2 && localStorage.getItem('demo_guest_user') === 'true') {
-      setShowSignupModal(true)
-    }
-    // After 5 total actions → Pro plan gate
+    // Guest trials limit is 5
     if (nextCount >= 5) {
-      setShowProModal(true)
+      setShowSignupModal(true)
     }
   }
 
   const isGuestTrialExhausted = () => {
-    return Number(localStorage.getItem('demo_used') || '0') >= 2
+    const trials = Number(localStorage.getItem('demo_trials_used') || '0')
+    const questions = Number(localStorage.getItem('demo_questions_used') || '0')
+    return trials >= 5 || questions >= 11
   }
 
   const isGuest = !!user?.user_metadata?.isGuest
@@ -111,17 +117,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } as unknown as User
     setUser(fakeUser)
     localStorage.setItem('demo_guest_user', 'true')
-    // Initialize demo_used if not already set (preserve existing usage)
-    if (!localStorage.getItem('demo_used')) {
-      localStorage.setItem('demo_used', '0')
+    if (!localStorage.getItem('demo_trials_used')) {
+      localStorage.setItem('demo_trials_used', '0')
     }
-    setGuestQueryCount(Number(localStorage.getItem('demo_used') || '0'))
+    if (!localStorage.getItem('demo_questions_used')) {
+      localStorage.setItem('demo_questions_used', '0')
+    }
+    setUploadCount(Number(localStorage.getItem('demo_trials_used') || '0'))
+    setGuestQueryCount(Number(localStorage.getItem('demo_questions_used') || '0'))
     setShowSignupModal(false)
   }
 
-  // incrementGuestQueryCount now delegates to the unified incrementUploadCount
+  // Increment agent questions count for guest AI queries
   const incrementGuestQueryCount = () => {
-    incrementUploadCount()
+    const current = Number(localStorage.getItem('demo_questions_used') || '0')
+    const nextCount = current + 1
+    localStorage.setItem('demo_questions_used', String(nextCount))
+    setGuestQueryCount(nextCount)
+    // Guest questions limit is 11
+    if (nextCount >= 11) {
+      setShowSignupModal(true)
+    }
   }
 
   useEffect(() => {
@@ -211,9 +227,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log(`[AUTH] Sign-in successful for ${email}`)
       localStorage.removeItem('demo_guest_user')
       localStorage.removeItem('demo_user')
-      localStorage.removeItem('demo_used')
-      setGuestQueryCount(0)
-      setUploadCount(0)
     }
     return { error: error?.message ?? null }
   }
@@ -246,9 +259,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data?.session) {
         localStorage.removeItem('demo_guest_user')
         localStorage.removeItem('demo_user')
-        localStorage.removeItem('demo_used')
-        setGuestQueryCount(0)
-        setUploadCount(0)
       }
     }
     return { error: error?.message ?? null, session: data?.session ?? null }
@@ -259,6 +269,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('demo_user')
     localStorage.removeItem('demo_guest_user')
     localStorage.removeItem('demo_used')
+    localStorage.removeItem('demo_trials_used')
+    localStorage.removeItem('demo_questions_used')
     setGuestQueryCount(0)
     setUploadCount(0)
     try {
@@ -367,9 +379,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         mrr: 0,
         status: 'Trial',
         aiQueryCount: 0,
-        aiQueryLimit: 5,
+        aiQueryLimit: 15,
         analyses_used: 0,
-        analyses_remaining: 5,
+        analyses_remaining: 10,
+        questions_used: 0,
+        questions_remaining: 15,
+        trials_limit: 10,
+        questions_limit: 15,
         subscription_status: 'trial',
         subscription_start: null,
         subscription_end: null,
@@ -379,7 +395,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const syncSubscription = async (userId: string, demoCount: number) => {
+  const syncSubscription = async (userId: string, demoTrialsCount: number, demoQuestionsCount: number) => {
     try {
       const isDemoMode = import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co'
       let token: string | null = null
@@ -398,7 +414,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch(`${API_BASE}/api/data/subscription/init`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ demoCount })
+        body: JSON.stringify({ demoTrialsCount, demoQuestionsCount })
       })
       if (response.ok) {
         const subData = await response.json()
@@ -422,15 +438,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (user.id === '00000000-0000-0000-0000-000000000000') {
         refreshSubscription()
       } else {
-        // Read unified demo_used counter and sync to backend
-        const demoCount = Number(localStorage.getItem('demo_used') || '0')
-        syncSubscription(user.id, demoCount).then(() => {
+        // Read separate counters and sync to backend
+        const demoTrialsCount = Number(localStorage.getItem('demo_trials_used') || '0')
+        const demoQuestionsCount = Number(localStorage.getItem('demo_questions_used') || '0')
+        const legacyDemoCount = Number(localStorage.getItem('demo_used') || '0')
+        
+        const finalTrials = demoTrialsCount || legacyDemoCount
+        const finalQuestions = demoQuestionsCount || legacyDemoCount
+
+        syncSubscription(user.id, finalTrials, finalQuestions).then(() => {
           // Clear demo usage after successful sync to avoid double-counting
-          if (demoCount > 0) {
-            localStorage.removeItem('demo_used')
-            setUploadCount(0)
-            setGuestQueryCount(0)
-          }
+          localStorage.removeItem('demo_trials_used')
+          localStorage.removeItem('demo_questions_used')
+          localStorage.removeItem('demo_used')
+          setUploadCount(0)
+          setGuestQueryCount(0)
         })
       }
     } else {

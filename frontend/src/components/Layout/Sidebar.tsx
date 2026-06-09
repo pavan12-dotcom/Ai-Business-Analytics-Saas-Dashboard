@@ -31,7 +31,7 @@ const settingsNav = [
 import { useSpreadsheet } from '../../context/SpreadsheetContext'
 
 export default function Sidebar() {
-  const { signOut, subscription, isGuest, uploadCount, isLocked } = useAuth()
+  const { signOut, subscription, isGuest, uploadCount, guestQueryCount, isLocked } = useAuth()
   const navigate = useNavigate()
   const { activeSheet, upload, reset, activeDocument, uploadDoc, resetDoc, analytics, hasData } = useSpreadsheet()
   const [error, setError] = useState<string | null>(null)
@@ -239,11 +239,11 @@ export default function Sidebar() {
              subscription?.plan === 'Enterprise' ? 'Enterprise' : 'Free Trial'}
           </span>
           <span className="plan-usage">
-            {isGuest ? `${Math.min(2, uploadCount)}/2 free` :
-             subscription?.subscription_status === 'trial_exhausted' ? '0/5 free' :
+            {isGuest ? `${uploadCount}/5 trials · ${guestQueryCount}/11 Qs` :
+             subscription?.subscription_status === 'trial_exhausted' ? '0 trials' :
              subscription?.subscription_status === 'expired' ? '0 days left' :
              subscription?.subscription_status === 'active' ? 'Unlimited' :
-             `${subscription ? (5 - subscription.analyses_used) : 5}/5 remaining`}
+             `${subscription ? subscription.analyses_remaining : 10}/${subscription ? subscription.trials_limit : 10} trials remaining`}
           </span>
         </div>
         <div className="plan-bar">
@@ -251,11 +251,11 @@ export default function Sidebar() {
             className="plan-bar-fill" 
             style={{ 
               width: `${
-                isGuest ? Math.min(100, (uploadCount / 2) * 100) :
+                isGuest ? Math.min(100, Math.max((uploadCount / 5) * 100, (guestQueryCount / 11) * 100)) :
                 subscription?.subscription_status === 'trial_exhausted' ? 100 :
                 subscription?.subscription_status === 'expired' ? 100 :
                 subscription?.subscription_status === 'active' ? 100 :
-                Math.min(100, ((subscription?.analyses_used || 0) / 5) * 100)
+                Math.min(100, (((subscription?.analyses_used || 0) / (subscription?.trials_limit || 10)) * 100))
               }%`,
               background: (subscription?.subscription_status === 'trial_exhausted' || subscription?.subscription_status === 'expired')
                 ? 'var(--red)'

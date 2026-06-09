@@ -5,7 +5,11 @@
 CREATE TABLE IF NOT EXISTS user_subscriptions (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   analyses_used integer DEFAULT 0,
-  analyses_remaining integer DEFAULT 5,
+  analyses_remaining integer DEFAULT 10,
+  questions_used integer DEFAULT 0,
+  questions_remaining integer DEFAULT 15,
+  trials_limit integer DEFAULT 10,
+  questions_limit integer DEFAULT 15,
   subscription_status text DEFAULT 'trial', -- 'demo', 'trial', 'active', 'expired', 'trial_exhausted'
   subscription_start timestamp with time zone DEFAULT timezone('utc'::text, now()),
   subscription_end timestamp with time zone DEFAULT timezone('utc'::text, now() + interval '1 month'),
