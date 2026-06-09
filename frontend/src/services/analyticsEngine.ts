@@ -1,13 +1,11 @@
 /**
  * analyticsEngine.ts
  * Centralized analytics engine — computes all KPIs, chart data, segments,
- * and forecasts from any uploaded dataset. Zero hardcoded values.
- *
- * v2: integrates cleanNumericValue / cleanDateValue / detectDuplicates
- *     for robust parsing and exposes diagnostic badges.
+ * and forecasts from any uploaded dataset.
  */
 
-import { cleanNumericValue, cleanDateValue, detectDuplicates, formatNumber } from './dataCleaner'
+import { detectDetailedColumnType, type DetailedColumnInfo } from './columnDetection'
+import { cleanNumericColumn, cleanDateColumn, cleanCategoryColumn, detectDuplicates, formatNumber, cleanNumericValue, DIRTY_SENTINEL_VALUES } from './dataCleaner'
 
 export interface EngineKPI {
   label: string
@@ -73,21 +71,18 @@ export interface AnalyticsResult {
     recommendations: string[]
   }
 
-  // Raw helpers
   primaryMetricKey: string
   primaryTimeKey: string
   primaryCategoryKey: string
   primaryNameKey: string
   statusKey: string
 
-  // ── Diagnostic badges ──────────────────────────────────────────
-  cleanedRowsCount: number       // rows where at least 1 metric value was dirty but cleaned
-  unparseableDatesCount: number  // rows where date string existed but couldn't be parsed
-  exactDuplicatesCount: number   // rows with ALL fields identical to a prior row
-  duplicateIdsCount: number      // rows sharing a primary ID but having different field values
-  chartPointsExcludedCount: number // rows excluded from chart by IQR fence
+  cleanedRowsCount: number
+  unparseableDatesCount: number
+  exactDuplicatesCount: number
+  duplicateIdsCount: number
+  chartPointsExcludedCount: number
 
-  // Phase 3 additions
   rows: any[]
   exactDuplicateRows: number[]
   duplicateIdRows: number[]
@@ -96,6 +91,15 @@ export interface AnalyticsResult {
   columnsWithHighNulls: string[]
   nullPercentages: Record<string, number>
   totalProcessedRows: number
+
+  // Domain detection info
+  domainDetection?: {
+    domain: string;
+    confidence: number;
+    evidence: string[];
+    all_scores: Record<string, number>;
+    runner_up: string;
+  }
 }
 
 const CHART_COLORS = [
@@ -144,38 +148,414 @@ const EMPTY: AnalyticsResult = {
   totalProcessedRows: 0,
 }
 
-// Legacy numeric helper for non-metric values (no cleaning badge)
-function toNum(v: any): number {
-  const n = cleanNumericValue(v)
-  return n === null ? 0 : n
+// ─── Algorithm 4: Domain Detection ─────────────────────────────────
+export function detectDomain(
+  rows: any[],
+  meta: Record<string, string>,
+  detailedTypes: Record<string, DetailedColumnInfo>,
+  cleanedMetrics: Record<string, any>
+) {
+  const evidence: string[] = [];
+  const scores: Record<string, number> = {
+    SALES_CRM: 0,
+    FINANCE: 0,
+    HR: 0,
+    MARKETING: 0,
+    ECOMMERCE: 0,
+    COHORT: 0,
+    PRODUCT: 0,
+    SURVEY: 0,
+    INVENTORY: 0
+  };
+
+  const cols = Object.keys(meta);
+  const lowCatCols = cols.filter(c => detailedTypes[c].type === 'LOW_CATEGORY' || detailedTypes[c].type === 'BOOLEAN');
+  const medCatCols = cols.filter(c => detailedTypes[c].type === 'MED_CATEGORY');
+  const highCatCols = cols.filter(c => detailedTypes[c].type === 'HIGH_CATEGORY');
+  const idCols = cols.filter(c => detailedTypes[c].type === 'IDENTIFIER');
+  const numericCols = cols.filter(c => detailedTypes[c].type === 'NUMERIC');
+  const dateCols = cols.filter(c => detailedTypes[c].type === 'DATE');
+
+  // SALES_CRM Scorer
+  let salesScore = 0;
+  lowCatCols.forEach(col => {
+    const vals = rows.map(r => String(r[col] ?? '').toLowerCase().trim());
+    const match = vals.some(v => ['won', 'win', 'closed won', 'lost', 'closed lost', 'active', 'inactive', 'open', 'closed'].includes(v));
+    if (match) {
+      salesScore += 40;
+      evidence.push(`Sales/CRM Status col: ${col}`);
+    }
+  });
+  idCols.forEach(col => {
+    const name = col.toLowerCase();
+    if (name.includes('deal') || name.includes('transaction') || name.includes('opp') || name.includes('order') || name.includes('ticket') || name.includes('case')) {
+      salesScore += 30;
+      evidence.push(`Sales/CRM ID: ${col}`);
+    }
+  });
+  if (lowCatCols.length >= 3) {
+    salesScore += 20;
+    evidence.push('Multiple sales category columns');
+  }
+  numericCols.forEach(col => {
+    const cleanInfo = cleanedMetrics[col];
+    if (cleanInfo && cleanInfo.stats.avg > 10000 && cleanInfo.stats.is_currency) {
+      salesScore += 25;
+      evidence.push(`Large Sales amount: ${col}`);
+    }
+  });
+  if (dateCols.length >= 1) salesScore += 15;
+  if (numericCols.length >= 3) salesScore += 10;
+  scores.SALES_CRM = salesScore;
+
+  // FINANCE Scorer
+  let finScore = 0;
+  if (numericCols.length >= 2) {
+    for (let i = 0; i < numericCols.length; i++) {
+      for (let j = i + 1; j < numericCols.length; j++) {
+        const avg1 = cleanedMetrics[numericCols[i]]?.stats.avg ?? 0;
+        const avg2 = cleanedMetrics[numericCols[j]]?.stats.avg ?? 0;
+        if (avg2 > 0) {
+          const ratio = avg1 / avg2;
+          if (ratio >= 0.5 && ratio <= 2.0) {
+            finScore += 35;
+            evidence.push(`Finance Budget/Actual pair: ${numericCols[i]} / ${numericCols[j]}`);
+            break;
+          }
+        }
+      }
+    }
+  }
+  numericCols.forEach(col => {
+    const cleanInfo = cleanedMetrics[col];
+    if (cleanInfo && cleanInfo.stats.min < 0) {
+      finScore += 25;
+      evidence.push(`Negative financial variance: ${col}`);
+    }
+  });
+  lowCatCols.forEach(col => {
+    const unique = new Set(rows.map(r => String(r[col] ?? ''))).size;
+    if (unique >= 4 && unique <= 15 && /dept|department|division|cost_center/i.test(col)) {
+      finScore += 20;
+      evidence.push(`Financial Division/Dept: ${col}`);
+    }
+  });
+  dateCols.forEach(col => {
+    const dates = rows.map(r => cleanDateColumn([r[col]]).validDates[0]).filter(Boolean);
+    if (dates.length > 0) {
+      const firstOfMonth = dates.filter(d => d.getDate() === 1).length;
+      if (firstOfMonth / dates.length > 0.7) {
+        finScore += 20;
+        evidence.push(`Monthly Finance Dates: ${col}`);
+      }
+    }
+  });
+  scores.FINANCE = finScore;
+
+  // HR Scorer
+  let hrScore = 0;
+  numericCols.forEach(col => {
+    const cleanInfo = cleanedMetrics[col];
+    if (cleanInfo) {
+      const avg = cleanInfo.stats.avg;
+      if (avg >= 20000 && avg <= 500000 && !cleanInfo.stats.is_integer) {
+        hrScore += 40;
+        evidence.push(`Salary range column: ${col}`);
+      }
+      if (cleanInfo.stats.is_integer && avg < 10000 && /headcount|employees|staff/i.test(col)) {
+        hrScore += 20;
+        evidence.push(`HR Headcount integer: ${col}`);
+      }
+    }
+  });
+  if (dateCols.length >= 2) {
+    hrScore += 25;
+    evidence.push('Multiple HR date milestones (hire/term)');
+  }
+  lowCatCols.forEach(col => {
+    const unique = new Set(rows.map(r => String(r[col] ?? ''))).size;
+    if (unique >= 3 && unique <= 20 && /dept|department|team|role|job/i.test(col)) {
+      hrScore += 15;
+      evidence.push(`HR Category department/role: ${col}`);
+    }
+  });
+  scores.HR = hrScore;
+
+  // MARKETING Scorer
+  let mktScore = 0;
+  numericCols.forEach(col => {
+    if (detailedTypes[col].subType === 'RATIO') {
+      mktScore += 35;
+      evidence.push(`Marketing ratio CTR/Conv: ${col}`);
+    }
+    const cleanInfo = cleanedMetrics[col];
+    if (cleanInfo) {
+      if (cleanInfo.stats.is_currency && cleanInfo.stats.avg < 100000 && /spend|cost|adspend/i.test(col)) {
+        mktScore += 25;
+        evidence.push(`Marketing campaign spend: ${col}`);
+      }
+      if (cleanInfo.stats.is_integer && cleanInfo.stats.avg > 1000 && /click|impression|view|reach/i.test(col)) {
+        mktScore += 20;
+        evidence.push(`Marketing conversion integer: ${col}`);
+      }
+    }
+  });
+  if (medCatCols.length > 0) {
+    mktScore += 15;
+    evidence.push('Campaign medium categories');
+  }
+  scores.MARKETING = mktScore;
+
+  // ECOMMERCE Scorer
+  let ecoScore = 0;
+  numericCols.forEach(col => {
+    const cleanInfo = cleanedMetrics[col];
+    if (cleanInfo) {
+      if (cleanInfo.stats.is_integer && cleanInfo.stats.avg < 10000 && /order|quantity|sales_volume/i.test(col)) {
+        ecoScore += 25;
+        evidence.push(`Order count integer: ${col}`);
+      }
+      if (cleanInfo.stats.avg >= 10 && cleanInfo.stats.avg <= 10000 && cleanInfo.stats.is_currency && /price|aov|unit/i.test(col)) {
+        ecoScore += 30;
+        evidence.push(`Price/AOV column: ${col}`);
+      }
+    }
+  });
+  if (medCatCols.length > 0 || highCatCols.length > 0) {
+    ecoScore += 20;
+    evidence.push('SKU/Product code lists');
+  }
+  lowCatCols.forEach(col => {
+    const vals = rows.map(r => String(r[col] ?? '').toLowerCase().trim());
+    const match = vals.some(v => ['pending', 'shipped', 'delivered', 'cancelled', 'returned', 'refunded'].includes(v));
+    if (match) {
+      ecoScore += 35;
+      evidence.push(`E-commerce order status: ${col}`);
+    }
+  });
+  scores.ECOMMERCE = ecoScore;
+
+  // COHORT Scorer
+  let cohScore = 0;
+  numericCols.forEach(col => {
+    const cleanInfo = cleanedMetrics[col];
+    if (cleanInfo) {
+      if (cleanInfo.stats.is_integer && cleanInfo.stats.max <= 50 && cleanInfo.stats.min >= 0 && /period|month|cohort/i.test(col)) {
+        cohScore += 40;
+        evidence.push(`Period counts integer: ${col}`);
+      }
+      if (detailedTypes[col].subType === 'RATIO' && cleanInfo.stats.max <= 1) {
+        cohScore += 35;
+        evidence.push(`Retention percentage metric: ${col}`);
+      }
+    }
+  });
+  if (numericCols.length >= 2) {
+    for (let i = 0; i < numericCols.length; i++) {
+      for (let j = 0; j < numericCols.length; j++) {
+        if (i !== j) {
+          const c1 = cleanedMetrics[numericCols[i]];
+          const c2 = cleanedMetrics[numericCols[j]];
+          if (c1 && c2 && c1.stats.max <= c2.stats.max && c1.stats.avg <= c2.stats.avg) {
+            cohScore += 25;
+            evidence.push(`Cohort subset metric relationship: ${numericCols[i]} <= ${numericCols[j]}`);
+            break;
+          }
+        }
+      }
+    }
+  }
+  dateCols.forEach(col => {
+    const unique = new Set(rows.map(r => String(r[col] ?? ''))).size;
+    if (unique < rows.length * 0.1) {
+      cohScore += 20;
+      evidence.push(`Repeated Cohort periods: ${col}`);
+    }
+  });
+  scores.COHORT = cohScore;
+
+  // PRODUCT Scorer
+  let prodScore = 0;
+  numericCols.forEach(col => {
+    const cleanInfo = cleanedMetrics[col];
+    if (cleanInfo) {
+      if (cleanInfo.stats.is_integer && cleanInfo.stats.avg >= 100 && cleanInfo.stats.avg <= 10000000 && /dau|mau|users|active/i.test(col)) {
+        prodScore += 25;
+        evidence.push(`Daily active count metric: ${col}`);
+      }
+      if (detailedTypes[col].subType === 'RATIO' && /churn|retention|conversion/i.test(col)) {
+        prodScore += 30;
+        evidence.push(`Product retention ratio: ${col}`);
+      }
+      if (cleanInfo.stats.max <= 10 && cleanInfo.stats.min >= 0 && /nps|satisfaction|rating/i.test(col)) {
+        prodScore += 20;
+        evidence.push(`Product NPS scale: ${col}`);
+      }
+    }
+  });
+  scores.PRODUCT = prodScore;
+
+  // SURVEY Scorer
+  let survScore = 0;
+  numericCols.forEach(col => {
+    const cleanInfo = cleanedMetrics[col];
+    if (cleanInfo) {
+      if (cleanInfo.stats.is_integer && cleanInfo.stats.max <= 10 && cleanInfo.stats.min >= 1 && /rating|answer|score/i.test(col)) {
+        survScore += 40;
+        evidence.push(`Survey Rating Scale: ${col}`);
+      }
+    }
+  });
+  const textCols = cols.filter(c => detailedTypes[c].type === 'FREE_TEXT' || detailedTypes[c].type === 'HIGH_CARDINALITY_TEXT');
+  if (textCols.length >= 2) {
+    survScore += 15;
+    evidence.push('Multiple survey text columns');
+  }
+  idCols.forEach(col => {
+    if (/respondent|user_id|submission/i.test(col)) {
+      survScore += 10;
+      evidence.push(`Survey Respondent ID: ${col}`);
+    }
+  });
+  if (rows.length / cols.length < 10) {
+    survScore += 20;
+    evidence.push('Survey wide low-row dataset profile');
+  }
+  scores.SURVEY = survScore;
+
+  // INVENTORY Scorer
+  let invScore = 0;
+  numericCols.forEach(col => {
+    const cleanInfo = cleanedMetrics[col];
+    if (cleanInfo) {
+      if (cleanInfo.stats.is_integer && cleanInfo.stats.avg < 100000 && /quantity|qty|stock|inventory/i.test(col)) {
+        invScore += 25;
+        evidence.push(`Inventory stock counts: ${col}`);
+      }
+      if (cleanInfo.stats.is_currency && cleanInfo.stats.avg < 10000 && /price|cost/i.test(col)) {
+        invScore += 25;
+        evidence.push(`Inventory price points: ${col}`);
+      }
+    }
+  });
+  idCols.forEach(col => {
+    if (col.toLowerCase().includes('sku') || col.toLowerCase().includes('barcode') || col.toLowerCase().includes('item_code')) {
+      invScore += 20;
+      evidence.push(`SKU identifier code: ${col}`);
+    }
+  });
+  lowCatCols.forEach(col => {
+    if (/warehouse|shelf|category|location/i.test(col)) {
+      invScore += 15;
+      evidence.push(`Stock category: ${col}`);
+    }
+  });
+  scores.INVENTORY = invScore;
+
+  // Select Domain
+  let topDomain = 'GENERIC';
+  let topScore = 0;
+  Object.entries(scores).forEach(([d, s]) => {
+    if (s > topScore) {
+      topScore = s;
+      topDomain = d;
+    }
+  });
+
+  let confidence = 0;
+  let runner_up = 'GENERIC';
+  let secondScore = 0;
+  Object.entries(scores).forEach(([d, s]) => {
+    if (d !== topDomain && s > secondScore) {
+      secondScore = s;
+      runner_up = d;
+    }
+  });
+
+  if (topScore >= 60) {
+    confidence = Math.min(topScore, 100);
+  } else if (topScore >= 30) {
+    confidence = topScore;
+  } else {
+    topDomain = 'GENERIC';
+    confidence = 0;
+  }
+
+  return {
+    domain: topDomain,
+    confidence,
+    evidence,
+    all_scores: scores,
+    runner_up
+  };
 }
 
-function pct(n: number, total: number): number {
-  return total > 0 ? Math.round((n / total) * 100) : 0
-}
+// ─── Algorithm 5: Primary Metric Selection ──────────────────────────
+export function selectPrimaryMetric(
+  numericCols: string[],
+  cleanedMetrics: Record<string, any>,
+  detailedTypes: Record<string, DetailedColumnInfo>
+) {
+  const scoredCols = numericCols.map(colName => {
+    let score = 0;
+    const name = colName.toLowerCase();
+    const cleanInfo = cleanedMetrics[colName];
+    const detInfo = detailedTypes[colName];
 
-function detectDatasetType(rows: any[], meta: Record<string, string>, filename: string): string {
-  const cols = Object.keys(meta).map(c => c.toLowerCase())
-  const file = filename.toLowerCase()
+    if (!cleanInfo) return { colName, score: -1 };
 
-  const isSales = file.includes('sale') || file.includes('deal') || file.includes('retail') || file.includes('revenue') || cols.some(c => /revenue|mrr|acv|sales|deal|order|quantity|price/i.test(c))
-  const isFinance = file.includes('finance') || file.includes('budget') || file.includes('p&l') || file.includes('ledger') || (cols.some(c => /budget|expense|income|amount|cost|tax|profit/i.test(c)) && !isSales)
-  const isHR = file.includes('employee') || file.includes('hr') || file.includes('roster') || cols.some(c => /employee|salary|wage|hire|department|role|job|performance/i.test(c))
-  const isHealthcare = file.includes('patient') || file.includes('clinic') || file.includes('hospital') || cols.some(c => /patient|diagnosis|doctor|treatment|admit|admission|readmit/i.test(c))
-  const isEducation = file.includes('student') || file.includes('school') || file.includes('class') || cols.some(c => /student|grade|exam|score|attendance|subject|course|term/i.test(c))
-  const isInventory = file.includes('inventory') || file.includes('sku') || file.includes('stock') || (cols.some(c => /sku|stock|inventory|qty|quantity|supplier|retailprice/i.test(c)) && !isSales)
-  const isMarketing = file.includes('marketing') || file.includes('campaign') || file.includes('ad') || cols.some(c => /campaign|spend|adspend|click|impression|conversion|clicks/i.test(c))
-  const isCustomer = cols.some(c => /customer|client|email|phone|address|country/i.test(c))
+    // Currency bonus
+    if (cleanInfo.stats.is_currency) {
+      score += 25;
+    }
 
-  if (isSales) return 'Sales'
-  if (isFinance) return 'Finance'
-  if (isHR) return 'HR'
-  if (isHealthcare) return 'Healthcare'
-  if (isEducation) return 'Education'
-  if (isInventory) return 'Inventory'
-  if (isMarketing) return 'Marketing'
-  if (isCustomer) return 'Customer Data'
-  return 'Generic'
+    // Not ratio or pct
+    if (detInfo.subType !== 'RATIO' && detInfo.subType !== 'PERCENTAGE') {
+      score += 20;
+    }
+
+    // Not an integer count
+    if (!cleanInfo.stats.is_integer) {
+      score += 15;
+    }
+
+    // Not an ID-like column
+    const EXCLUDE_WORDS = ['id', 'key', 'code', 'flag', 'rank', 'index', 'seq', 'num', 'no', 'number', 'row', 'line', 'ref', 'ref_no'];
+    const hasExclude = EXCLUDE_WORDS.some(w => name === w || name.includes(w + '_') || name.includes('_' + w));
+    if (!hasExclude) {
+      score += 15;
+    }
+
+    // Not a percentage col (max > 1)
+    if (cleanInfo.stats.max > 1) {
+      score += 10;
+    }
+
+    // Revenue Hints
+    const REVENUE_HINTS = ['rev', 'sal', 'amt', 'val', 'total', 'sum', 'earn', 'income', 'profit', 'price', 'cost', 'spend', 'pay', 'fee', 'arr', 'mrr', 'gmv', 'acv'];
+    if (REVENUE_HINTS.some(hint => name.includes(hint))) {
+      score += 20;
+    }
+
+    return { colName, score, sum: cleanInfo.stats.sum };
+  });
+
+  // Sort by sum descending to apply size ranking
+  scoredCols.sort((a, b) => (b.sum ?? 0) - (a.sum ?? 0));
+  scoredCols.forEach((item, idx) => {
+    if (idx === 0) item.score += 30;
+    else if (idx === 1) item.score += 15;
+    else if (idx === 2) item.score += 5;
+  });
+
+  // Sort final score descending
+  scoredCols.sort((a, b) => b.score - a.score);
+
+  return {
+    primary: scoredCols[0]?.colName || '',
+    secondary: scoredCols[1]?.colName || '',
+    scoredCols
+  };
 }
 
 export function computeAnalytics(
@@ -183,569 +563,408 @@ export function computeAnalytics(
   meta: Record<string, string>,
   filename: string = 'Dataset'
 ): AnalyticsResult {
-  if (!rawRows || rawRows.length === 0) return EMPTY
+  if (!rawRows || rawRows.length === 0) return EMPTY;
 
-  const cols = Object.entries(meta).map(([name, type]) => ({ name, type }))
-  const metricCols   = cols.filter(c => c.type === 'metric')
-  const timeCols     = cols.filter(c => c.type === 'time' || c.type === 'date')
-  const categoryCols = cols.filter(c => c.type === 'category')
-  const idCols       = cols.filter(c => c.type === 'identifier')
+  const cols = Object.keys(meta);
+  
+  // Compute detailed column types (Algorithm 2)
+  const detailedTypes: Record<string, DetailedColumnInfo> = {};
+  cols.forEach(col => {
+    const vals = rawRows.map(r => r[col]);
+    detailedTypes[col] = detectDetailedColumnType(col, vals);
+  });
 
-  const isDateColumn = (key: string) => {
-    if (!key) return false
-    const type = meta[key]
-    return type === 'time' || type === 'date'
+  // Run full data cleaning & stats on columns (Algorithm 3)
+  const cleanedMetrics: Record<string, any> = {};
+  const cleanedDates: Record<string, any> = {};
+  const cleanedCategories: Record<string, any> = {};
+
+  cols.forEach(col => {
+    const rawValArray = rawRows.map(r => r[col]);
+    const typeInfo = detailedTypes[col];
+    
+    if (typeInfo.type === 'NUMERIC' || typeInfo.type === 'MIXED') {
+      cleanedMetrics[col] = cleanNumericColumn(rawValArray);
+    } else if (typeInfo.type === 'DATE') {
+      cleanedDates[col] = cleanDateColumn(rawValArray);
+    } else if (typeInfo.type !== 'EMPTY') {
+      cleanedCategories[col] = cleanCategoryColumn(rawValArray);
+    }
+  });
+
+  // Run Domain Detection (Algorithm 4)
+  const domainInfo = detectDomain(rawRows, meta, detailedTypes, cleanedMetrics);
+
+  // Load pre-calculated full dataset properties from metadata if available (Algorithm 1.3)
+  const fullTotalRows = meta.__fullTotalRows ? parseInt(meta.__fullTotalRows) : rawRows.length;
+  const fullExactDuplicates = meta.__fullExactDuplicates ? parseInt(meta.__fullExactDuplicates) : null;
+  const fullDuplicateIds = meta.__fullDuplicateIds ? parseInt(meta.__fullDuplicateIds) : null;
+  let fullSums: Record<string, number> = {};
+  if (meta.__fullSums) {
+    try {
+      fullSums = JSON.parse(meta.__fullSums);
+    } catch (_) {}
   }
 
-  // Map to store outlier counts per column name
-  const columnOutlierCounts: Record<string, number> = {}
-  const outlierRowSet = new Set<number>()
-  
-  // 1. First, compute initial cleaned values for all metric columns (in order to calculate mean/stddev)
-  const initialCleanedData = metricCols.map(col => {
-    // Step 1: Parse and coerce to float first (accounting negatives, percentages, epoch strings)
-    const vals = rawRows.map(r => cleanNumericValue(r[col.name]))
-    
-    // Step 2 & 3: Remove Infinity, NaN, nulls, and values > 1e12 (magnitude check)
-    const cleanSet = vals.filter((v): v is number => v !== null && isFinite(v) && !isNaN(v) && Math.abs(v) <= 1e12)
-    
-    let mean = 0
-    let stddev = 0
-    if (cleanSet.length > 0) {
-      // Step 4: NOW calculate mean + stddev on the clean set only
-      mean = cleanSet.reduce((a, b) => a + b, 0) / cleanSet.length
-      const variance = cleanSet.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / cleanSet.length
-      stddev = Math.sqrt(variance)
-    }
-    
-    return {
-      colName: col.name,
-      vals,
-      mean,
-      stddev,
-      // Step 5: outlier threshold bounds
-      lowerThreshold: mean - 3 * stddev,
-      upperThreshold: mean + 3 * stddev,
-      hasCleanData: cleanSet.length > 0
-    }
-  })
+  let entityName = 'Record';
+  let valueMetricName = 'Value';
+  const datasetType = domainInfo.domain === 'SALES_CRM' ? 'Sales' :
+                      domainInfo.domain === 'FINANCE' ? 'Finance' :
+                      domainInfo.domain === 'HR' ? 'HR' :
+                      domainInfo.domain === 'MARKETING' ? 'Marketing' :
+                      domainInfo.domain === 'ECOMMERCE' ? 'E-commerce' :
+                      domainInfo.domain === 'COHORT' ? 'Cohort' :
+                      domainInfo.domain === 'PRODUCT' ? 'Product' :
+                      domainInfo.domain === 'SURVEY' ? 'Survey' :
+                      domainInfo.domain === 'INVENTORY' ? 'Inventory' : 'Generic';
 
-  // 2. Preprocessing pass: Clean metric columns in-place & filter outliers
-  let cleanedRowsCount = 0
-  const cleanedRowSet = new Set<number>()
+  if (datasetType === 'Sales') { entityName = 'Deal'; valueMetricName = 'Revenue'; }
+  else if (datasetType === 'Finance') { entityName = 'Transaction'; valueMetricName = 'Amount'; }
+  else if (datasetType === 'HR') { entityName = 'Employee'; valueMetricName = 'Salary'; }
+  else if (datasetType === 'Marketing') { entityName = 'Campaign'; valueMetricName = 'Spend'; }
+  else if (datasetType === 'E-commerce') { entityName = 'Order'; valueMetricName = 'Amount'; }
+  else if (datasetType === 'Cohort') { entityName = 'Cohort Period'; valueMetricName = 'Retention'; }
+  else if (datasetType === 'Product') { entityName = 'Event'; valueMetricName = 'Metric'; }
+  else if (datasetType === 'Survey') { entityName = 'Respondent'; valueMetricName = 'Score'; }
+  else if (datasetType === 'Inventory') { entityName = 'Item'; valueMetricName = 'Quantity'; }
+
+  // Primary Metric Selection (Algorithm 5)
+  const numericCols = cols.filter(c => detailedTypes[c].type === 'NUMERIC');
+  const metricSelection = selectPrimaryMetric(numericCols, cleanedMetrics, detailedTypes);
+  const primaryMetricKey = metricSelection.primary;
+  
+  // Pick primary date/time axis
+  const dateCols = cols.filter(c => detailedTypes[c].type === 'DATE');
+  const primaryTimeKey = dateCols[0] || '';
+
+  // Pick primary category col
+  const catCols = cols.filter(c => detailedTypes[c].type === 'LOW_CATEGORY' || detailedTypes[c].type === 'MED_CATEGORY' || detailedTypes[c].type === 'BOOLEAN');
+  const primaryCategoryKey = catCols.find(c => /plan|category|segment|type|department|subject|product|warehouse/i.test(c)) || catCols[0] || '';
+
+  // Set identifier name key
+  const idCols = cols.filter(c => detailedTypes[c].type === 'IDENTIFIER');
+  const primaryNameKey = idCols.find(c => /name|customer|company|sku|item|respondent/i.test(c)) || idCols[0] || cols[0] || '';
+
+  // Get status key
+  const statusKey = catCols.find(c => /status|state|active/i.test(c)) || '';
+
+  // Build the cleaned dataset rows array
+  const outlierRowSet = new Set<number>();
+  const cleanedRowSet = new Set<number>();
+  let unparseableDatesCount = 0;
+  const unparseableDateRows: number[] = [];
 
   const rows = rawRows.map((row, rowIdx) => {
-    const newRow = { ...row }
-    metricCols.forEach((col, colIdx) => {
-      const colInfo = initialCleanedData[colIdx]
-      const rawVal = row[col.name]
-      if (rawVal === undefined || rawVal === null) return
-      
-      const cleaned = colInfo.vals[rowIdx]
-
-      // Outlier checks:
-      // - Is it null? (meaning it failed cleanNumericValue or was Infinity/NaN)
-      // - Is it > 1e12 or < -1e12?
-      // - Is it > mean + 3 * stddev or < mean - 3 * stddev?
-      let isOutlier = false
-      if (cleaned === null) {
-        const rawStr = String(rawVal).toUpperCase()
-        if (
-          rawStr === 'INFINITY' ||
-          rawStr === '-INFINITY' ||
-          rawStr === 'NAN' ||
-          rawStr === 'ERROR' ||
-          rawStr.includes('#DIV/0') ||
-          rawStr.includes('#REF') ||
-          rawStr.includes('#N/A')
-        ) {
-          isOutlier = true
-        }
-      } else if (
-        Math.abs(cleaned) > 1e12 ||
-        (colInfo.hasCleanData && (cleaned > colInfo.upperThreshold || cleaned < colInfo.lowerThreshold))
-      ) {
-        isOutlier = true
-      }
-
-      if (isOutlier) {
-        newRow[col.name] = null
-        columnOutlierCounts[col.name] = (columnOutlierCounts[col.name] || 0) + 1
-        outlierRowSet.add(rowIdx)
-        cleanedRowSet.add(rowIdx)
-      } else {
-        newRow[col.name] = cleaned
-
-        if (cleaned !== rawVal) {
-          if (typeof rawVal === 'string') {
-            const str = rawVal.trim()
-            const isPlainNumber = /^-?\d+(\.\d+)?$/.test(str)
-            if (!isPlainNumber) {
-              cleanedRowSet.add(rowIdx)
-            }
-          } else {
-            cleanedRowSet.add(rowIdx)
+    const newRow = { ...row };
+    
+    // Copy cleaned numeric values, track outliers & cleaned statuses
+    numericCols.forEach(col => {
+      const colCleanInfo = cleanedMetrics[col];
+      if (colCleanInfo) {
+        const parsed = colCleanInfo.cleanArray;
+        const isOutlier = colCleanInfo.outliers.includes(row[col]);
+        if (isOutlier) {
+          newRow[col] = null;
+          outlierRowSet.add(rowIdx);
+        } else {
+          // If cleaned value differs from raw string, mark as cleaned row
+          const cleanedVal = colCleanInfo.cleanArray[rowIdx] ?? null;
+          newRow[col] = cleanedVal;
+          if (row[col] !== cleanedVal && typeof row[col] === 'string' && !/^-?\d+(\.\d+)?$/.test(row[col].trim())) {
+            cleanedRowSet.add(rowIdx);
           }
         }
       }
-    })
-    return newRow
-  })
-  cleanedRowsCount = cleanedRowSet.size
+    });
 
-  const datasetType = detectDatasetType(rows, meta, filename)
-  let entityName = 'Record'
-  let valueMetricName = 'Value'
-
-  if (datasetType === 'Sales') { entityName = 'Customer'; valueMetricName = 'Revenue'; }
-  else if (datasetType === 'Finance') { entityName = 'Transaction'; valueMetricName = 'Amount'; }
-  else if (datasetType === 'HR') { entityName = 'Employee'; valueMetricName = 'Salary'; }
-  else if (datasetType === 'Healthcare') { entityName = 'Patient'; valueMetricName = 'Cost'; }
-  else if (datasetType === 'Education') { entityName = 'Student'; valueMetricName = 'Exam Score'; }
-  else if (datasetType === 'Inventory') { entityName = 'Product'; valueMetricName = 'Price'; }
-  else if (datasetType === 'Marketing') { entityName = 'Campaign'; valueMetricName = 'Spend'; }
-  else if (datasetType === 'Customer Data') { entityName = 'User'; valueMetricName = 'Engagement'; }
-
-  // Pick primary keys using smart heuristics
-  const primaryMetricKey = (
-    metricCols.find(c => /revenue|amount|sales|total|price|spend|mrr|salary|wage|cost|treatment/i.test(c.name)) ||
-    metricCols.find(c => /profit|income|earn|gross/i.test(c.name)) ||
-    metricCols[0]
-  )?.name || ''
-
-  // Step 3 Auto-detect Date Axis:
-  // Find a column where >50% of non-empty values parse as valid dates
-  let detectedTimeKey = ''
-  for (const colName of Object.keys(meta)) {
-    const nonNullVals = rawRows.map(r => r[colName]).filter(v => v !== null && v !== undefined && v !== '')
-    if (nonNullVals.length === 0) continue
-    const parseCount = nonNullVals.filter(v => cleanDateValue(v) !== null).length
-    if (parseCount / nonNullVals.length > 0.5) {
-      detectedTimeKey = colName
-      if (/date|month|time|period|join/i.test(colName)) {
-        break
-      }
-    }
-  }
-
-  const primaryTimeKey = detectedTimeKey || (
-    timeCols.find(c => /date|month|time|period|join/i.test(c.name)) ||
-    timeCols[0]
-  )?.name || ''
-
-  // Search for the category columns
-  let primaryCategoryKey = (
-    categoryCols.find(c => /plan|category|segment|type|region|product|department|subject|diagnosis|channel/i.test(c.name)) ||
-    categoryCols.find(c => /status/i.test(c.name)) ||
-    categoryCols[0]
-  )?.name || ''
-
-  let fallbackCategoryKey = ''
-  let isFallbackDateKey = false
-
-  if (!primaryCategoryKey) {
-    // Search for first non-metric column with < 50 unique values (Step 1 rules)
-    for (const col of cols) {
-      if (col.type === 'metric') continue
-      const vals = rows.map(r => String(r[col.name] ?? '')).filter(v => v !== '')
-      const uniqueVals = new Set(vals)
-      if (uniqueVals.size > 0 && uniqueVals.size < 50) {
-        fallbackCategoryKey = col.name
-        const dateParses = vals.filter(v => cleanDateValue(v) !== null).length
-        if (dateParses / vals.length > 0.5) {
-          isFallbackDateKey = true
+    // Track unparseable dates
+    dateCols.forEach(col => {
+      const colCleanInfo = cleanedDates[col];
+      if (colCleanInfo) {
+        const rawDateVal = row[col];
+        if (rawDateVal !== null && rawDateVal !== undefined && String(rawDateVal).trim() !== '') {
+          const cleanedD = cleanDateColumn([rawDateVal]).validDates[0];
+          if (!cleanedD) {
+            unparseableDatesCount++;
+            unparseableDateRows.push(rowIdx);
+          }
         }
-        break
       }
-    }
+    });
+
+    return newRow;
+  });
+
+  const exactDupIndices: number[] = [];
+  const duplicateIdIndices: number[] = [];
+  let duplicateIdsCount = 0;
+  let exactDuplicatesCount = 0;
+
+  const idKey = idCols[0] || '';
+  if (rawRows.length > 0) {
+    const dupReport = detectDuplicates(rawRows, idKey);
+    exactDuplicatesCount = fullExactDuplicates !== null ? fullExactDuplicates : dupReport.exactDuplicatesCount;
+    duplicateIdsCount = fullDuplicateIds !== null ? fullDuplicateIds : dupReport.duplicateIdsCount;
+    exactDupIndices.push(...dupReport.exactDuplicateRows);
+    duplicateIdIndices.push(...dupReport.duplicateIdRows);
   }
 
-  const categoryKeyToUse = primaryCategoryKey || fallbackCategoryKey
-
-  const idKey = idCols[0]?.name || ''
-  const primaryNameKey = (
-    idCols.find(c => /name|customer|company|client|user|employee|student|patient|productname/i.test(c.name)) ||
-    idCols[0]
-  )?.name || Object.keys(meta)[0] || ''
-
-  // ── High null percentage detection ──────────────────────────────
-  const nullPercentages: Record<string, number> = {}
-  const columnsWithHighNulls: string[] = []
-  Object.keys(meta).forEach(colName => {
-    const nullCount = rawRows.filter(r => r[colName] === null || r[colName] === undefined || String(r[colName]).trim() === '').length
-    const pctVal = (nullCount / rawRows.length) * 100
-    nullPercentages[colName] = pctVal
+  // ── Calculate Stats / Null Percentages ──────────────────────────
+  const nullPercentages: Record<string, number> = {};
+  const columnsWithHighNulls: string[] = [];
+  cols.forEach(col => {
+    const nullCount = rawRows.filter(r => r[col] === null || r[col] === undefined || String(r[col]).trim() === '').length;
+    const pctVal = (nullCount / rawRows.length) * 100;
+    nullPercentages[col] = pctVal;
     if (pctVal > 20) {
-      columnsWithHighNulls.push(colName)
+      columnsWithHighNulls.push(col);
     }
-  })
+  });
 
-  // ── Diagnostic: Unparseable dates ──────────────────────────────
-  const unparseableDateRows: number[] = []
-  let unparseableDatesCount = 0
-  if (primaryTimeKey) {
-    rawRows.forEach((row, rowIdx) => {
-      const raw = row[primaryTimeKey]
-      if (raw === null || raw === undefined || String(raw).trim() === '') return
-      const d = cleanDateValue(raw)
-      if (d === null) {
-        unparseableDatesCount++
-        unparseableDateRows.push(rowIdx)
-      }
-    })
-  }
-
-  // ── Diagnostic: Duplicates ──────────────────────────────────────
-  const dupReport = detectDuplicates(rawRows, idKey)
-
-  // ── KPI computation ────────────────────────────────────────────
-  const kpis: EngineKPI[] = []
-
-  // KPI 1: Record / ID Count
-  const duplicateIdText = idKey && dupReport.duplicateIdsCount > 0 ? ` (${dupReport.duplicateIdsCount} dup IDs)` : ''
+  // KPIs aggregation
+  const kpis: EngineKPI[] = [];
   kpis.push({
     label: `Total ${entityName}s`,
-    value: formatNumber(rows.length, 'number'),
-    rawValue: rows.length,
-    change: idKey ? `${dupReport.duplicateIdsCount} duplicate IDs${duplicateIdText}` : `Across all records`,
-    up: true,
-  })
+    value: formatNumber(fullTotalRows, 'number'),
+    rawValue: fullTotalRows,
+    change: `Domain: ${datasetType}`,
+    up: true
+  });
 
-  // KPI 2 & 3: Primary Metric Sum & Avg (or Date Range if date column selected)
   if (primaryMetricKey) {
-    if (isDateColumn(primaryMetricKey)) {
-      const dates = rows
-        .map(r => cleanDateValue(r[primaryMetricKey]))
-        .filter((d): d is Date => d !== null)
-      if (dates.length > 0) {
-        const minDate = new Date(Math.min(...dates.map(d => d.getTime())))
-        const maxDate = new Date(Math.max(...dates.map(d => d.getTime())))
-        const spanDays = Math.round((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24))
-        const formatD = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-        
-        kpis.push({
-          label: `Date Range (${primaryMetricKey})`,
-          value: `${spanDays} Days`,
-          rawValue: spanDays,
-          change: `${formatD(minDate)} - ${formatD(maxDate)}`,
-          up: true,
-        })
-      }
-    } else {
-      const vals = rows
-        .map(r => r[primaryMetricKey])
-        .filter((v): v is number => v !== null)
-      
-      const sum = vals.reduce((s, v) => s + v, 0)
-      const avg = vals.length > 0 ? sum / vals.length : 0
-      const isCurrency = /revenue|mrr|acv|amount|price|sales|income|spend|profit|earn|salary|wage|cost|treatment/i.test(primaryMetricKey)
-
-      // Add Sum KPI
+    const cleanInfo = cleanedMetrics[primaryMetricKey];
+    if (cleanInfo) {
+      const stats = cleanInfo.stats;
+      const sumVal = fullSums[primaryMetricKey] !== undefined ? fullSums[primaryMetricKey] : stats.sum;
       kpis.push({
         label: `Total ${primaryMetricKey}`,
-        value: formatNumber(sum, isCurrency ? 'currency' : 'number', true),
-        rawValue: sum,
-        change: `Avg: ${formatNumber(avg, isCurrency ? 'currency' : 'number', true)}`,
+        value: formatNumber(sumVal, stats.is_currency ? 'currency' : 'number', true),
+        rawValue: sumVal,
+        change: `Average: ${formatNumber(stats.avg, stats.is_currency ? 'currency' : 'number', true)}`,
         up: true,
-        sparkData: vals.slice(-6).map(v => ({ v })),
-        outliersExcludedCount: columnOutlierCounts[primaryMetricKey] || 0
-      })
+        sparkData: cleanInfo.cleanArray.slice(-6).map((v: number) => ({ v })),
+        outliersExcludedCount: cleanInfo.outliers.length
+      });
 
-      // Add Avg KPI
       kpis.push({
         label: `Average ${primaryMetricKey}`,
-        value: formatNumber(avg, isCurrency ? 'currency' : 'number', true),
-        rawValue: avg,
-        change: `Max: ${formatNumber(Math.max(...vals, 0), isCurrency ? 'currency' : 'number', true)}`,
+        value: formatNumber(stats.avg, stats.is_currency ? 'currency' : 'number', true),
+        rawValue: stats.avg,
+        change: `Max: ${formatNumber(stats.max, stats.is_currency ? 'currency' : 'number', true)}`,
         up: true,
-        sparkData: vals.slice(-6).map(v => ({ v })),
-        outliersExcludedCount: columnOutlierCounts[primaryMetricKey] || 0
-      })
+        sparkData: cleanInfo.cleanArray.slice(-6).map((v: number) => ({ v })),
+        outliersExcludedCount: cleanInfo.outliers.length
+      });
     }
   }
 
-  // KPI 4: Date range card if not already added
-  if (primaryTimeKey && primaryTimeKey !== primaryMetricKey) {
-    const dates = rows
-      .map(r => cleanDateValue(r[primaryTimeKey]))
-      .filter((d): d is Date => d !== null)
-    if (dates.length > 0) {
-      const minDate = new Date(Math.min(...dates.map(d => d.getTime())))
-      const maxDate = new Date(Math.max(...dates.map(d => d.getTime())))
-      const spanDays = Math.round((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24))
-      const formatD = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-      
+  if (primaryTimeKey) {
+    const cleanInfo = cleanedDates[primaryTimeKey];
+    if (cleanInfo && cleanInfo.validDates.length > 0) {
+      const dates = cleanInfo.validDates;
+      const minDate = new Date(Math.min(...dates.map((d: Date) => d.getTime())));
+      const maxDate = new Date(Math.max(...dates.map((d: Date) => d.getTime())));
+      const formatD = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       kpis.push({
-        label: `Date Range (${primaryTimeKey})`,
-        value: `${spanDays} Days`,
-        rawValue: spanDays,
+        label: `Date Range`,
+        value: `${cleanInfo.stats.span_days} Days`,
+        rawValue: cleanInfo.stats.span_days,
         change: `${formatD(minDate)} - ${formatD(maxDate)}`,
-        up: true,
-      })
+        up: true
+      });
     }
   }
 
-  // Helper for checking active status
-  const isValueActive = (val: any) => {
-    if (val === null || val === undefined) return false
-    const str = String(val).trim().toLowerCase()
-    if (str === '' || str === '0' || str === 'false') return false
-    const inactiveTerms = ['closed', 'lost', 'cancelled', 'inactive', 'none', 'error', 'n/a', 'na']
-    return !inactiveTerms.some(term => str.includes(term))
-  }
-
-  const activatableCol = Object.keys(meta).find(c => /status|active|state|flag/i.test(c))
-  const statusKey = categoryCols.find(c => /status|readmitted/i.test(c.name))?.name || activatableCol || ''
-
-  // KPI 5: Active Rate %
-  if (statusKey) {
-    const activeCount = rows.filter(r => isValueActive(r[statusKey])).length
-    const activePct = pct(activeCount, rows.length)
-    kpis.push({
-      label: `Active Rate (${statusKey})`,
-      value: `${activePct}%`,
-      rawValue: activePct,
-      change: `${activeCount} active items`,
-      up: activePct > 50,
-    })
-  }
-
-  // ── Monthly time-series (Secondary IQR fence for charts) ────────────────
-  const monthly: MonthlyPoint[] = []
-  let chartPointsExcludedCount = 0
-
+  // Monthly aggregated data (Algorithm 6 Charts - Time series)
+  const monthly: MonthlyPoint[] = [];
   if (primaryTimeKey && primaryMetricKey) {
-    const primaryVals = rows
-      .map(r => r[primaryMetricKey])
-      .filter((v): v is number => v !== null && isFinite(v))
-    
-    let lowerFence = -Infinity
-    let upperFence = Infinity
-    if (primaryVals.length >= 4) {
-      const sorted = [...primaryVals].sort((a, b) => a - b)
-      const q1 = sorted[Math.floor(sorted.length * 0.25)]
-      const q3 = sorted[Math.floor(sorted.length * 0.75)]
-      const iqr = q3 - q1
-      lowerFence = q1 - 2.5 * iqr
-      upperFence = q3 + 2.5 * iqr
+    const dateCleanInfo = cleanedDates[primaryTimeKey];
+    const metricCleanInfo = cleanedMetrics[primaryMetricKey];
+
+    if (dateCleanInfo && metricCleanInfo) {
+      // Determine aggregation period based on span in months
+      const spanMonths = dateCleanInfo.stats.span_months;
+      let period: 'day' | 'month' | 'quarter' | 'year' = 'month';
+      if (spanMonths <= 3) period = 'day';
+      else if (spanMonths <= 18) period = 'month';
+      else if (spanMonths <= 60) period = 'quarter';
+      else period = 'year';
+
+      const groups: Record<string, number[]> = {};
+      rows.forEach(r => {
+        const dVal = cleanDateColumn([r[primaryTimeKey]]).validDates[0];
+        if (!dVal) return;
+        const mVal = cleanNumericValue(r[primaryMetricKey]);
+        if (mVal === null || metricCleanInfo.outliers.includes(r[primaryMetricKey])) return;
+
+        let key = '';
+        if (period === 'day') {
+          key = dVal.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        } else if (period === 'month') {
+          key = dVal.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+        } else if (period === 'quarter') {
+          const q = Math.floor(dVal.getMonth() / 3) + 1;
+          key = `Q${q} ${dVal.getFullYear().toString().slice(-2)}`;
+        } else {
+          key = String(dVal.getFullYear());
+        }
+
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(mVal);
+      });
+
+      Object.entries(groups).forEach(([periodKey, vals]) => {
+        const sum = vals.reduce((a, b) => a + b, 0);
+        monthly.push({
+          month: periodKey,
+          revenue: Math.round(sum),
+          mrr: Math.round(sum * 0.8)
+        });
+      });
     }
-
-    const monthMap: Record<string, { revenue: number; mrr: number; count: number; date: Date }> = {}
-
-    rows.forEach(r => {
-      const raw = r[primaryTimeKey]
-      const d = cleanDateValue(raw)
-      if (!d) return
-      
-      const val = r[primaryMetricKey]
-      if (val === null || val === undefined) return
-
-      if (val < lowerFence || val > upperFence) {
-        chartPointsExcludedCount++
-        return
-      }
-
-      const key = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
-      if (!monthMap[key]) {
-        monthMap[key] = { revenue: 0, mrr: 0, count: 0, date: d }
-      }
-      monthMap[key].revenue += val
-      monthMap[key].count += 1
-    })
-
-    const sorted = Object.entries(monthMap).sort((a, b) => a[1].date.getTime() - b[1].date.getTime())
-    sorted.forEach(([month, data]) => {
-      monthly.push({
-        month,
-        revenue: Math.round(data.revenue),
-        mrr: Math.round(data.revenue * 0.8),
-      })
-    })
   }
 
-  // Fallback: group by row-index if no time axis
+  // Fallback monthly batches if monthly is empty
   if (monthly.length === 0 && primaryMetricKey) {
-    const primaryVals = rows
-      .map(r => r[primaryMetricKey])
-      .filter((v): v is number => v !== null && isFinite(v))
-    
-    let lowerFence = -Infinity
-    let upperFence = Infinity
-    if (primaryVals.length >= 4) {
-      const sorted = [...primaryVals].sort((a, b) => a - b)
-      const q1 = sorted[Math.floor(sorted.length * 0.25)]
-      const q3 = sorted[Math.floor(sorted.length * 0.75)]
-      const iqr = q3 - q1
-      lowerFence = q1 - 2.5 * iqr
-      upperFence = q3 + 2.5 * iqr
-    }
-
-    const targetBatches = Math.min(8, rows.length)
-    const batchSize = Math.max(1, Math.ceil(rows.length / targetBatches))
-    const batches = Math.ceil(rows.length / batchSize)
-    for (let i = 0; i < batches; i++) {
-      const batch = rows.slice(i * batchSize, (i + 1) * batchSize)
-      const total = batch.reduce((s, r) => {
-        const v = r[primaryMetricKey]
-        if (v === null || v === undefined || (typeof v === 'number' && (v < lowerFence || v > upperFence))) {
-          return s
-        }
-        return s + v
-      }, 0)
-      monthly.push({
-        month: `Row Index ${i + 1}`,
-        revenue: Math.round(total),
-        mrr: Math.round(total * 0.8),
-      })
-    }
-  }
-
-  if (monthly.length === 0 && metricCols.length > 0) {
-    const anyMetric = metricCols[0].name
-    const targetBatches = Math.min(6, rows.length)
-    const batchSize = Math.max(1, Math.ceil(rows.length / targetBatches))
-    const batches = Math.ceil(rows.length / batchSize)
-    for (let i = 0; i < batches; i++) {
-      const batch = rows.slice(i * batchSize, (i + 1) * batchSize)
-      const total = batch.reduce((s, r) => {
-        const v = r[anyMetric]
-        return s + (v !== null && isFinite(v) ? v : 0)
-      }, 0)
-      monthly.push({
-        month: `Row Index ${i + 1}`,
-        revenue: Math.round(total),
-        mrr: Math.round(total * 0.8),
-      })
-    }
-  }
-
-  // ── Customer rows ──────────────────────────────────────────────
-  const customers: CustomerRow[] = rows.slice(0, 500).map((r, idx) => {
-    const id = String(r[idCols[0]?.name] || r.id || r.ID || idx + 1)
-    const name = primaryNameKey ? String(r[primaryNameKey] ?? `${entityName} ${idx + 1}`) : `${entityName} ${idx + 1}`
-    const emailKey = idCols.find(c => /email/i.test(c.name))?.name
-    const email = emailKey ? String(r[emailKey] ?? '') : `${name.toLowerCase().replace(/\s+/g, '.')}@example.com`
-    const plan = categoryKeyToUse ? String(r[categoryKeyToUse] ?? 'Standard') : 'Standard'
-    const mrr = primaryMetricKey ? (cleanNumericValue(r[primaryMetricKey]) ?? 0) : 0
-    const status = statusKey ? String(r[statusKey] ?? 'Active') : 'Active'
-    const normalizedStatus = isValueActive(status) ? 'Active' : 'Churned'
-    return { id, name, email, plan, mrr, status: normalizedStatus }
-  })
-
-  // ── Category segments ──────────────────────────────────────────
-  const categories: CategorySegment[] = []
-  if (categoryKeyToUse) {
-    const counts: Record<string, number> = {}
-    rows.forEach(r => {
-      let val = String(r[categoryKeyToUse] ?? 'Other')
-      if (isFallbackDateKey || isDateColumn(categoryKeyToUse)) {
-        const d = cleanDateValue(r[categoryKeyToUse])
-        if (d) {
-          val = String(d.getFullYear())
+    const cleanInfo = cleanedMetrics[primaryMetricKey];
+    if (cleanInfo) {
+      const vals = cleanInfo.cleanArray;
+      const batches = Math.min(8, vals.length);
+      const batchSize = Math.max(1, Math.ceil(vals.length / batches));
+      for (let i = 0; i < batches; i++) {
+        const chunk = vals.slice(i * batchSize, (i + 1) * batchSize);
+        if (chunk.length > 0) {
+          const sum = chunk.reduce((a: number, b: number) => a + b, 0);
+          monthly.push({
+            month: `Batch ${i + 1}`,
+            revenue: Math.round(sum),
+            mrr: Math.round(sum * 0.8)
+          });
         }
       }
-      counts[val] = (counts[val] || 0) + 1
-    })
-    const total = rows.length
-    Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .forEach(([label, count], idx) => {
-        categories.push({
-          label,
-          count,
-          pct: pct(count, total),
-          color: CHART_COLORS[idx % CHART_COLORS.length],
-        })
-      })
+    }
   }
 
-  // ── Forecast (linear extrapolation) ───────────────────────────
-  const forecastData: ForecastPoint[] = []
+  // ── Category segment breakdowns (Algorithm 6 Charts - Categories) ──
+  const categories: CategorySegment[] = [];
+  if (primaryCategoryKey && primaryMetricKey) {
+    const catClean = cleanedCategories[primaryCategoryKey];
+    if (catClean) {
+      const catGroups: Record<string, number> = {};
+      rows.forEach(r => {
+        const cVal = String(r[primaryCategoryKey] ?? 'Other').trim();
+        if (DIRTY_SENTINEL_VALUES.includes(cVal)) return;
+        const mVal = cleanNumericValue(r[primaryMetricKey]);
+        if (mVal !== null && !cleanedMetrics[primaryMetricKey]?.outliers.includes(r[primaryMetricKey])) {
+          catGroups[cVal] = (catGroups[cVal] || 0) + mVal;
+        }
+      });
+
+      const totalVal = Object.values(catGroups).reduce((a, b) => a + b, 0);
+      Object.entries(catGroups)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .forEach(([label, sumVal], idx) => {
+          categories.push({
+            label,
+            count: Math.round(sumVal),
+            pct: totalVal > 0 ? Math.round((sumVal / totalVal) * 100) : 0,
+            color: CHART_COLORS[idx % CHART_COLORS.length]
+          });
+        });
+    }
+  }
+
+  // Customer Records mappings
+  const customers: CustomerRow[] = rows.slice(0, 100).map((r, idx) => {
+    const id = String(r[idCols[0]] || idx + 1);
+    const name = String(r[primaryNameKey] || `${entityName} ${idx + 1}`);
+    const email = `${name.toLowerCase().replace(/\s+/g, '')}@example.com`;
+    const plan = primaryCategoryKey ? String(r[primaryCategoryKey] ?? 'Standard') : 'Standard';
+    const mrr = primaryMetricKey ? (cleanNumericValue(r[primaryMetricKey]) ?? 0) : 0;
+    const status = statusKey ? String(r[statusKey] ?? 'Active') : 'Active';
+    const normalizedStatus = ['churned', 'inactive', 'lost', 'cancelled', 'expired'].some(t => status.toLowerCase().includes(t)) ? 'Churned' : 'Active';
+    return { id, name, email, plan, mrr, status: normalizedStatus };
+  });
+
+  // Forecast Aggregation
+  const forecastData: ForecastPoint[] = [];
   if (monthly.length >= 2) {
-    const last = monthly[monthly.length - 1]
-    const prev = monthly[monthly.length - 2]
-    const growth = prev.revenue > 0 ? (last.revenue - prev.revenue) / prev.revenue : 0.05
-    const smoothedGrowth = Math.min(Math.max(growth, -0.1), 0.3) // cap at ±30%
+    const last = monthly[monthly.length - 1];
+    const prev = monthly[monthly.length - 2];
+    const growth = prev.revenue > 0 ? (last.revenue - prev.revenue) / prev.revenue : 0.05;
+    const smoothedGrowth = Math.min(Math.max(growth, -0.1), 0.3); // cap at ±30%
 
-    forecastData.push({ month: last.month, revenue: last.revenue, upper: last.revenue, lower: last.revenue })
+    forecastData.push({ month: last.month, revenue: last.revenue, upper: last.revenue, lower: last.revenue });
 
-    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    let base = last.revenue
+    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    let base = last.revenue;
     for (let i = 1; i <= 5; i++) {
-      base = base * (1 + smoothedGrowth)
-      const uncertainty = base * (0.05 + i * 0.02)
+      base = base * (1 + smoothedGrowth);
+      const uncertainty = base * (0.05 + i * 0.02);
       forecastData.push({
         month: `${MONTHS[(monthly.length + i - 1) % 12]} (F)`,
         revenue: Math.round(base),
         upper: Math.round(base + uncertainty),
         lower: Math.round(Math.max(0, base - uncertainty)),
-      })
+      });
     }
   }
 
   const topRows = primaryMetricKey
-    ? [...rows]
-        .sort((a, b) => (cleanNumericValue(b[primaryMetricKey]) ?? 0) - (cleanNumericValue(a[primaryMetricKey]) ?? 0))
-        .slice(0, 10)
-    : rows.slice(0, 10)
+    ? [...rows].sort((a, b) => (cleanNumericValue(b[primaryMetricKey]) ?? 0) - (cleanNumericValue(a[primaryMetricKey]) ?? 0)).slice(0, 10)
+    : rows.slice(0, 10);
 
-  // ── AI Insights Engine ─────────────────────────────────────────
-  const topCategory = categories[0] || { label: 'None', pct: 0 }
-  const secondCategory = categories[1] || { label: 'None', pct: 0 }
-
-  const metricVals = primaryMetricKey
-    ? rows.map(r => cleanNumericValue(r[primaryMetricKey])).filter((v): v is number => v !== null)
-    : []
-  const totalMetricVal = metricVals.reduce((s, v) => s + v, 0)
-  const avgMetricVal = metricVals.length > 0 ? totalMetricVal / metricVals.length : 0
-  const isCurrency = /revenue|mrr|acv|amount|price|sales|income|spend|profit|earn|salary|wage|cost|treatment/i.test(primaryMetricKey)
-  const formatValue = (v: number) => formatNumber(Math.round(v), isCurrency ? 'currency' : 'number')
+  // AI Insights Generation
+  const topCategory = categories[0] || { label: 'None', pct: 0 };
+  const cleanInfo = primaryMetricKey ? cleanedMetrics[primaryMetricKey] : null;
+  const totalMetricVal = cleanInfo ? cleanInfo.stats.sum : 0;
+  const avgMetricVal = cleanInfo ? cleanInfo.stats.avg : 0;
+  const isCurrency = cleanInfo ? cleanInfo.stats.is_currency : false;
+  const formatValue = (v: number) => formatNumber(Math.round(v), isCurrency ? 'currency' : 'number');
 
   const keyFindings: string[] = [
-    `Dataset profile successfully classified as '${datasetType}' data containing ${rows.length} total records.`,
-    primaryMetricKey ? `Primary metrics driven by '${primaryMetricKey}', totaling ${formatValue(totalMetricVal)} with an average of ${formatValue(avgMetricVal)}.` : `Dataset attributes include: ${cols.map(c => c.name).slice(0, 5).join(', ')}.`,
-    primaryCategoryKey ? `Categorical clustering dominated by '${primaryCategoryKey}' segment '${topCategory.label}', which represents ${topCategory.pct}% of records.` : `No main category columns found.`
-  ]
+    `Dataset profile successfully classified as '${datasetType}' domain with ${domainInfo.confidence}% confidence.`,
+    primaryMetricKey ? `Primary metrics driven by '${primaryMetricKey}', totaling ${formatValue(totalMetricVal)} with an average of ${formatValue(avgMetricVal)}.` : `Dataset attributes include: ${cols.slice(0, 5).join(', ')}.`,
+    primaryCategoryKey ? `Categorical clustering dominated by '${primaryCategoryKey}' segment '${topCategory.label}', representing ${topCategory.pct}% of records.` : `No main category columns found.`
+  ];
 
-  const anomalies: string[] = []
-  let outlierName = ''
-  let outlierValue = 0
+  const anomalies: string[] = [];
   if (primaryMetricKey && primaryNameKey) {
-    const outlierRow = [...rows].sort((a, b) => (cleanNumericValue(b[primaryMetricKey]) ?? 0) - (cleanNumericValue(a[primaryMetricKey]) ?? 0))[0]
+    const outlierRow = [...rows].sort((a, b) => (cleanNumericValue(b[primaryMetricKey]) ?? 0) - (cleanNumericValue(a[primaryMetricKey]) ?? 0))[0];
     if (outlierRow) {
-      outlierName = String(outlierRow[primaryNameKey] || '')
-      outlierValue = cleanNumericValue(outlierRow[primaryMetricKey]) ?? 0
+      const outlierName = String(outlierRow[primaryNameKey] || '');
+      const outlierValue = cleanNumericValue(outlierRow[primaryMetricKey]) ?? 0;
+      if (outlierValue > avgMetricVal * 1.8 && outlierName) {
+        anomalies.push(`Significant outlier detected: Entity '${outlierName}' registers at ${formatValue(outlierValue)} in '${primaryMetricKey}', which is 1.8x+ above average.`);
+      }
     }
   }
-  if (outlierValue > avgMetricVal * 1.8 && outlierName) {
-    anomalies.push(`Significant outlier detected: Entity '${outlierName}' registers at ${formatValue(outlierValue)} in '${primaryMetricKey}', which is 1.8x+ above average.`);
-  }
-  const failedOrInactive = rows.filter(r => /inactive|fail|cancel|churn|lost|yes/i.test(String(r[statusKey] || ''))).length
+
+  const failedOrInactive = rows.filter(r => /inactive|fail|cancel|churn|lost/i.test(String(r[statusKey] || ''))).length;
   if (failedOrInactive > 0) {
     anomalies.push(`Volume review: ${failedOrInactive} records contain warning or inactive status descriptors.`);
   }
 
-  const trends: string[] = []
+  const trends: string[] = [];
   if (primaryMetricKey && monthly.length >= 2) {
-    const growth = monthly[monthly.length - 1].revenue > monthly[0].revenue
+    const growth = monthly[monthly.length - 1].revenue > monthly[0].revenue;
     trends.push(`Historical trend: Analysis reveals ${growth ? 'upward growth' : 'downward slope'} from ${monthly[0].month} to ${monthly[monthly.length - 1].month}.`);
   }
 
-  const predictions: string[] = []
+  const predictions: string[] = [];
   if (primaryMetricKey && monthly.length >= 2) {
-    const lastVal = monthly[monthly.length - 1].revenue
-    const projectedVal = forecastData[forecastData.length - 1]?.revenue || lastVal
-    const diffPct = lastVal > 0 ? Math.round(((projectedVal - lastVal) / lastVal) * 100) : 5
+    const lastVal = monthly[monthly.length - 1].revenue;
+    const projectedVal = forecastData[forecastData.length - 1]?.revenue || lastVal;
+    const diffPct = lastVal > 0 ? Math.round(((projectedVal - lastVal) / lastVal) * 100) : 5;
     predictions.push(`Forward modeling projects '${primaryMetricKey}' to shift to ${formatValue(projectedVal)} in the next period (approx. ${diffPct >= 0 ? '+' : ''}${diffPct}% variance).`);
   } else {
     predictions.push(`Projecting steady volume counts: stable baseline of ~${Math.round(rows.length * 1.05)} records expected in the upcoming cycle.`);
   }
 
   const recommendations: string[] = [
-    categoryKeyToUse ? `Resource allocation: Focus resources and operational capacity towards '${topCategory.label}' due to high volume density.` : `Verify dataset identifiers for indexing consistency.`,
-    outlierName ? `Operational audit: Conduct a performance review on outlier '${outlierName}' to map replicating conditions.` : `Establish regular tracking of '${primaryMetricKey}' updates.`
-  ]
+    primaryCategoryKey ? `Resource allocation: Focus resources and operational capacity towards '${topCategory.label}' due to high volume density.` : `Verify dataset identifiers for indexing consistency.`,
+  ];
   if (failedOrInactive > 0) {
     recommendations.push(`Risk mitigation: Establish monitoring protocols to target the ${failedOrInactive} warning status records.`);
   }
@@ -754,7 +973,7 @@ export function computeAnalytics(
     hasData: true,
     datasetName: filename,
     totalRows: rawRows.length,
-    columns: Object.keys(meta),
+    columns: cols,
     datasetType,
     entityName,
     valueMetricName,
@@ -776,29 +995,19 @@ export function computeAnalytics(
     primaryCategoryKey,
     primaryNameKey,
     statusKey,
-    cleanedRowsCount,
+    cleanedRowsCount: cleanedRowSet.size,
     unparseableDatesCount,
-    exactDuplicatesCount: dupReport.exactDuplicatesCount,
-    duplicateIdsCount: dupReport.duplicateIdsCount,
-    chartPointsExcludedCount,
+    exactDuplicatesCount,
+    duplicateIdsCount,
+    chartPointsExcludedCount: outlierRowSet.size,
     rows,
-    exactDuplicateRows: dupReport.exactDuplicateRows,
-    duplicateIdRows: dupReport.duplicateIdRows,
+    exactDuplicateRows: exactDupIndices,
+    duplicateIdRows: duplicateIdIndices,
     unparseableDateRows,
     outlierRows: Array.from(outlierRowSet),
     columnsWithHighNulls,
     nullPercentages,
     totalProcessedRows: rawRows.length,
-  }
-}
-
-function buildSparkFromRows(rows: any[], metricKey: string): { v: number }[] {
-  if (!metricKey || rows.length === 0) return []
-  const step = Math.max(1, Math.floor(rows.length / 6))
-  const result: { v: number }[] = []
-  for (let i = 0; i < rows.length; i += step) {
-    result.push({ v: cleanNumericValue(rows[i][metricKey]) ?? 0 })
-    if (result.length >= 6) break
-  }
-  return result
+    domainDetection: domainInfo
+  };
 }

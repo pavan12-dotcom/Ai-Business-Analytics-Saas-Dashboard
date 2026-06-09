@@ -5,7 +5,7 @@ import { detectColumnTypes } from '../services/columnDetection'
 import { fetchSpreadsheet, uploadSpreadsheet, deleteSpreadsheet, fetchDocument, uploadDocument, deleteDocument, reparseDocument } from '../services/api'
 import { useAuth } from './AuthContext'
 import { computeAnalytics, type AnalyticsResult } from '../services/analyticsEngine'
-import { cleanNumericValue, formatNumber } from '../services/dataCleaner'
+import { cleanNumericValue, formatNumber, detectDuplicates } from '../services/dataCleaner'
 import type { SampleDataset } from '../data/sampleDatasets'
 
 // ── Sheet info for multi-sheet Excel workbooks ────────────────────
@@ -54,6 +54,240 @@ const cleanMetadata = (meta: any) => {
     }
   }
   return cleaned
+}
+
+function decodeText(arrayBuffer: ArrayBuffer): string {
+  const encodings = ['utf-8', 'utf-16le', 'utf-16be', 'latin1'];
+  for (const enc of encodings) {
+    try {
+      const decoder = new TextDecoder(enc, { fatal: true });
+      let text = decoder.decode(arrayBuffer);
+      if (text.charCodeAt(0) === 0xFEFF || text.charCodeAt(0) === 0xFFFE) {
+        text = text.substring(1);
+      }
+      return text;
+    } catch (_) {}
+  }
+  const decoder = new TextDecoder('utf-8');
+  let text = decoder.decode(arrayBuffer);
+  if (text.charCodeAt(0) === 0xFEFF || text.charCodeAt(0) === 0xFFFE) {
+    text = text.substring(1);
+  }
+  return text;
+}
+
+function detectDelimiter(text: string): string {
+  const delimiters = [',', ';', '|', '\t'];
+  const lines = text.split(/\r?\n/).filter(line => line.trim() !== '').slice(0, 10);
+  if (lines.length === 0) return ',';
+
+  let bestDelimiter = ',';
+  let bestScore = -1;
+
+  delimiters.forEach(delim => {
+    const counts = lines.map(line => line.split(delim).length - 1);
+    const avg = counts.reduce((a, b) => a + b, 0) / counts.length;
+    if (avg === 0) return;
+    const variance = counts.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / counts.length;
+    const score = avg / (variance + 1);
+    if (score > bestScore) {
+      bestScore = score;
+      bestDelimiter = delim;
+    }
+  });
+  return bestDelimiter;
+}
+
+function cleanedNumeric(v: string) {
+  return v.replace(/[$£€₹¥₩]/g, '').replace(/,/g, '').replace(/\s/g, '').replace(/%$/, '').replace(/^\((.+)\)$/, '-$1');
+}
+
+function detectHeaders(row0: any[]): { hasHeaders: boolean; headers: string[] } {
+  if (!row0 || row0.length === 0) {
+    return { hasHeaders: false, headers: [] };
+  }
+  let totalScore = 0;
+  const numCells = row0.length;
+
+  row0.forEach(cell => {
+    if (cell === null || cell === undefined) {
+      totalScore -= 10;
+      return;
+    }
+    const strVal = String(cell).trim();
+    if (strVal === '') {
+      totalScore -= 10;
+      return;
+    }
+
+    const isNumeric = !isNaN(Number(cleanedNumeric(strVal)));
+    if (isNumeric) {
+      totalScore -= 10;
+    } else {
+      const hasNumbers = /\d/.test(strVal);
+      if (!hasNumbers) {
+        totalScore += 20;
+      } else {
+        totalScore += 10;
+      }
+    }
+    if (strVal.length >= 2 && strVal.length <= 30) {
+      totalScore += 5;
+    }
+  });
+
+  const maxPossibleScore = numCells * 25;
+  const scorePct = maxPossibleScore > 0 ? totalScore / maxPossibleScore : 0;
+  const hasHeaders = scorePct > 0.60;
+
+  const headers = row0.map((cell, idx) => {
+    if (hasHeaders) {
+      let name = String(cell).trim();
+      return name === '' ? `Col_${idx + 1}` : name;
+    } else {
+      return `Col_${idx + 1}`;
+    }
+  });
+
+  const cleaned: string[] = [];
+  const counts: Record<string, number> = {};
+  headers.forEach(h => {
+    let clean = h.trim().replace(/[^a-zA-Z0-9]/g, '_');
+    if (clean === '') clean = 'Col';
+    if (counts[clean]) {
+      counts[clean]++;
+      clean = `${clean}_${counts[clean]}`;
+    } else {
+      counts[clean] = 1;
+    }
+    cleaned.push(clean);
+  });
+
+  return { hasHeaders, headers: cleaned };
+}
+
+function getRandomSubset(arr: any[], size: number): any[] {
+  if (size >= arr.length) return arr;
+  const result = new Array(size);
+  let len = arr.length;
+  const taken = new Array(len);
+  let n = size;
+  while (n--) {
+    const x = Math.floor(Math.random() * len);
+    result[n] = arr[x in taken ? taken[x] : x];
+    taken[x] = --len in taken ? taken[len] : len;
+  }
+  return result;
+}
+
+function sampleDataset(rows: any[]): { sampledRows: any[]; sampleFlag: string | null } {
+  const totalRows = rows.length;
+  if (totalRows <= 10000) {
+    return { sampledRows: rows, sampleFlag: null };
+  }
+
+  const first1000 = rows.slice(0, 1000);
+  const last1000 = rows.slice(-1000);
+
+  if (totalRows <= 100000) {
+    const randomCount = 4000;
+    const middleRows = rows.slice(1000, -1000);
+    const randomSample = getRandomSubset(middleRows, randomCount);
+    const sampledRows = [...first1000, ...randomSample, ...last1000];
+    return {
+      sampledRows,
+      sampleFlag: `Sampled 6,000 of ${totalRows.toLocaleString()} rows`
+    };
+  } else {
+    const randomCount = 8000;
+    const middleRows = rows.slice(1000, -1000);
+    const randomSample = getRandomSubset(middleRows, randomCount);
+    const sampledRows = [...first1000, ...randomSample, ...last1000];
+    return {
+      sampledRows,
+      sampleFlag: `Sampled 10,000 of ${totalRows.toLocaleString()} rows`
+    };
+  }
+}
+
+function parseExcelWorkbook(ab: ArrayBuffer): {
+  sheets: Record<string, { rows: any[]; headers: string[]; rawRows: any[][] }>;
+  sheetInfos: SheetInfo[];
+  bestSheetName: string;
+} {
+  const wb = XLSX.read(ab, { type: 'array', cellDates: true });
+  const sheets: Record<string, { rows: any[]; headers: string[]; rawRows: any[][] }> = {};
+  const sheetInfos: SheetInfo[] = [];
+
+  let highestRowCount = 0;
+  wb.SheetNames.forEach(sheetName => {
+    const ws = wb.Sheets[sheetName];
+    const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
+    if (rawRows.length > highestRowCount) {
+      highestRowCount = rawRows.length;
+    }
+  });
+
+  wb.SheetNames.forEach(sheetName => {
+    const ws = wb.Sheets[sheetName];
+    const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
+    const row0 = rawRows[0] || [];
+    
+    const headerDetect = detectHeaders(row0);
+    const headers = headerDetect.headers;
+    let dataRows: any[] = [];
+
+    if (rawRows.length > 0) {
+      const bodyRows = headerDetect.hasHeaders ? rawRows.slice(1) : rawRows;
+      dataRows = bodyRows.map((row) => {
+        const obj: any = {};
+        headers.forEach((h, colIdx) => {
+          obj[h] = row[colIdx] !== undefined ? row[colIdx] : null;
+        });
+        return obj;
+      });
+    }
+
+    sheets[sheetName] = {
+      rows: dataRows,
+      headers,
+      rawRows
+    };
+
+    sheetInfos.push({
+      name: sheetName,
+      rowCount: dataRows.length
+    });
+  });
+
+  let bestSheetName = wb.SheetNames[0] || '';
+  let bestScore = -Infinity;
+
+  wb.SheetNames.forEach(sheetName => {
+    const wsData = sheets[sheetName];
+    const rowCount = wsData.rows.length;
+    const colCount = wsData.headers.length;
+    const isHighest = rowCount === highestRowCount;
+
+    let score = 0;
+    if (isHighest) score += 50;
+    if (colCount > 3) score += 30;
+
+    const row0 = wsData.rawRows[0] || [];
+    const headerDetect = detectHeaders(row0);
+    if (headerDetect.hasHeaders) {
+      score += 20;
+    }
+
+    if (rowCount < 5) score -= 50;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestSheetName = sheetName;
+    }
+  });
+
+  return { sheets, sheetInfos, bestSheetName };
 }
 
 export function SpreadsheetProvider({ children }: { children: React.ReactNode }) {
@@ -258,7 +492,7 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
           let json: any[] = []
           let allSheetsData: Record<string, { rows: any[]; headers: string[]; columns_metadata: Record<string, string> }> = {}
           let sheetInfoList: SheetInfo[] = []
-          let bestSheet: SheetInfo | null = null
+          let bestSheetName = ''
 
           if (extension === 'json') {
             const text = e.target?.result as string
@@ -272,9 +506,45 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
             setSheetsFilename('')
           } else if (extension === 'csv') {
             const ab = e.target?.result as ArrayBuffer
-            const wb = XLSX.read(ab, { type: 'array', cellDates: true })
-            const ws = wb.Sheets[wb.SheetNames[0]]
-            json = XLSX.utils.sheet_to_json(ws)
+            const text = decodeText(ab)
+            const delim = detectDelimiter(text)
+            
+            const lines = text.split(/\r?\n/).map(line => {
+              const result: string[] = [];
+              let current = '';
+              let inQuotes = false;
+              for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                  inQuotes = !inQuotes;
+                } else if (char === delim && !inQuotes) {
+                  result.push(current);
+                  current = '';
+                } else {
+                  current += char;
+                }
+              }
+              result.push(current);
+              return result.map(cell => cell.replace(/^"(.*)"$/, '$1').trim());
+            }).filter(line => line.length > 0 && line.some(c => c !== ''));
+
+            if (lines.length === 0) {
+              resolve({ success: false, error: 'The uploaded CSV contains no data rows.' })
+              return
+            }
+
+            const row0 = lines[0] || [];
+            const headerDetect = detectHeaders(row0);
+            const headers = headerDetect.headers;
+            
+            const bodyLines = headerDetect.hasHeaders ? lines.slice(1) : lines;
+            json = bodyLines.map(row => {
+              const obj: any = {};
+              headers.forEach((h, colIdx) => {
+                obj[h] = row[colIdx] !== undefined ? row[colIdx] : null;
+              });
+              return obj;
+            });
 
             // Reset multi-sheet state for CSV
             setSheetNames([])
@@ -282,33 +552,31 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
             setSheetsData({})
             setSheetsFilename('')
           } else {
-            // Excel: parse ALL sheets ─────────────────────────────
+            // Excel: parse ALL sheets and score them
             const ab = e.target?.result as ArrayBuffer
-            const wb = XLSX.read(ab, { type: 'array', cellDates: true })
+            const parsedBook = parseExcelWorkbook(ab)
+            
+            sheetInfoList = parsedBook.sheetInfos
+            bestSheetName = parsedBook.bestSheetName
 
-            // Build a map of all sheets with their row counts
-            wb.SheetNames.forEach(sheetName => {
-              const ws = wb.Sheets[sheetName]
-              const sheetRows: any[] = XLSX.utils.sheet_to_json(ws)
-              const headers = sheetRows.length > 0 ? Object.keys(sheetRows[0]) : []
-              const columns_metadata = sheetRows.length > 0 ? detectColumnTypes(sheetRows, headers) : {}
-              allSheetsData[sheetName] = { rows: sheetRows, headers, columns_metadata }
-              sheetInfoList.push({ name: sheetName, rowCount: sheetRows.length })
+            // Map sheets data to the structure the app expects
+            Object.entries(parsedBook.sheets).forEach(([sheetName, sheetData]) => {
+              const columns_metadata = sheetData.rows.length > 0 ? detectColumnTypes(sheetData.rows, sheetData.headers) : {}
+              allSheetsData[sheetName] = {
+                rows: sheetData.rows,
+                headers: sheetData.headers,
+                columns_metadata
+              }
             })
-
-            // Auto-select sheet with the most rows
-            bestSheet = sheetInfoList.reduce((best, s) =>
-              s.rowCount > best.rowCount ? s : best
-            , sheetInfoList[0])
 
             // Update multi-sheet state and persist to sessionStorage
             setSheetsData(allSheetsData)
             setSheetsFilename(file.name)
             setSheetNames(sheetInfoList)
-            setActiveSheetName(bestSheet.name)
-            persistSheetsData(allSheetsData, file.name, bestSheet.name)
+            setActiveSheetName(bestSheetName)
+            persistSheetsData(allSheetsData, file.name, bestSheetName)
 
-            json = allSheetsData[bestSheet.name].rows
+            json = allSheetsData[bestSheetName].rows
           }
 
           if (json.length === 0) {
@@ -316,14 +584,36 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
             return
           }
 
-          const maxRows = (extension === 'xlsx' || extension === 'xls') ? 10000 : 2000
+          // Limit files to 500,000 rows for browser performance
+          const maxRows = 500000
           if (json.length > maxRows) {
-            resolve({ success: false, error: `Dataset exceeds the limit of ${formatNumber(maxRows)} rows. Please upload a smaller file.` })
+            resolve({ success: false, error: `Dataset exceeds the limit of ${maxRows.toLocaleString()} rows. Please upload a smaller file.` })
             return
           }
 
           const headers = Object.keys(json[0])
           const columnsMetadata = detectColumnTypes(json, headers)
+
+          // Perform data sampling for analysis (Algorithm 1.3)
+          const { sampledRows, sampleFlag } = sampleDataset(json)
+
+          // Perform full data calculations (duplicate detection, sum, total counts) (Algorithm 1.3)
+          const idKey = Object.entries(columnsMetadata).find(([_, type]) => type === 'identifier')?.[0] || ''
+          const dupReport = detectDuplicates(json, idKey)
+          
+          const fullSums: Record<string, number> = {}
+          headers.forEach(h => {
+            if (columnsMetadata[h] === 'metric') {
+              let sum = 0
+              json.forEach(r => {
+                const val = cleanNumericValue(r[h])
+                if (val !== null && isFinite(val) && Math.abs(val) <= 1e12) {
+                  sum += val
+                }
+              })
+              fullSums[h] = sum
+            }
+          })
 
           const isExcel = extension === 'xlsx' || extension === 'xls'
           const payload = {
@@ -331,13 +621,18 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
             headers,
             columns_metadata: {
               ...columnsMetadata,
-              ...(isExcel && bestSheet ? {
+              __fullTotalRows: String(json.length),
+              __fullExactDuplicates: String(dupReport.exactDuplicatesCount),
+              __fullDuplicateIds: String(dupReport.duplicateIdsCount),
+              __fullSums: JSON.stringify(fullSums),
+              ...(sampleFlag ? { __sampleFlag: sampleFlag } : {}),
+              ...(isExcel && bestSheetName ? {
                 __sheetNames: JSON.stringify(sheetInfoList),
-                __activeSheetName: bestSheet.name,
+                __activeSheetName: bestSheetName,
                 __sheetsData: JSON.stringify(allSheetsData)
               } : {})
             },
-            rows: json
+            rows: sampledRows // Send sampled rows to server for performance
           }
 
           const response = await uploadSpreadsheet(payload)
