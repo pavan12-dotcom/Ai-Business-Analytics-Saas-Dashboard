@@ -1,3 +1,4 @@
+import React, { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
@@ -19,6 +20,7 @@ export default function Layout() {
   } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const isDashboard = location.pathname === '/app' || location.pathname === '/app/'
 
@@ -48,10 +50,13 @@ export default function Layout() {
   }
 
   return (
-    <div className={`app-shell ${isDashboard ? 'is-dashboard' : ''}`}>
-      {!isDashboard && <Sidebar />}
+    <div className={`app-shell ${isDashboard ? 'is-dashboard' : ''} ${isDashboard && sidebarOpen ? 'sidebar-open' : ''}`}>
+      {isDashboard && sidebarOpen && (
+        <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+      )}
+      <Sidebar />
       <div className="shell-main">
-        <Topbar />
+        <Topbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} isDashboard={isDashboard} />
         <div className="shell-content">
           <Outlet />
         </div>

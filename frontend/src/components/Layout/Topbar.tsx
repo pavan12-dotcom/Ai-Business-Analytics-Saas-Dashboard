@@ -19,7 +19,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Moon,
-  Sun
+  Sun,
+  Menu
 } from 'lucide-react'
 import { logActivity } from '../../services/audit'
 import { formatNumber } from '../../services/dataCleaner'
@@ -36,7 +37,7 @@ const titles: Record<string, string> = {
   '/app/settings': 'System Settings',
 }
 
-export default function Topbar() {
+export default function Topbar({ onToggleSidebar, isDashboard }: { onToggleSidebar?: () => void; isDashboard?: boolean }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { user, userRole, setRole, isGuest, guestQueryCount, uploadCount } = useAuth()
@@ -286,7 +287,33 @@ export default function Topbar() {
 
   return (
     <header className="topbar">
-      <h1 className="topbar-title">{title}</h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {isDashboard && (
+          <button
+            className="sidebar-toggle-btn"
+            onClick={onToggleSidebar}
+            title="Open Navigation Menu"
+            style={{
+              background: 'var(--bg2)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              width: '34px',
+              height: '34px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: 'var(--text-muted)',
+              transition: 'all 0.15s ease',
+              outline: 'none',
+              boxShadow: 'var(--shadow-sm)',
+            }}
+          >
+            <Menu size={16} />
+          </button>
+        )}
+        <h1 className="topbar-title">{title}</h1>
+      </div>
       <div className="topbar-right">
         {isGuest && (() => {
           const remainingTrials = Math.max(0, 5 - uploadCount)

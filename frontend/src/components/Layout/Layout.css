@@ -291,3 +291,34 @@
   background-clip: text !important;
 }
 
+/* Sidebar slide-out drawer style on Dashboard page */
+.app-shell.is-dashboard .sidebar {
+  position: fixed;
+  top: 0;
+  left: -260px; /* Start offscreen */
+  width: 250px;
+  height: 100vh;
+  z-index: 9999;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-lg);
+  background: var(--bg-sidebar);
+}
+
+.app-shell.is-dashboard.sidebar-open .sidebar {
+  transform: translateX(260px); /* Slide into view */
+}
+
+/* Backdrop overlay when sidebar is open */
+.sidebar-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(9, 13, 22, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 9998;
+  animation: fadeIn 0.2s ease-out;
+}
+
