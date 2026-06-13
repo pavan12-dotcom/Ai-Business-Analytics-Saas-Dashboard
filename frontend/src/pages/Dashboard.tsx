@@ -696,6 +696,72 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* ── Filter & Control Section ── */}
+      {hasData && (
+        <div className="card filter-section">
+          <div className="filter-group">
+            <span className="filter-group-label">Active Dataset:</span>
+            <div className="filter-dataset-pill">
+              <span className="dataset-dot-live" />
+              <span className="dataset-name-text">{datasetName}</span>
+            </div>
+            <button className="btn btn-secondary btn-xs" onClick={handleUploadClick}>
+              Change Dataset
+            </button>
+          </div>
+
+          {sheetNames.length > 1 && (
+            <div className="filter-group">
+              <span className="filter-group-label">Sheet:</span>
+              <select
+                value={activeSheetName}
+                onChange={e => selectSheet(e.target.value)}
+                className="filter-select"
+              >
+                {sheetNames.map(s => (
+                  <option key={s.name} value={s.name}>
+                    {s.name} ({formatNumber(s.rowCount)} rows)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="filter-group filter-search-wrap">
+            <span className="filter-group-label">Search Records:</span>
+            <input
+              type="text"
+              placeholder="Filter dashboard..."
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1) }}
+              className="filter-search-input"
+            />
+          </div>
+
+          <div className="filter-group dq-filter-group">
+            <span className="filter-group-label">Data Quality Filters:</span>
+            <div className="filter-dq-pills">
+              {[
+                { type: 'duplicate', label: `Duplicates (${analytics.exactDuplicatesCount})` },
+                { type: 'outlier', label: `Outliers (${analytics.outlierRows?.length || 0})` },
+                { type: 'nulls', label: `High Nulls (${analytics.columnsWithHighNulls?.length || 0})` },
+              ].map(item => (
+                <button
+                  key={item.type}
+                  className={`dq-filter-pill ${activeHighlightType === item.type ? 'active' : ''}`}
+                  onClick={() => setActiveHighlightType(h => h === item.type ? null : (item.type as any))}
+                >
+                  {item.label}
+                </button>
+              ))}
+              {activeHighlightType && (
+                <button className="dq-filter-clear" onClick={() => setActiveHighlightType(null)}>Clear</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── No data state ── */}
       {!hasData ? (
         <NoDataState onSample={handleSample} onUpload={handleUploadClick} />
@@ -721,136 +787,166 @@ export default function Dashboard() {
           </div>
 
           {/* ── Large Main Analytics Area ── */}
-          <div className="main-analytics-area">
-            {/* Trend chart */}
-            <div className="card">
-              <div className="card-header">
-                <div style={{ flex: 1 }}>
-                  <div className="card-title">
-                    {primaryMetricKey ? `${primaryMetricKey} Over Time` : 'Revenue Trend'}
-                  </div>
-                  <div className="card-sub" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                    <span>Time-series analysis from your dataset</span>
-                    {analytics.cleanedRowsCount > 0 && (
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 3,
-                        background: 'rgba(99,102,241,0.12)', color: 'var(--accent)',
-                        padding: '1px 7px', borderRadius: 999, fontSize: 11, fontWeight: 600
-                      }}>
-                        <Wand2 size={10} /> {analytics.cleanedRowsCount} rows cleaned
-                      </span>
-                    )}
-                    {analytics.unparseableDatesCount > 0 && (
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 3,
-                        background: 'rgba(245,158,11,0.12)', color: 'var(--warning)',
-                        padding: '1px 7px', borderRadius: 999, fontSize: 11, fontWeight: 600
-                      }}>
-                        <CalendarX size={10} /> {analytics.unparseableDatesCount} unparseable dates
-                      </span>
-                    )}
-                    {analytics.chartPointsExcludedCount > 0 && (
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 3,
-                        background: 'rgba(239,68,68,0.12)', color: 'var(--red)',
-                        padding: '1px 7px', borderRadius: 999, fontSize: 11, fontWeight: 600
-                      }}>
-                        ⚠️ {analytics.chartPointsExcludedCount} points excluded from chart (IQR outliers)
-                      </span>
-                    )}
-                    {!analytics.primaryTimeKey && (
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 3,
-                        background: 'rgba(245,158,11,0.12)', color: 'var(--warning)',
-                        padding: '1px 7px', borderRadius: 999, fontSize: 11, fontWeight: 600
-                      }}>
-                        ⚠️ No date column found, showing row sequence
-                      </span>
-                    )}
-                  </div>
+          <div className="main-analytics-card card">
+            <div className="card-header">
+              <div style={{ flex: 1 }}>
+                <div className="card-title">
+                  {primaryMetricKey ? `${primaryMetricKey} Over Time` : 'Revenue Trend'}
                 </div>
-              </div>
-              {monthly.length > 0 ? (
-                <ResponsiveContainer width="100%" height={320}>
-                  <AreaChart data={monthly}>
-                    <defs>
-                      <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-                    <YAxis tickFormatter={formatYAxisTick} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Area type="monotone" dataKey="revenue" name={primaryMetricKey || 'Revenue'} stroke="var(--chart-1)" strokeWidth={2.5} fill="url(#colorRevenue)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div
-                  style={{
-                    height: 320,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    color: 'var(--text-muted)',
-                    border: '1.5px dashed var(--border2)',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'rgba(99,102,241,0.02)',
-                  }}
-                >
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>Insufficient clean data to render chart</span>
+                <div className="card-sub" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                  <span>Time-series analysis from your dataset</span>
+                  {analytics.cleanedRowsCount > 0 && (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 3,
+                      background: 'rgba(99,102,241,0.12)', color: 'var(--accent)',
+                      padding: '1px 7px', borderRadius: 999, fontSize: 11, fontWeight: 600
+                    }}>
+                      <Wand2 size={10} /> {analytics.cleanedRowsCount} rows cleaned
+                    </span>
+                  )}
+                  {analytics.unparseableDatesCount > 0 && (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 3,
+                      background: 'rgba(245,158,11,0.12)', color: 'var(--warning)',
+                      padding: '1px 7px', borderRadius: 999, fontSize: 11, fontWeight: 600
+                    }}>
+                      <CalendarX size={10} /> {analytics.unparseableDatesCount} unparseable dates
+                    </span>
+                  )}
                   {analytics.chartPointsExcludedCount > 0 && (
-                    <span style={{ fontSize: 11.5, textAlign: 'center', maxWidth: 250 }}>
-                      ({analytics.chartPointsExcludedCount} outlier points were excluded)
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 3,
+                      background: 'rgba(239,68,68,0.12)', color: 'var(--red)',
+                      padding: '1px 7px', borderRadius: 999, fontSize: 11, fontWeight: 600
+                    }}>
+                      ⚠️ {analytics.chartPointsExcludedCount} points excluded from chart (IQR outliers)
+                    </span>
+                  )}
+                  {!analytics.primaryTimeKey && (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 3,
+                      background: 'rgba(245,158,11,0.12)', color: 'var(--warning)',
+                      padding: '1px 7px', borderRadius: 999, fontSize: 11, fontWeight: 600
+                    }}>
+                      ⚠️ No date column found, showing row sequence
                     </span>
                   )}
                 </div>
-              )}
+              </div>
             </div>
+            {monthly.length > 0 ? (
+              <ResponsiveContainer width="100%" height={350}>
+                <AreaChart data={monthly}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={formatYAxisTick} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area type="monotone" dataKey="revenue" name={primaryMetricKey || 'Revenue'} stroke="var(--chart-1)" strokeWidth={2.5} fill="url(#colorRevenue)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div
+                style={{
+                  height: 350,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  color: 'var(--text-muted)',
+                  border: '1.5px dashed var(--border2)',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(99,102,241,0.02)',
+                }}
+              >
+                <span style={{ fontSize: 13, fontWeight: 600 }}>Insufficient clean data to render chart</span>
+                {analytics.chartPointsExcludedCount > 0 && (
+                  <span style={{ fontSize: 11.5, textAlign: 'center', maxWidth: 250 }}>
+                    ({analytics.chartPointsExcludedCount} outlier points were excluded)
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* ── AI Insights Panel ── */}
-          <div className="ai-insights-panel-row">
-            {/* AI teaser */}
-            <div className="card ai-teaser ai-insights-panel">
-              <div className="ai-insights-left">
-                <div className="ai-teaser-header">
-                  <span className="ai-live-dot" />
-                  <span className="ai-teaser-title">AI Data Assistant</span>
-                  <span className="ai-teaser-badge">Gemini</span>
+          <div className="card ai-insights-panel">
+            <div className="ai-insights-header">
+              <span className="ai-live-dot" />
+              <h3 className="card-title">AI Insights & Executive Summary (Google Gemini)</h3>
+              <span className="ai-insights-badge">Automated Report</span>
+            </div>
+            
+            <div className="ai-insights-content-grid">
+              {/* Column 1: Key Findings */}
+              <div className="ai-insight-card">
+                <div className="ai-insight-card-header">
+                  <span className="ai-icon">📊</span>
+                  <h4>Key Findings</h4>
                 </div>
-                <div className="ai-teaser-msg ai-msg" style={{ marginTop: 12 }}>
-                  I've loaded <strong>{datasetName}</strong> ({formatNumber(analytics.totalRows)} rows).
-                  Ask me anything about your data!
-                </div>
-              </div>
-              <div className="ai-insights-right">
-                <div className="ai-suggestions-label">Try asking:</div>
-                <div className="ai-suggestions">
-                  {[
-                    `What is the total ${primaryMetricKey || 'value'}?`,
-                    'Which category has the most records?',
-                    'Summarize this dataset.',
-                  ].map(s => (
-                    <span key={s} className="ai-sug"
-                      onClick={() => navigate('/app/ai', { state: { mode: activeSheet ? 'spreadsheet' : 'document', question: s } })}>
-                      {s}
-                    </span>
+                <ul className="ai-insight-list">
+                  {analytics.aiInsights.keyFindings.map((f, i) => (
+                    <li key={i}>{f}</li>
                   ))}
+                </ul>
+              </div>
+
+              {/* Column 2: Trends & Predictions */}
+              <div className="ai-insight-card">
+                <div className="ai-insight-card-header">
+                  <span className="ai-icon">📈</span>
+                  <h4>Trends & Predictions</h4>
                 </div>
-                <button className="btn btn-primary ai-teaser-link"
-                  onClick={() => navigate('/app/ai', { state: { mode: activeSheet ? 'spreadsheet' : 'document' } })}>
-                  Open AI Assistant →
-                </button>
+                <ul className="ai-insight-list">
+                  {[
+                    ...analytics.aiInsights.trends,
+                    ...analytics.aiInsights.predictions
+                  ].map((f, i) => (
+                    <li key={i}>{f}</li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Column 3: Anomalies & Warnings */}
+              <div className="ai-insight-card warning">
+                <div className="ai-insight-card-header">
+                  <span className="ai-icon">⚠️</span>
+                  <h4>Anomalies & Warnings</h4>
+                </div>
+                <ul className="ai-insight-list">
+                  {analytics.aiInsights.anomalies.length > 0 ? (
+                    analytics.aiInsights.anomalies.map((f, i) => (
+                      <li key={i}>{f}</li>
+                    ))
+                  ) : (
+                    <li>No severe anomalies detected. Data quality is within nominal bounds.</li>
+                  )}
+                </ul>
+              </div>
+
+              {/* Column 4: Recommendations */}
+              <div className="ai-insight-card premium">
+                <div className="ai-insight-card-header">
+                  <span className="ai-icon">✨</span>
+                  <h4>Actionable Recommendations</h4>
+                </div>
+                <ul className="ai-insight-list">
+                  {analytics.aiInsights.recommendations.map((f, i) => (
+                    <li key={i}>{f}</li>
+                  ))}
+                </ul>
               </div>
             </div>
           </div>
 
           {/* ── Additional Dynamic Charts ── */}
-          <div className="additional-charts-row">
+          <div className="additional-charts-grid">
             {/* Category donut */}
             <div className="card donut-card">
               <div className="card-title">
@@ -893,68 +989,110 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Dataset table */}
-            <div className="card" style={{ overflowX: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <div>
-                  <div className="card-title">Dataset Explorer</div>
-                  <div className="card-sub">{filteredRows.length} rows · {analytics.columns.length} columns</div>
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={searchQuery}
-                  onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1) }}
-                  style={{ padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: 12, width: 180 }}
-                />
-              </div>
-
-              {analytics.columns.length > 0 ? (
-                <>
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        {analytics.columns.map(col => (
-                          <th key={col} onClick={() => handleSort(col)} style={{ cursor: 'pointer', userSelect: 'none' }}>
-                            {col} {sortColumn === col ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedRows.length > 0 ? paginatedRows.map((row, idx) => (
-                        <tr key={idx} className={highlightedRows.has(row.__originalIndex) ? 'highlighted-row' : ''}>
-                          {analytics.columns.map(col => (
-                            <td key={col}
-                              className={dataSource?.columns_metadata?.[col] === 'metric' ? 'mono' : ''}
-                              style={{ fontWeight: dataSource?.columns_metadata?.[col] === 'identifier' ? 500 : 400 }}>
-                              {row[col] !== undefined && row[col] !== null ? String(row[col]) : '—'}
-                            </td>
-                          ))}
-                        </tr>
-                      )) : (
-                        <tr>
-                          <td colSpan={analytics.columns.length} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>
-                            No records found matching your search.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Page {currentPage} of {totalPages}</span>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-secondary btn-xs" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</button>
-                      <button className="btn btn-secondary btn-xs" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</button>
-                    </div>
-                  </div>
-                </>
+            {/* Predictive Forecast chart */}
+            <div className="card">
+              <div className="card-title">AI Predictive Modeling</div>
+              <div className="card-sub">5-Month forward projections with confidence bounds</div>
+              {forecastData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={forecastData}>
+                    <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                    <YAxis tickFormatter={formatYAxisTick} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                    <Tooltip content={<CustomTooltip />} />
+                    
+                    {/* Projected central line */}
+                    <Line type="monotone" dataKey="revenue" name="Projected Value" stroke="var(--chart-1)" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                    {/* Confidence lines */}
+                    <Line type="monotone" dataKey="upper" name="Upper Confidence" stroke="var(--chart-4)" strokeDasharray="5 5" strokeWidth={1.5} dot={false} />
+                    <Line type="monotone" dataKey="lower" name="Lower Confidence" stroke="var(--chart-8)" strokeDasharray="5 5" strokeWidth={1.5} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
               ) : (
-                <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
-                  No records found. Upload data to populate this table.
+                <div
+                  style={{
+                    height: 200,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    color: 'var(--text-muted)',
+                    border: '1.5px dashed var(--border2)',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(99,102,241,0.02)',
+                    padding: 12,
+                    textAlign: 'center'
+                  }}
+                >
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>Insufficient data to model forecast</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Requires a minimum of 2 historical periods</span>
                 </div>
               )}
             </div>
+          </div>
+
+          {/* ── Dataset Explorer Table (Full width) ── */}
+          <div className="card dataset-explorer-full-width" style={{ overflowX: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div>
+                <div className="card-title">Dataset Explorer</div>
+                <div className="card-sub">
+                  Showing {filteredRows.length} of {processedRows.length} records · {analytics.columns.length} columns
+                  {activeHighlightType && (
+                    <span className="badge badge-amber" style={{ marginLeft: 8, textTransform: 'none' }}>
+                      Highlighting {activeHighlightType}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {analytics.columns.length > 0 ? (
+              <>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      {analytics.columns.map(col => (
+                        <th key={col} onClick={() => handleSort(col)} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                          {col} {sortColumn === col ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedRows.length > 0 ? paginatedRows.map((row, idx) => (
+                      <tr key={idx} className={highlightedRows.has(row.__originalIndex) ? 'highlighted-row' : ''}>
+                        {analytics.columns.map(col => (
+                          <td key={col}
+                            className={dataSource?.columns_metadata?.[col] === 'metric' ? 'mono' : ''}
+                            style={{ fontWeight: dataSource?.columns_metadata?.[col] === 'identifier' ? 500 : 400 }}>
+                            {row[col] !== undefined && row[col] !== null ? String(row[col]) : '—'}
+                          </td>
+                        ))}
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={analytics.columns.length} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>
+                          No records found matching filters.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Page {currentPage} of {totalPages}</span>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button className="btn btn-secondary btn-xs" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</button>
+                    <button className="btn btn-secondary btn-xs" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
+                No records found. Upload data to populate this table.
+              </div>
+            )}
           </div>
         </>
       )}

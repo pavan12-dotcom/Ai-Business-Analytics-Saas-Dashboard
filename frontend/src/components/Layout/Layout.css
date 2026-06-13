@@ -4,7 +4,7 @@
   min-height: 100vh;
 }
 
-.app-shell.no-sidebar {
+.app-shell.is-dashboard {
   grid-template-columns: 1fr;
 }
 
@@ -20,6 +20,10 @@
   padding: 28px;
   overflow-y: auto;
   animation: fadeIn 0.25s ease;
+}
+
+.app-shell.is-dashboard .shell-content {
+  padding: 24px;
 }
 
 /* Loading spinner */

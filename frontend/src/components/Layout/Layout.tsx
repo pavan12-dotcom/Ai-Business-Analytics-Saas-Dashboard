@@ -19,7 +19,7 @@ export default function Layout() {
   } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  
+
   const isDashboard = location.pathname === '/app' || location.pathname === '/app/'
 
   const handleAction = async (path: string) => {
@@ -48,7 +48,7 @@ export default function Layout() {
   }
 
   return (
-    <div className={`app-shell ${isDashboard ? 'no-sidebar' : ''}`}>
+    <div className={`app-shell ${isDashboard ? 'is-dashboard' : ''}`}>
       {!isDashboard && <Sidebar />}
       <div className="shell-main">
         <Topbar />
