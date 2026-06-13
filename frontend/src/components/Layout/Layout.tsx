@@ -22,7 +22,21 @@ export default function Layout() {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const isDashboard = location.pathname === '/app' || location.pathname === '/app/'
+  const analyticsRoutes = [
+    '/app',
+    '/app/',
+    '/app/analytics',
+    '/app/customers',
+    '/app/revenue',
+    '/app/ai',
+    '/app/reports'
+  ]
+  const isDashboard = analyticsRoutes.includes(location.pathname)
+
+  // Automatically close sidebar drawer upon navigation
+  React.useEffect(() => {
+    setSidebarOpen(false)
+  }, [location.pathname])
 
   const handleAction = async (path: string) => {
     try {
