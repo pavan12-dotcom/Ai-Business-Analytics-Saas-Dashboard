@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import { useAuth } from '../../context/AuthContext'
@@ -18,6 +18,9 @@ export default function Layout() {
     setShowRenewalModal
   } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  
+  const isDashboard = location.pathname === '/app' || location.pathname === '/app/'
 
   const handleAction = async (path: string) => {
     try {
@@ -45,8 +48,8 @@ export default function Layout() {
   }
 
   return (
-    <div className="app-shell">
-      <Sidebar />
+    <div className={`app-shell ${isDashboard ? 'no-sidebar' : ''}`}>
+      {!isDashboard && <Sidebar />}
       <div className="shell-main">
         <Topbar />
         <div className="shell-content">

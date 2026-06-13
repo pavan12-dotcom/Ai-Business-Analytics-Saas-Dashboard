@@ -720,8 +720,8 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* ── Charts Row ── */}
-          <div className="charts-row">
+          {/* ── Large Main Analytics Area ── */}
+          <div className="main-analytics-area">
             {/* Trend chart */}
             <div className="card">
               <div className="card-header">
@@ -771,7 +771,7 @@ export default function Dashboard() {
                 </div>
               </div>
               {monthly.length > 0 ? (
-                <ResponsiveContainer width="100%" height={200}>
+                <ResponsiveContainer width="100%" height={320}>
                   <AreaChart data={monthly}>
                     <defs>
                       <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -789,7 +789,7 @@ export default function Dashboard() {
               ) : (
                 <div
                   style={{
-                    height: 200,
+                    height: 320,
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -810,7 +810,47 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
+          </div>
 
+          {/* ── AI Insights Panel ── */}
+          <div className="ai-insights-panel-row">
+            {/* AI teaser */}
+            <div className="card ai-teaser ai-insights-panel">
+              <div className="ai-insights-left">
+                <div className="ai-teaser-header">
+                  <span className="ai-live-dot" />
+                  <span className="ai-teaser-title">AI Data Assistant</span>
+                  <span className="ai-teaser-badge">Gemini</span>
+                </div>
+                <div className="ai-teaser-msg ai-msg" style={{ marginTop: 12 }}>
+                  I've loaded <strong>{datasetName}</strong> ({formatNumber(analytics.totalRows)} rows).
+                  Ask me anything about your data!
+                </div>
+              </div>
+              <div className="ai-insights-right">
+                <div className="ai-suggestions-label">Try asking:</div>
+                <div className="ai-suggestions">
+                  {[
+                    `What is the total ${primaryMetricKey || 'value'}?`,
+                    'Which category has the most records?',
+                    'Summarize this dataset.',
+                  ].map(s => (
+                    <span key={s} className="ai-sug"
+                      onClick={() => navigate('/app/ai', { state: { mode: activeSheet ? 'spreadsheet' : 'document', question: s } })}>
+                      {s}
+                    </span>
+                  ))}
+                </div>
+                <button className="btn btn-primary ai-teaser-link"
+                  onClick={() => navigate('/app/ai', { state: { mode: activeSheet ? 'spreadsheet' : 'document' } })}>
+                  Open AI Assistant →
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Additional Dynamic Charts ── */}
+          <div className="additional-charts-row">
             {/* Category donut */}
             <div className="card donut-card">
               <div className="card-title">
@@ -851,40 +891,6 @@ export default function Dashboard() {
                   <span style={{ fontSize: 13, fontWeight: 600 }}>No category column detected in this dataset</span>
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* ── Bottom Row: AI + Table ── */}
-          <div className="bottom-row">
-            {/* AI teaser */}
-            <div className="card ai-teaser">
-              <div className="ai-teaser-header">
-                <span className="ai-live-dot" />
-                <span className="ai-teaser-title">AI Data Assistant</span>
-                <span className="ai-teaser-badge">Gemini</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
-                <div className="ai-teaser-msg ai-msg">
-                  I've loaded <strong>{datasetName}</strong> ({formatNumber(analytics.totalRows)} rows).
-                  Ask me anything about your data!
-                </div>
-                <div className="ai-suggestions">
-                  {[
-                    `What is the total ${primaryMetricKey || 'value'}?`,
-                    'Which category has the most records?',
-                    'Summarize this dataset.',
-                  ].map(s => (
-                    <span key={s} className="ai-sug"
-                      onClick={() => navigate('/app/ai', { state: { mode: activeSheet ? 'spreadsheet' : 'document', question: s } })}>
-                      {s}
-                    </span>
-                  ))}
-                </div>
-                <button className="btn btn-primary ai-teaser-link"
-                  onClick={() => navigate('/app/ai', { state: { mode: activeSheet ? 'spreadsheet' : 'document' } })}>
-                  Open AI Assistant →
-                </button>
-              </div>
             </div>
 
             {/* Dataset table */}

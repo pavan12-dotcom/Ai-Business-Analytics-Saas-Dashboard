@@ -4,6 +4,10 @@
   min-height: 100vh;
 }
 
+.app-shell.no-sidebar {
+  grid-template-columns: 1fr;
+}
+
 .shell-main {
   display: flex;
   flex-direction: column;
