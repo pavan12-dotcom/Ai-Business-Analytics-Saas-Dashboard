@@ -410,7 +410,7 @@ export default function Dashboard() {
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie data={donutData} cx="50%" cy="50%"
-                          innerRadius="38%" outerRadius="62%"
+                          innerRadius="32%" outerRadius="58%"
                           dataKey="value" paddingAngle={3}>
                           {donutData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                         </Pie>
@@ -422,7 +422,7 @@ export default function Dashboard() {
                     {donutData.slice(0, 5).map((d, i) => (
                       <div key={i} className="sp-dl-row">
                         <span className="sp-dl-dot" style={{ background: d.fill }} />
-                        <span className="sp-dl-name">{trunc(d.name, 14)}</span>
+                        <span className="sp-dl-name">{trunc(d.name, 16)}</span>
                         <span className="sp-dl-pct">{d.pct}%</span>
                       </div>
                     ))}

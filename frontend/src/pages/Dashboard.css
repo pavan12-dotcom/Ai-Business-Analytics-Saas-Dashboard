@@ -360,22 +360,26 @@
 }
 
 /* ── Row 1 widths ───────────────────────────────────────────── */
-.sp-trend { flex: 1.7; }
-.sp-donut { flex: 0 0 230px; }
+.sp-trend { flex: 1.6; }
+.sp-donut { flex: 0 0 265px; }
 
-/* Donut internals */
+/* Donut internals — chart on top, legend below */
 .sp-donut-inner {
   flex: 1; min-height: 0;
-  display: flex; gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .sp-donut-chart {
-  flex: 0 0 50%;
+  flex: 1;
   min-height: 0;
 }
 .sp-donut-legend {
-  flex: 1; min-width: 0;
-  display: flex; flex-direction: column;
-  justify-content: center; gap: 6px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 2px;
 }
 .sp-dl-row {
   display: flex; align-items: center; gap: 6px;
