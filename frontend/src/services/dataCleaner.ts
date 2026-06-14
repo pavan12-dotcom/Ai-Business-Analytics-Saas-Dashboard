@@ -514,11 +514,13 @@ export function formatNumber(
     }
 
     const divided = absVal / divider;
-    const fd = divided < 100 ? 1 : 0;
+    const rounded = Math.round(divided * 10) / 10;
+    const hasFraction = (rounded % 1) !== 0;
+    const fd = hasFraction ? 1 : 0;
     const formattedDivided = new Intl.NumberFormat('en-US', {
       minimumFractionDigits: fd,
-      maximumFractionDigits: fd
-    }).format(divided);
+      maximumFractionDigits: 1
+    }).format(rounded);
 
     return type === 'currency' ? `${sign}$${formattedDivided}${suffix}` : `${sign}${formattedDivided}${suffix}`;
   }

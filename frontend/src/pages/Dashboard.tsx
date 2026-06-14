@@ -22,8 +22,19 @@ const COLORS = [
 
 // ── Smart value formatter ─────────────────────────────────────
 const fmtVal = (v: number, isCurrency = false) => {
-  if (Math.abs(v) >= 1_000_000) return (isCurrency ? '$' : '') + (v / 1_000_000).toFixed(1) + 'M'
-  if (Math.abs(v) >= 1_000)     return (isCurrency ? '$' : '') + (v / 1_000).toFixed(1) + 'K'
+  const abs = Math.abs(v)
+  if (abs >= 1_000_000) {
+    const val = v / 1_000_000
+    const rounded = Math.round(val * 10) / 10
+    const str = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1)
+    return (isCurrency ? '$' : '') + str + 'M'
+  }
+  if (abs >= 1_000) {
+    const val = v / 1_000
+    const rounded = Math.round(val * 10) / 10
+    const str = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1)
+    return (isCurrency ? '$' : '') + str + 'K'
+  }
   return isCurrency ? '$' + v.toFixed(2) : v.toLocaleString()
 }
 
