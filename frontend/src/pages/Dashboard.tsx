@@ -484,7 +484,7 @@ export default function Dashboard() {
                       <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
                       <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
                         axisLine={false} tickLine={false} />
-                      <YAxis tickFormatter={s => fmtVal(s)} tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
+                      <YAxis tickFormatter={formatYAxisTick} tickCount={5} tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
                         axisLine={false} tickLine={false} width={36} />
                       <Tooltip content={<CustomTooltip />} />
                       <Area type="monotone" dataKey="value" name={primaryMetric} stroke="#1a9e7a" strokeWidth={2} fillOpacity={1} fill="url(#trendGradient)" />
@@ -540,7 +540,7 @@ export default function Dashboard() {
                       <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
                       <XAxis dataKey="name" tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
                         tickFormatter={s => trunc(s, 9)} axisLine={false} tickLine={false} />
-                      <YAxis tickFormatter={s => fmtVal(s)} tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
+                      <YAxis tickFormatter={formatYAxisTick} tickCount={5} tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
                         axisLine={false} tickLine={false} width={36} />
                       <Tooltip content={<CustomTooltip />} />
                       <Bar dataKey="value" name={primaryMetric} radius={[3, 3, 0, 0]} maxBarSize={32}>
@@ -568,7 +568,7 @@ export default function Dashboard() {
                       <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
                       <XAxis dataKey="name" tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
                         tickFormatter={s => trunc(s, 9)} axisLine={false} tickLine={false} />
-                      <YAxis tickFormatter={s => fmtVal(s)} tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
+                      <YAxis tickFormatter={formatYAxisTick} tickCount={5} tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
                         axisLine={false} tickLine={false} width={36} />
                       <Tooltip content={<CustomTooltip />} />
                       <Bar dataKey="value" name={secondaryMetric || 'Count'} radius={[3, 3, 0, 0]} maxBarSize={32}>
@@ -591,7 +591,7 @@ export default function Dashboard() {
                     <BarChart data={hBarData2} layout="vertical"
                       margin={{ top: 2, right: 36, left: 0, bottom: 0 }} barCategoryGap="30%">
                       <CartesianGrid horizontal={false} stroke="var(--border)" strokeDasharray="3 3" />
-                      <XAxis type="number" tickFormatter={s => fmtVal(s)}
+                      <XAxis type="number" tickFormatter={formatYAxisTick} tickCount={5}
                         tick={{ fontSize: 9, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                       <YAxis type="category" dataKey="name" width={82}
                         tick={{ fontSize: 9, fill: 'var(--text)' }}
