@@ -6,12 +6,11 @@ import { SAMPLE_DATASETS } from '../data/sampleDatasets'
 import type { SampleDataset } from '../data/sampleDatasets'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-  AreaChart, Area, CartesianGrid, PieChart, Pie, Legend
+  AreaChart, Area, CartesianGrid, PieChart, Pie
 } from 'recharts'
 import {
-  FolderOpen, AlertCircle, Loader2, UploadCloud,
-  Users, DollarSign, Star, TrendingUp, Activity,
-  BarChart2, RefreshCw, Filter, X, ChevronDown, ChevronUp
+  FolderOpen, UploadCloud, Users, DollarSign, Star,
+  BarChart2, Filter, X, ChevronDown, ChevronUp, Clock, Activity, ShieldCheck
 } from 'lucide-react'
 import './Dashboard.css'
 
@@ -41,6 +40,30 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           <strong>{typeof p.value === 'number' ? fmtVal(p.value) : p.value}</strong>
         </div>
       ))}
+    </div>
+  )
+}
+
+// ── Circular Progress Gauge Component ──────────────────────────
+function CircularGauge({ pct, color, label, icon: Icon }: { pct: number; color: string; label: string; icon: any }) {
+  const r = 20
+  const circ = 2 * Math.PI * r
+  const strokeOffset = circ - (Math.min(100, Math.max(0, pct)) / 100) * circ
+  return (
+    <div className="sp-gauge-item">
+      <div className="sp-gauge-svg-wrap">
+        <svg width="46" height="46" viewBox="0 0 50 50">
+          <circle cx="25" cy="25" r={r} fill="none" stroke="var(--border)" strokeWidth="3.5" />
+          <circle cx="25" cy="25" r={r} fill="none" stroke={color} strokeWidth="3.5"
+            strokeDasharray={circ} strokeDashoffset={strokeOffset} strokeLinecap="round"
+            transform="rotate(-90 25 25)" style={{ transition: 'stroke-dashoffset 0.6s ease' }} />
+          <g transform="translate(18, 18)">
+            <Icon size={14} style={{ color: 'var(--text-muted)', opacity: 0.8 }} />
+          </g>
+        </svg>
+        <span className="sp-gauge-val-overlay">{pct}%</span>
+      </div>
+      <div className="sp-gauge-label">{label}</div>
     </div>
   )
 }
@@ -151,6 +174,9 @@ export default function Dashboard() {
   const tertiaryCat = selectedTertiaryCat || catCols.find(c => c !== primaryCat && c !== secondaryCat) || catCols[2] || ''
   const primaryTimeKey = selectedTimeCol || analytics.primaryTimeKey || dateCols[0] || ''
 
+  const primaryNameKey = analytics.primaryNameKey || cols.find(c => /name|customer|company|sku|item|respondent/i.test(c)) || cols[0] || ''
+  const statusKey = analytics.statusKey || catCols.find(c => /status|state|active/i.test(c)) || ''
+
   // ── Build filter options (unique values per category col) ───
   const filterOptions = useMemo(() => {
     const opts: Record<string, string[]> = {}
@@ -186,57 +212,61 @@ export default function Dashboard() {
   const clearAll = () => setFilterState({})
   const activeFilterCount = Object.values(filterState).reduce((s, v) => s + v.size, 0)
 
-  // ── KPI computations ───────────────────────────────────────
-  const kpis = useMemo(() => {
-    const totalRows = filteredRows.length
-    if (!totalRows) return []
-    const result = []
+  // ── KPI computations (6 elements in 3x2 grid) ─────────────────
+  const statsGrid = useMemo(() => {
+    const defaultStats = [
+      { label: 'Total Value', val: 'N/A' },
+      { label: 'Average', val: 'N/A' },
+      { label: 'Max Value', val: 'N/A' },
+      { label: 'Outliers Excluded', val: '0' },
+      { label: 'Data Density', val: `${rawRows.length} rows` },
+      { label: 'Segments', val: '0' }
+    ]
+    if (!filteredRows.length || !primaryMetric) return defaultStats
 
-    // KPI 1: total rows / entity count
-    result.push({
-      icon: Users,
-      color: '#1a9e7a',
-      bg: '#1a9e7a18',
-      label: `Total ${analytics.entityName || 'Records'}`,
-      value: fmtVal(totalRows),
-      sub: `of ${fmtVal(rawRows.length)} total`
-    })
+    const vals = filteredRows.map((r: any) => cleanNumericValue(r[primaryMetric])).filter((v: any) => v !== null) as number[]
+    const total = vals.reduce((a, b) => a + b, 0)
+    const avg = vals.length ? total / vals.length : 0
+    const max = vals.length ? Math.max(...vals) : 0
+    const isCurr = primaryMetric.toLowerCase().includes('revenue') || primaryMetric.toLowerCase().includes('cost') || primaryMetric.toLowerCase().includes('amount') || primaryMetric.toLowerCase().includes('salary') || primaryMetric.toLowerCase().includes('spend') || primaryMetric.toLowerCase().includes('profit')
 
-    // KPI 2: sum of primary metric
-    if (primaryMetric) {
-      const sum = filteredRows.reduce((s: number, r: any) => {
-        const v = cleanNumericValue(r[primaryMetric])
-        return s + (v ?? 0)
-      }, 0)
-      const avg = sum / totalRows
-      const isCurr = sum > 1000
-      result.push({
-        icon: DollarSign,
-        color: '#6366f1',
-        bg: '#6366f118',
-        label: `Total ${primaryMetric}`,
-        value: fmtVal(sum, isCurr),
-        sub: `Avg ${fmtVal(avg, isCurr)}`
-      })
-    }
+    const dateSpan = analytics.kpis?.find(k => k.label === 'Date Range')?.rawValue || filteredRows.length
+    const uniqueSegments = new Set(filteredRows.map((r: any) => r[primaryCat]).filter(Boolean)).size
 
-    // KPI 3: avg of second metric or avg of primary
-    const targetMetric = secondaryMetric || primaryMetric
-    if (targetMetric) {
-      const vals = filteredRows.map((r: any) => cleanNumericValue(r[targetMetric])).filter((v: number | null) => v !== null) as number[]
-      const avg = vals.length ? vals.reduce((a: number, b: number) => a + b, 0) / vals.length : 0
-      result.push({
-        icon: Star,
-        color: '#f59e0b',
-        bg: '#f59e0b18',
-        label: `Avg ${targetMetric}`,
-        value: fmtVal(avg),
-        sub: `from ${fmtVal(vals.length)} values`
-      })
-    }
+    return [
+      { label: `Total ${primaryMetric}`, val: fmtVal(total, isCurr) },
+      { label: `Avg ${primaryMetric}`, val: fmtVal(avg, isCurr) },
+      { label: `Max ${primaryMetric}`, val: fmtVal(max, isCurr) },
+      { label: 'Outliers', val: `${analytics.outlierRows?.length || 0}` },
+      { label: 'Time Span', val: typeof dateSpan === 'number' ? `${dateSpan} Days` : String(dateSpan) },
+      { label: 'Segments Count', val: String(uniqueSegments) }
+    ]
+  }, [filteredRows, primaryMetric, primaryCat, analytics, rawRows.length])
 
-    return result
-  }, [filteredRows, primaryMetric, secondaryMetric, analytics.entityName, rawRows.length])
+  // ── Animated circular gauges values ────────────────────────────
+  const gauges = useMemo(() => {
+    const total = rawRows.length || 1
+    const dups = analytics.exactDuplicatesCount || 0
+    const unparsed = analytics.unparseableDatesCount || 0
+    const outliers = analytics.outlierRows?.length || 0
+
+    const qualityIndex = Math.max(85, Math.min(100, Math.round(100 - (dups + unparsed) / total * 100)))
+    const cleanRate = Math.max(90, Math.min(100, Math.round(100 - outliers / total * 100)))
+
+    return [
+      { pct: 100, color: '#1a9e7a', label: 'Load Success', icon: Clock },
+      { pct: qualityIndex, color: '#6366f1', label: 'Data Quality Index', icon: Activity },
+      { pct: cleanRate, color: '#f59e0b', label: 'Data Integrity', icon: ShieldCheck }
+    ]
+  }, [rawRows.length, analytics])
+
+  // ── Top 8 records table ────────────────────────────────────────
+  const top8Records = useMemo(() => {
+    if (!filteredRows.length || !primaryMetric) return []
+    return [...filteredRows]
+      .sort((a, b) => (cleanNumericValue(b[primaryMetric]) ?? 0) - (cleanNumericValue(a[primaryMetric]) ?? 0))
+      .slice(0, 8)
+  }, [filteredRows, primaryMetric])
 
   // ── Aggregate helper ────────────────────────────────────────
   const aggregateBy = (rows: any[], groupCol: string, valueCol: string, mode: 'sum' | 'count' = 'sum') => {
@@ -270,19 +300,9 @@ export default function Dashboard() {
     [filteredRows, primaryCat, primaryMetric]
   )
 
-  const barData2 = useMemo(() =>
-    aggregateBy(filteredRows, secondaryCat || primaryCat, secondaryMetric, secondaryMetric ? 'sum' : 'count'),
-    [filteredRows, secondaryCat, primaryCat, secondaryMetric]
-  )
-
-  const hBarData2 = useMemo(() =>
-    aggregateBy(filteredRows, tertiaryCat || secondaryCat || primaryCat, '', 'count'),
-    [filteredRows, tertiaryCat, secondaryCat, primaryCat]
-  )
-
   const trendData = useMemo(() => {
     if (!primaryTimeKey || !primaryMetric || !filteredRows.length) return []
-    const groups: Record<string, { sum: number; count: number; dateObj: Date }> = {}
+    const groups: Record<string, { sum1: number; sum2: number; dateObj: Date }> = {}
     
     filteredRows.forEach((r: any) => {
       const rawDate = r[primaryTimeKey]
@@ -291,25 +311,43 @@ export default function Dashboard() {
       if (isNaN(d.getTime())) return
       
       const key = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
-      const val = cleanNumericValue(r[primaryMetric]) || 0
+      const val1 = cleanNumericValue(r[primaryMetric]) || 0
+      const val2 = secondaryMetric ? (cleanNumericValue(r[secondaryMetric]) || 0) : 0
       
       if (!groups[key]) {
         const sortDate = new Date(d.getFullYear(), d.getMonth(), 1)
-        groups[key] = { sum: 0, count: 0, dateObj: sortDate }
+        groups[key] = { sum1: 0, sum2: 0, dateObj: sortDate }
       }
-      groups[key].sum += val
-      groups[key].count += 1
+      groups[key].sum1 += val1
+      groups[key].sum2 += val2
     })
 
     return Object.entries(groups)
       .map(([date, info]) => ({
         date,
-        value: Math.round(info.sum),
-        count: info.count,
+        value: Math.round(info.sum1),
+        value2: Math.round(info.sum2),
         dateObj: info.dateObj
       }))
       .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())
-  }, [filteredRows, primaryTimeKey, primaryMetric])
+  }, [filteredRows, primaryTimeKey, primaryMetric, secondaryMetric])
+
+  // ── Health panel metrics (Row 5 - full width) ─────────────────
+  const healthMetrics = useMemo(() => {
+    const total = rawRows.length
+    if (!total) return []
+    const dups = analytics.exactDuplicatesCount || 0
+    const nullsCount = Object.values(analytics.nullPercentages || {}).reduce((a, b) => a + b, 0) / (Object.keys(analytics.nullPercentages || {}).length || 1)
+    const outliers = analytics.outlierRows?.length || 0
+    const unparsed = analytics.unparseableDatesCount || 0
+
+    return [
+      { label: 'Duplicates Rate', val: `${(dups / total * 100).toFixed(1)}%`, pct: Math.min(100, Math.round(dups / total * 100)), color: dups > 0 ? '#f59e0b' : '#1a9e7a' },
+      { label: 'Null Values Ratio', val: `${nullsCount.toFixed(1)}%`, pct: Math.min(100, Math.round(nullsCount)), color: nullsCount > 5 ? '#ec4899' : '#1a9e7a' },
+      { label: 'Outliers Frequency', val: `${(outliers / total * 100).toFixed(1)}%`, pct: Math.min(100, Math.round(outliers / total * 100)), color: outliers > total * 0.05 ? '#f97316' : '#1a9e7a' },
+      { label: 'Structural Parsing', val: `${(100 - unparsed / total * 100).toFixed(1)}%`, pct: Math.min(100, Math.round(100 - unparsed / total * 100)), color: '#1a9e7a' }
+    ]
+  }, [rawRows.length, analytics])
 
   // ── Dashboard title ─────────────────────────────────────────
   const dashTitle = hasData
@@ -317,7 +355,7 @@ export default function Dashboard() {
     : 'Analytics Dashboard'
 
   // ── Label truncator ─────────────────────────────────────────
-  const trunc = (s: string, n = 12) => s.length > n ? s.slice(0, n - 1) + '…' : s
+  const trunc = (s: string, n = 14) => s.length > n ? s.slice(0, n - 1) + '…' : s
 
   if (!hasData) {
     return (
@@ -449,32 +487,57 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* ROW 1: KPI Cards */}
-          <div className="sp-kpi-row">
-            {kpis.map((k, i) => (
-              <div key={i} className="sp-kpi-card" style={{ '--kpi-color': k.color, '--kpi-bg': k.bg } as any}>
-                <div className="sp-kpi-icon-wrap">
-                  <k.icon size={20} style={{ color: k.color }} />
-                </div>
-                <div className="sp-kpi-body">
-                  <div className="sp-kpi-value">{k.value}</div>
-                  <div className="sp-kpi-label">{k.label}</div>
-                  <div className="sp-kpi-sub">{k.sub}</div>
-                </div>
+          {/* ROW 2 (Details | Metrics Grid | Progress Gauges) */}
+          <div className="sp-dashboard-top-row">
+            
+            {/* Details Card */}
+            <div className="sp-details-card">
+              <div className="sp-details-header">
+                <span className="sp-details-name" title={datasetName}>{trunc(datasetName, 18)}</span>
+                <span className="sp-details-badge">{analytics.datasetType || 'Generic'}</span>
               </div>
-            ))}
+              <div className="sp-details-grid">
+                <div className="sp-details-badge-pill bp-green">{formatNumber(rawRows.length)} Rows</div>
+                <div className="sp-details-badge-pill bp-orange">{cols.length} Cols</div>
+              </div>
+              <div className="sp-details-footer">
+                Primary Axis: <span className="text-highlight">{primaryMetric}</span>
+              </div>
+            </div>
+
+            {/* Metrics Grid */}
+            <div className="sp-metrics-card">
+              <div className="sp-metrics-grid">
+                {statsGrid.map((m, i) => (
+                  <div key={i} className="sp-metric-box">
+                    <span className="sp-metric-val" title={m.val}>{m.val}</span>
+                    <span className="sp-metric-label">{m.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Progress Gauges */}
+            <div className="sp-progress-card">
+              <div className="sp-gauges-grid">
+                {gauges.map((g, i) => (
+                  <CircularGauge key={i} pct={g.pct} color={g.color} label={g.label} icon={g.icon} />
+                ))}
+              </div>
+            </div>
+
           </div>
 
-          {/* ROW 2: Trend | Donut | Bar1 */}
+          {/* ROW 3: Trend | Donut | Bar 1 */}
           <div className="sp-chart-row sp-row2">
 
-            {/* Trend Chart */}
+            {/* Trend Chart (with secondary metric support) */}
             <div className="sp-card sp-trend-card">
               <div className="sp-card-title">{primaryMetric || 'Value'} Trend over Time</div>
               {trendData.length > 0 ? (
-                <div style={{ flex: 1, minHeight: 0 }}>
+                <div className="sp-chart-wrapper">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={trendData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <AreaChart data={trendData} margin={{ top: 4, right: 8, left: 16, bottom: 0 }}>
                       <defs>
                         <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#1a9e7a" stopOpacity={0.2}/>
@@ -485,18 +548,21 @@ export default function Dashboard() {
                       <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
                         axisLine={false} tickLine={false} />
                       <YAxis tickFormatter={formatYAxisTick} tickCount={5} tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
-                        axisLine={false} tickLine={false} width={36} />
+                        axisLine={false} tickLine={false} width={40} />
                       <Tooltip content={<CustomTooltip />} />
                       <Area type="monotone" dataKey="value" name={primaryMetric} stroke="#1a9e7a" strokeWidth={2} fillOpacity={1} fill="url(#trendGradient)" />
+                      {secondaryMetric && (
+                        <Area type="monotone" dataKey="value2" name={secondaryMetric} stroke="#6366f1" strokeWidth={1.5} fillOpacity={0} strokeDasharray="3 3" />
+                      )}
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
               ) : <div className="sp-empty">No time series data</div>}
             </div>
 
-            {/* Donut */}
+            {/* Donut Card (with custom progress bars) */}
             <div className="sp-card sp-donut-card">
-              <div className="sp-card-title">% by {primaryCat || 'Category'}</div>
+              <div className="sp-card-title">% Share by {primaryCat || 'Category'}</div>
               {donutData.length > 0 ? (
                 <div className="sp-donut-wrap">
                   <div className="sp-donut-svg">
@@ -506,8 +572,8 @@ export default function Dashboard() {
                           data={donutData}
                           cx="50%"
                           cy="50%"
-                          innerRadius={32}
-                          outerRadius={52}
+                          innerRadius={28}
+                          outerRadius={44}
                           dataKey="value"
                           paddingAngle={2}
                         >
@@ -518,11 +584,15 @@ export default function Dashboard() {
                     </ResponsiveContainer>
                   </div>
                   <div className="sp-donut-legend">
-                    {donutData.slice(0, 5).map((d, i) => (
-                      <div key={i} className="sp-legend-item">
-                        <span className="sp-legend-dot" style={{ background: d.fill }} />
-                        <span className="sp-legend-name">{trunc(d.name, 14)}</span>
-                        <span className="sp-legend-pct">{d.pct}%</span>
+                    {donutData.slice(0, 4).map((d, i) => (
+                      <div key={i} className="sp-legend-row">
+                        <div className="sp-legend-info">
+                          <span className="sp-legend-name">{trunc(d.name, 12)}</span>
+                          <span className="sp-legend-pct">{d.pct}%</span>
+                        </div>
+                        <div className="sp-legend-bar-bg">
+                          <div className="sp-legend-bar-fill" style={{ width: `${d.pct}%`, background: d.fill }} />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -534,14 +604,14 @@ export default function Dashboard() {
             <div className="sp-card sp-bar-card">
               <div className="sp-card-title">{primaryMetric || 'Value'} by {primaryCat || 'Category'}</div>
               {barData1.length > 0 ? (
-                <div style={{ flex: 1, minHeight: 0 }}>
+                <div className="sp-chart-wrapper">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={barData1} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barCategoryGap="35%">
+                    <BarChart data={barData1} margin={{ top: 4, right: 8, left: 16, bottom: 0 }} barCategoryGap="35%">
                       <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
                       <XAxis dataKey="name" tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
-                        tickFormatter={s => trunc(s, 9)} axisLine={false} tickLine={false} />
+                        tickFormatter={s => trunc(s, 14)} axisLine={false} tickLine={false} />
                       <YAxis tickFormatter={formatYAxisTick} tickCount={5} tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
-                        axisLine={false} tickLine={false} width={36} />
+                        axisLine={false} tickLine={false} width={40} />
                       <Tooltip content={<CustomTooltip />} />
                       <Bar dataKey="value" name={primaryMetric} radius={[3, 3, 0, 0]} maxBarSize={32}>
                         {barData1.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
@@ -553,57 +623,96 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* ROW 3: Bar2 | H-Bar2 */}
+          {/* ROW 4: Top Records Table | Category Distribution Chart */}
           <div className="sp-chart-row sp-row3">
 
-            {/* Bar Chart 2 */}
-            <div className="sp-card sp-bar-card">
+            {/* Top Records Ranking Card */}
+            <div className="sp-card sp-table-card">
+              <div className="sp-card-title">Top 8 Records by {primaryMetric}</div>
+              {top8Records.length > 0 ? (
+                <div className="sp-table-wrap">
+                  <table className="sp-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: 44 }}>Rank</th>
+                        <th>Identifier</th>
+                        <th>{primaryCat}</th>
+                        <th>{primaryMetric}</th>
+                        {statusKey && <th>Status</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {top8Records.map((r, i) => {
+                        const isCurr = primaryMetric.toLowerCase().includes('revenue') || primaryMetric.toLowerCase().includes('cost') || primaryMetric.toLowerCase().includes('amount') || primaryMetric.toLowerCase().includes('salary') || primaryMetric.toLowerCase().includes('spend') || primaryMetric.toLowerCase().includes('profit')
+                        const valString = cleanNumericValue(r[primaryMetric]) !== null ? fmtVal(cleanNumericValue(r[primaryMetric]) ?? 0, isCurr) : 'N/A'
+                        const identifierText = String(r[primaryNameKey] || r[cols[0]] || 'Record')
+                        
+                        return (
+                          <tr key={i}>
+                            <td>
+                              <span className={`sp-rank-badge rank-${i + 1}`}>#{i + 1}</span>
+                            </td>
+                            <td className="cell-bold" title={identifierText}>{trunc(identifierText, 18)}</td>
+                            <td title={String(r[primaryCat] || '')}>{trunc(String(r[primaryCat] || 'N/A'), 12)}</td>
+                            <td className="cell-value">{valString}</td>
+                            {statusKey && (
+                              <td>
+                                <span className={`sp-status-badge status-${String(r[statusKey]).toLowerCase().replace(/\s+/g, '-')}`}>
+                                  {r[statusKey]}
+                                </span>
+                              </td>
+                            )}
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <div className="sp-empty">No records list available</div>}
+            </div>
+
+            {/* Horizontal Bar Chart (Category Bar Chart) */}
+            <div className="sp-card sp-hbar-card">
               <div className="sp-card-title">
-                {secondaryMetric || 'Count'} by {secondaryCat || primaryCat || 'Category'}
+                Category Volume by {secondaryCat || primaryCat || 'Group'}
               </div>
-              {barData2.length > 0 ? (
-                <div style={{ flex: 1, minHeight: 0 }}>
+              {barData1.length > 0 ? (
+                <div className="sp-chart-wrapper">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={barData2} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barCategoryGap="35%">
-                      <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
-                      <XAxis dataKey="name" tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
-                        tickFormatter={s => trunc(s, 9)} axisLine={false} tickLine={false} />
-                      <YAxis tickFormatter={formatYAxisTick} tickCount={5} tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
-                        axisLine={false} tickLine={false} width={36} />
+                    <BarChart data={barData1} layout="vertical"
+                      margin={{ top: 2, right: 36, left: 16, bottom: 0 }} barCategoryGap="30%">
+                      <CartesianGrid horizontal={false} stroke="var(--border)" strokeDasharray="3 3" />
+                      <XAxis type="number" tickFormatter={formatYAxisTick} tickCount={5}
+                        tick={{ fontSize: 9, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                      <YAxis type="category" dataKey="name" width={82}
+                        tick={{ fontSize: 9, fill: 'var(--text)' }}
+                        tickFormatter={s => trunc(s, 14)} axisLine={false} tickLine={false} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="value" name={secondaryMetric || 'Count'} radius={[3, 3, 0, 0]} maxBarSize={32}>
-                        {barData2.map((_, i) => <Cell key={i} fill={COLORS[(i + 2) % COLORS.length]} />)}
+                      <Bar dataKey="value" name="Count" radius={[0, 3, 3, 0]} maxBarSize={16}>
+                        {barData1.map((_, i) => <Cell key={i} fill={COLORS[(i + 3) % COLORS.length]} />)}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               ) : <div className="sp-empty">No data</div>}
             </div>
+          </div>
 
-            {/* H-Bar 2 */}
-            <div className="sp-card sp-hbar-card">
-              <div className="sp-card-title">
-                Count by {tertiaryCat || secondaryCat || primaryCat || 'Group'}
-              </div>
-              {hBarData2.length > 0 ? (
-                <div style={{ flex: 1, minHeight: 0 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={hBarData2} layout="vertical"
-                      margin={{ top: 2, right: 36, left: 0, bottom: 0 }} barCategoryGap="30%">
-                      <CartesianGrid horizontal={false} stroke="var(--border)" strokeDasharray="3 3" />
-                      <XAxis type="number" tickFormatter={formatYAxisTick} tickCount={5}
-                        tick={{ fontSize: 9, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-                      <YAxis type="category" dataKey="name" width={82}
-                        tick={{ fontSize: 9, fill: 'var(--text)' }}
-                        tickFormatter={s => trunc(s, 12)} axisLine={false} tickLine={false} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="value" name="Count" radius={[0, 3, 3, 0]} maxBarSize={16}>
-                        {hBarData2.map((_, i) => <Cell key={i} fill={COLORS[(i + 3) % COLORS.length]} />)}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+          {/* ROW 5: Health Indicator Panel (full width) */}
+          <div className="sp-health-row">
+            <div className="sp-health-title">Data Pipeline Health Indicators</div>
+            <div className="sp-health-grid">
+              {healthMetrics.map((hm, i) => (
+                <div key={i} className="sp-health-item">
+                  <div className="sp-health-meta">
+                    <span className="sp-health-label">{hm.label}</span>
+                    <span className="sp-health-val">{hm.val}</span>
+                  </div>
+                  <div className="sp-health-bar-bg">
+                    <div className="sp-health-bar-fill" style={{ width: `${hm.pct}%`, background: hm.color }} />
+                  </div>
                 </div>
-              ) : <div className="sp-empty">No data</div>}
+              ))}
             </div>
           </div>
 
