@@ -1,17 +1,20 @@
 .app-shell {
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .app-shell.is-dashboard {
   grid-template-columns: 1fr;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .shell-main {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
   overflow: hidden;
 }
 
@@ -20,11 +23,18 @@
   padding: 28px;
   overflow-y: auto;
   animation: fadeIn 0.25s ease;
+  min-height: 0;
 }
 
 .app-shell.is-dashboard .shell-content {
-  padding: 24px;
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
+
 
 /* Loading spinner */
 .app-loading {

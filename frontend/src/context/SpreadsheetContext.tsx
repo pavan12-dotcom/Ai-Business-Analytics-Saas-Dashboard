@@ -182,7 +182,7 @@ function getRandomSubset(arr: any[], size: number): any[] {
 
 function sampleDataset(rows: any[]): { sampledRows: any[]; sampleFlag: string | null } {
   const totalRows = rows.length;
-  if (totalRows <= 10000) {
+  if (totalRows <= 20000) {
     return { sampledRows: rows, sampleFlag: null };
   }
 
