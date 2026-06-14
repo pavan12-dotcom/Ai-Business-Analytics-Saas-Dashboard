@@ -361,25 +361,28 @@
 
 /* ── Row 1 widths ───────────────────────────────────────────── */
 .sp-trend { flex: 1.6; }
-.sp-donut { flex: 0 0 265px; }
+.sp-donut { flex: 0 0 350px; transition: flex 0.2s; }
 
-/* Donut internals — chart on top, legend below */
+/* Donut internals — chart on left, legend on right */
 .sp-donut-inner {
   flex: 1; min-height: 0;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 .sp-donut-chart {
-  flex: 1;
+  flex: 1.3;
+  height: 100%;
   min-height: 0;
 }
 .sp-donut-legend {
-  flex-shrink: 0;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 0 2px;
+  gap: 6px;
+  padding-right: 4px;
 }
 .sp-dl-row {
   display: flex; align-items: center; gap: 6px;
@@ -506,10 +509,10 @@
    RESPONSIVE
 ══════════════════════════════════════════════════════════════ */
 @media (max-width: 1200px) {
-  .sp-donut { flex: 0 0 200px; }
+  .sp-donut { flex: 0 0 310px; }
 }
 @media (max-width: 1000px) {
-  .sp-donut { flex: 0 0 180px; }
+  .sp-donut { flex: 0 0 290px; }
   .sp-main { grid-template-rows: 32px 80px 1.1fr 1fr; }
 }
 @media (max-width: 800px) {

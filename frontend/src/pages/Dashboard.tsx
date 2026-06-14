@@ -410,7 +410,7 @@ export default function Dashboard() {
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie data={donutData} cx="50%" cy="50%"
-                          innerRadius="32%" outerRadius="58%"
+                          innerRadius="40%" outerRadius="80%"
                           dataKey="value" paddingAngle={3}>
                           {donutData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                         </Pie>
