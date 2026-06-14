@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react'
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useSpreadsheet } from '../context/SpreadsheetContext'
 import { formatNumber, formatYAxisTick, cleanNumericValue } from '../services/dataCleaner'
@@ -10,7 +10,7 @@ import {
 } from 'recharts'
 import {
   FolderOpen, UploadCloud, TrendingUp, Database, Layers,
-  BarChart2, Filter, X, ChevronDown, ChevronUp
+  BarChart2, Filter, X, ChevronDown, ChevronUp, Maximize2, Minimize2
 } from 'lucide-react'
 import './Dashboard.css'
 
@@ -83,10 +83,27 @@ export default function Dashboard() {
   const { activeSheet, analytics, hasData, datasetName, loadSample, upload: ctxUpload, uploadDoc } = useSpreadsheet()
   const { isGuest, isGuestTrialExhausted, setShowSignupModal } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadErr, setUploadErr] = useState<string | null>(null)
   const [filterState, setFilterState] = useState<Record<string, Set<string>>>({})
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  // Track native fullscreen change (e.g. user presses Esc)
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', onFsChange)
+    return () => document.removeEventListener('fullscreenchange', onFsChange)
+  }, [])
+
+  const toggleFullscreen = useCallback(async () => {
+    if (!document.fullscreenElement) {
+      await rootRef.current?.requestFullscreen()
+    } else {
+      await document.exitFullscreen()
+    }
+  }, [])
 
   const handleUploadClick = () => {
     if (isGuest && isGuestTrialExhausted()) { setShowSignupModal(true); return }
@@ -238,7 +255,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="sp-root fade-in">
+    <div className={`sp-root fade-in${isFullscreen ? ' sp-fullscreen' : ''}`} ref={rootRef}>
       <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.json,.pdf" style={{ display: 'none' }} onChange={handleFileChange} />
 
       {/* ── Header ─────────────────────────────────────────── */}
@@ -257,6 +274,10 @@ export default function Dashboard() {
           <span className="sp-header-meta">{formatNumber(filteredRows.length)} / {formatNumber(rawRows.length)} rows</span>
           <button className="sp-change-btn" onClick={handleUploadClick}>
             <FolderOpen size={12} /> Change Dataset
+          </button>
+          <button className="sp-fs-btn" onClick={toggleFullscreen} title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}>
+            {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+            <span>{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
           </button>
         </div>
       </div>

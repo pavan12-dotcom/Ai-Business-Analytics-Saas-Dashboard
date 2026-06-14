@@ -80,6 +80,32 @@
 }
 .sp-change-btn:hover { background: rgba(255,255,255,0.22); transform: translateY(-1px); }
 
+.sp-fs-btn {
+  display: flex; align-items: center; gap: 5px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.9); font-size: 10.5px; font-weight: 700;
+  padding: 5px 11px; border-radius: 8px; cursor: pointer;
+  transition: all 0.15s; letter-spacing: 0.01em;
+}
+.sp-fs-btn:hover { background: rgba(255,255,255,0.2); transform: translateY(-1px); }
+.sp-fs-btn span { display: inline; }
+
+/* ── Fullscreen override ─────────────────────────────────────── */
+/* When the dashboard element itself is the fullscreen element   */
+.sp-root:fullscreen,
+.sp-root:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  background: var(--bg);
+}
+/* Shorthand class toggled via JS for any extra overrides */
+.sp-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
 /* ── Body ───────────────────────────────────────────────────── */
 .sp-body {
   display: flex;
