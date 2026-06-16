@@ -36,6 +36,15 @@ interface SpreadsheetContextType {
   sheetNames: SheetInfo[]
   activeSheetName: string
   selectSheet: (name: string) => Promise<void>
+  // Selected Column Overrides
+  selectedTimeKey: string
+  setSelectedTimeKey: React.Dispatch<React.SetStateAction<string>>
+  selectedCategoryKey: string
+  setSelectedCategoryKey: React.Dispatch<React.SetStateAction<string>>
+  selectedPrimaryMetricKey: string
+  setSelectedPrimaryMetricKey: React.Dispatch<React.SetStateAction<string>>
+  selectedSecondaryMetricKey: string
+  setSelectedSecondaryMetricKey: React.Dispatch<React.SetStateAction<string>>
 }
 
 const SpreadsheetContext = createContext<SpreadsheetContextType>({} as SpreadsheetContextType)
@@ -870,6 +879,24 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
     setSheetsFilename('')
   }
 
+  const [selectedTimeKey, setSelectedTimeKey] = useState<string>('')
+  const [selectedCategoryKey, setSelectedCategoryKey] = useState<string>('')
+  const [selectedPrimaryMetricKey, setSelectedPrimaryMetricKey] = useState<string>('')
+  const [selectedSecondaryMetricKey, setSelectedSecondarySecondaryMetricKey] = useState<string>('')
+
+  // Expose normal react setter for secondary metric with custom name to match interface
+  const setSelectedSecondaryMetricKey = (val: React.SetStateAction<string>) => {
+    setSelectedSecondarySecondaryMetricKey(val)
+  }
+
+  // Reset selected keys when active data source changes
+  useEffect(() => {
+    setSelectedTimeKey('')
+    setSelectedCategoryKey('')
+    setSelectedPrimaryMetricKey('')
+    setSelectedSecondarySecondaryMetricKey('')
+  }, [activeSheet, sampleSheet, activeDocument])
+
   // ── Compute analytics whenever any data source changes ────────
   const effectiveSource = activeSheet || sampleSheet || (
     activeDocument?.parsedRows?.length > 0 ? {
@@ -881,12 +908,25 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
 
   const analytics = useMemo(() => {
     if (!effectiveSource) return computeAnalytics([], {}, '')
-    return computeAnalytics(
+    
+    // First compute default values to fall back to if overrides aren't set yet
+    const dryRun = computeAnalytics(
       effectiveSource.rows || [],
       effectiveSource.columns_metadata || {},
       effectiveSource.filename || 'Dataset'
     )
-  }, [effectiveSource])
+    
+    return computeAnalytics(
+      effectiveSource.rows || [],
+      effectiveSource.columns_metadata || {},
+      effectiveSource.filename || 'Dataset',
+      {
+        primaryMetricKey: selectedPrimaryMetricKey || dryRun.primaryMetricKey,
+        primaryTimeKey: selectedTimeKey || dryRun.primaryTimeKey,
+        primaryCategoryKey: selectedCategoryKey || dryRun.primaryCategoryKey,
+      }
+    )
+  }, [effectiveSource, selectedTimeKey, selectedCategoryKey, selectedPrimaryMetricKey])
 
   const hasData = analytics.hasData
   const datasetName = analytics.datasetName
@@ -912,6 +952,14 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       sheetNames,
       activeSheetName,
       selectSheet,
+      selectedTimeKey,
+      setSelectedTimeKey,
+      selectedCategoryKey,
+      setSelectedCategoryKey,
+      selectedPrimaryMetricKey,
+      setSelectedPrimaryMetricKey,
+      selectedSecondaryMetricKey,
+      setSelectedSecondaryMetricKey,
     }}>
       {children}
     </SpreadsheetContext.Provider>

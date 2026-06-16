@@ -561,7 +561,12 @@ export function selectPrimaryMetric(
 export function computeAnalytics(
   rawRows: any[],
   meta: Record<string, string>,
-  filename: string = 'Dataset'
+  filename: string = 'Dataset',
+  overrides?: {
+    primaryMetricKey?: string
+    primaryTimeKey?: string
+    primaryCategoryKey?: string
+  }
 ): AnalyticsResult {
   if (!rawRows || rawRows.length === 0) return EMPTY;
 
@@ -631,15 +636,20 @@ export function computeAnalytics(
   // Primary Metric Selection (Algorithm 5)
   const numericCols = cols.filter(c => detailedTypes[c].type === 'NUMERIC');
   const metricSelection = selectPrimaryMetric(numericCols, cleanedMetrics, detailedTypes);
-  const primaryMetricKey = metricSelection.primary;
+  const primaryMetricKey = overrides?.primaryMetricKey || metricSelection.primary;
   
   // Pick primary date/time axis
   const dateCols = cols.filter(c => detailedTypes[c].type === 'DATE');
-  const primaryTimeKey = dateCols[0] || '';
+  const primaryTimeKey = overrides?.primaryTimeKey || dateCols[0] || '';
 
   // Pick primary category col
   const catCols = cols.filter(c => detailedTypes[c].type === 'LOW_CATEGORY' || detailedTypes[c].type === 'MED_CATEGORY' || detailedTypes[c].type === 'BOOLEAN');
-  const primaryCategoryKey = catCols.find(c => /plan|category|segment|type|department|subject|product|warehouse/i.test(c)) || catCols[0] || '';
+  const primaryCategoryKey = overrides?.primaryCategoryKey || catCols.find(c => /plan|category|segment|type|department|subject|product|warehouse/i.test(c)) || catCols[0] || '';
+
+  // Update valueMetricName if overridden
+  if (overrides?.primaryMetricKey) {
+    valueMetricName = overrides.primaryMetricKey;
+  }
 
   // Set identifier name key
   const idCols = cols.filter(c => detailedTypes[c].type === 'IDENTIFIER');

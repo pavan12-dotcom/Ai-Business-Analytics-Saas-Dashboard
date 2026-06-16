@@ -22,17 +22,21 @@
   flex: 1;
   padding: 28px;
   overflow-y: auto;
+  overflow-x: hidden;
   animation: fadeIn 0.25s ease;
   min-height: 0;
+  scroll-behavior: smooth;
 }
 
 .app-shell.is-dashboard .shell-content {
   padding: 0;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
+  scroll-behavior: smooth;
 }
 
 

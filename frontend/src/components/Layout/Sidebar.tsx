@@ -71,10 +71,10 @@ export default function Sidebar() {
   }
 
   const dynamicNav = [
-    { to: '/app', label: 'Dashboard',    icon: <LayoutDashboard size={16} />, end: true },
-    { to: '/app/analytics', label: 'Analytics',  icon: <TrendingUp size={16} /> },
-    { to: '/app/customers', label: entityLabel,  icon: <Users size={16} /> },
-    { to: '/app/revenue',   label: valueLabel,    icon: <DollarSign size={16} /> },
+    { to: '/app',           label: 'Dashboard',           icon: <LayoutDashboard size={16} />, end: true },
+    { to: '/app/analytics', label: 'Analytics Workspace', icon: <TrendingUp size={16} /> },
+    { to: '/app/customers', label: 'Customer Intelligence',icon: <Users size={16} /> },
+    { to: '/app/revenue',   label: 'Financial Intelligence',icon: <DollarSign size={16} /> },
   ]
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
