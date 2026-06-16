@@ -593,10 +593,11 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
             return
           }
 
-          // Limit files to 500,000 rows for browser performance
-          const maxRows = 500000
+          // Limit files to 20,000 rows (Excel) and 2,000 rows (CSV, JSON) for performance
+          const isExcel = extension === 'xlsx' || extension === 'xls'
+          const maxRows = isExcel ? 20000 : 2000
           if (json.length > maxRows) {
-            resolve({ success: false, error: `Dataset exceeds the limit of ${maxRows.toLocaleString()} rows. Please upload a smaller file.` })
+            resolve({ success: false, error: `Dataset exceeds the limit of ${maxRows.toLocaleString()} rows for ${isExcel ? 'Excel' : 'CSV/JSON'} files. Please upload a smaller file.` })
             return
           }
 
@@ -624,7 +625,6 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
             }
           })
 
-          const isExcel = extension === 'xlsx' || extension === 'xls'
           const payload = {
             filename: file.name,
             headers,

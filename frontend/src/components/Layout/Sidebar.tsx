@@ -150,7 +150,7 @@ export default function Sidebar() {
                 </>
               )}
             </button>
-            <span className="sidebar-upload-tip">Max 10,000 rows (Excel) / 2,000 rows (CSV, JSON)</span>
+            <span className="sidebar-upload-tip">Max 20,000 rows (Excel) / 2,000 rows (CSV, JSON)</span>
           </div>
         )}
         {error && <div className="sidebar-upload-error">{error}</div>}
