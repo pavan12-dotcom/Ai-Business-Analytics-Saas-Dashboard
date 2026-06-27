@@ -6,6 +6,7 @@
 
 import { detectDetailedColumnType, type DetailedColumnInfo } from './columnDetection'
 import { cleanNumericColumn, cleanDateColumn, cleanCategoryColumn, detectDuplicates, formatNumber, cleanNumericValue, DIRTY_SENTINEL_VALUES } from './dataCleaner'
+import { classifyDomainWeighted } from './kpiEngine'
 
 export interface EngineKPI {
   label: string
@@ -451,6 +452,23 @@ export function detectDomain(
     }
   });
   scores.INVENTORY = invScore;
+
+  // Apply Weighted Signatures Boost (Bug 5 fix)
+  const weightedDomain = classifyDomainWeighted(cols)
+  if (weightedDomain !== 'GENERIC') {
+    if (weightedDomain === 'ECOMMERCE') ecoScore += 50
+    else if (weightedDomain === 'SAAS') salesScore += 50
+    else if (weightedDomain === 'FINANCE') finScore += 50
+    else if (weightedDomain === 'HR') hrScore += 50
+    else if (weightedDomain === 'MARKETING') mktScore += 50
+
+    scores.ECOMMERCE = ecoScore
+    scores.SALES_CRM = salesScore
+    scores.FINANCE = finScore
+    scores.HR = hrScore
+    scores.MARKETING = mktScore
+    evidence.push(`Weighted signature classification match: ${weightedDomain}`)
+  }
 
   // Select Domain
   let topDomain = 'GENERIC';

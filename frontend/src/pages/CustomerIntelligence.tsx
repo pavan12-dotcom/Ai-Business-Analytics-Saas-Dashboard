@@ -12,6 +12,7 @@ import {
 } from 'recharts'
 import { ArrowUpRight, ArrowDownRight, Zap, Clock, Check, Activity, UploadCloud, X } from 'lucide-react'
 import RecommendedDatasetsWorkspace from '../components/RecommendedDatasetsWorkspace'
+import { computeCustomerKPIs, getSegmentCategories, resolveColumnForWidget } from '../services/kpiEngine'
 import './Intelligence.css'
 
 // ── Mock fallbacks ────────────────────────────────────────────
@@ -153,12 +154,19 @@ export default function CustomerIntelligence() {
 
   const trunc = (s: string, n = 15) => s.length > n ? s.slice(0, n - 1) + '…' : s
 
-  // ── Derived counts ─────────────────────────────────────────
-  const activeCount  = customers.filter(c=>c.status==='Active').length
-  const atRiskCount  = customers.filter(c=>c.status==='Pending').length
-  const churnedCount = customers.filter(c=>c.status==='Churned').length
-  const totalCount   = hasData ? (customers.length || totalRows) : 3841
-  const churnPct     = totalCount > 0 ? ((churnedCount / totalCount) * 100) : 2.3
+  // ── Derived counts (Atomic KPI pass via kpiEngine) ─────────
+  const computedKPIs = useMemo(() => {
+    if (hasData && rawRows.length > 0) {
+      return computeCustomerKPIs(rawRows, meta)
+    }
+    return { total: 3841, active: 2890, atRisk: 680, churned: 271, churnRate: 7.1 }
+  }, [hasData, rawRows, meta])
+
+  const activeCount  = computedKPIs.active
+  const atRiskCount  = computedKPIs.atRisk
+  const churnedCount = computedKPIs.churned
+  const totalCount   = computedKPIs.total
+  const churnPct     = computedKPIs.churnRate
 
   // ── REAL segment data from categories ─────────────────────
   const segData = useMemo(() => {

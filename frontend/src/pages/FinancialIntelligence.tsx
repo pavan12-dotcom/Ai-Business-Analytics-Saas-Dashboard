@@ -12,6 +12,7 @@ import {
 } from 'recharts'
 import { DollarSign, TrendingUp, ArrowUpRight, ArrowDownRight, Zap, CheckCircle, Clock, Check, Activity, UploadCloud, X } from 'lucide-react'
 import RecommendedDatasetsWorkspace from '../components/RecommendedDatasetsWorkspace'
+import { computeRatio, computeCustomerKPIs, resolveColumnForWidget } from '../services/kpiEngine'
 import './Intelligence.css'
 
 // ── Mock fallbacks ─────────────────────────────────────────────
@@ -156,20 +157,34 @@ export default function FinancialIntelligence() {
 
   const trunc = (s: string, n = 15) => s.length > n ? s.slice(0, n - 1) + '…' : s
 
-  // ── Core financial KPIs ────────────────────────────────────
+  // ── Core financial KPIs (Atomic pass via kpiEngine) ────────
+  const computedKPIs = useMemo(() => {
+    if (hasData && activeSheet?.rows?.length) {
+      return computeCustomerKPIs(activeSheet.rows, meta)
+    }
+    return { total: 3841, active: 2890, atRisk: 680, churned: 271, churnRate: 7.1 }
+  }, [hasData, activeSheet, meta])
+
   const revKpi    = kpis.find(k => /total|revenue|amount|salary|cost|value/i.test(k.label))
   const avgKpi    = kpis.find(k => /average|avg|mean/i.test(k.label))
   const rawRevenue = revKpi?.rawValue || 0
-  const rawAvg     = avgKpi?.rawValue || (rawRevenue / Math.max(1, customers.length || totalRows || 1))
+  const rawAvg     = avgKpi?.rawValue || (rawRevenue / Math.max(1, computedKPIs.total || 1))
 
-  const activeCount  = customers.filter(c => c.status === 'Active').length
-  const churnedCount = customers.filter(c => c.status === 'Churned').length
-  const totalCount   = customers.length || totalRows || 1
-  const churnPct     = totalCount > 0 ? (churnedCount / totalCount) * 100 : 0
+  const activeCount  = computedKPIs.active
+  const churnedCount = computedKPIs.churned
+  const totalCount   = computedKPIs.total
+  const churnPct     = computedKPIs.churnRate
   const arpuVal      = activeCount > 0 ? rawRevenue / activeCount : rawAvg || 62
-  const ltvVal       = churnPct > 0 ? (arpuVal / (churnPct / 100)) : arpuVal * 15
-  const cacEst       = arpuVal * 1.8
-  const ltvCacRatio  = cacEst > 0 ? ltvVal / cacEst : 10.3
+
+  // Safe Ratio Evaluation (Bug 4 fix)
+  const ratioResult = useMemo(() => {
+    if (hasData && activeSheet?.rows?.length) {
+      return computeRatio(activeSheet.rows, 'ltv', 'cac', meta)
+    }
+    return { value: '4.8x', rawRatio: 4.8, reason: null }
+  }, [hasData, activeSheet, meta])
+
+  const ltvCacRatioStr = ratioResult.value ?? (churnPct > 0 ? `${Math.min(25, Math.max(1.1, (arpuVal / (churnPct / 100)) / (arpuVal * 1.8))).toFixed(1)}x` : '4.2x')
 
   const isCurrency   = /revenue|mrr|amount|salary|cost|price|sales|income|spend|profit/i.test(valueMetricName)
 
@@ -266,20 +281,21 @@ export default function FinancialIntelligence() {
   }, [hasData, forecastData, monthlyData])
 
   // ── Unit Economics ─────────────────────────────────────────
+  const numRatio = ratioResult.rawRatio || 4.2
   const unitValues = useMemo(() => {
     if (hasData && rawRevenue > 0) {
       const grossMargin = Math.min(90, Math.max(40, 100 - (rawAvg / (rawRevenue / Math.max(totalCount, 1))) * 30))
       return [
         isCurrency ? `$${formatNumber(Math.round(arpuVal))}` : formatNumber(Math.round(arpuVal)),
-        `${(cacEst / Math.max(arpuVal, 1)).toFixed(1)}mo`,
+        `1.8mo`,
         `${grossMargin.toFixed(1)}%`,
-        `${Math.min(130, Math.round(100 + ltvCacRatio * 2))}%`,
-        `${(ltvCacRatio / 8).toFixed(1)}x`,
-        `${Math.round(Math.min(65, ltvCacRatio * 3.5))}`,
+        `${Math.min(130, Math.round(100 + numRatio * 2))}%`,
+        `${(numRatio / 8).toFixed(1)}x`,
+        `${Math.round(Math.min(65, numRatio * 3.5))}`,
       ]
     }
     return ['$62', '1.9mo', '74.2%', '118%', '1.4x', '52']
-  }, [hasData, rawRevenue, arpuVal, cacEst, ltvCacRatio, rawAvg, totalCount, isCurrency])
+  }, [hasData, rawRevenue, arpuVal, numRatio, rawAvg, totalCount, isCurrency])
 
   if (!hasData) {
     return <RecommendedDatasetsWorkspace featureName="Financial Intelligence" />
@@ -311,7 +327,7 @@ export default function FinancialIntelligence() {
         />
         <StatPill
           label="LTV : CAC"
-          value={hasData ? `${ltvCacRatio.toFixed(1)}x` : '10.3x'}
+          value={hasData ? ltvCacRatioStr : '10.3x'}
           change="+1.2x" up
         />
       </div>
