@@ -9,8 +9,9 @@ import {
 import {
   UploadCloud, TrendingUp, TrendingDown, Database, Layers,
   Filter, X, ChevronDown, ChevronUp, Maximize2, Minimize2, Check,
-  Activity, ArrowUpRight, ArrowDownRight, FileText
+  Activity, ArrowUpRight, ArrowDownRight, FileText, Loader2
 } from 'lucide-react'
+import { SAMPLE_DATASETS } from '../data/sampleDatasets'
 import './Dashboard.css'
 
 // Premium color palettes matching mockup
@@ -121,6 +122,7 @@ export default function Dashboard() {
     setSelectedPrimaryMetricKey,
     selectedSecondaryMetricKey,
     setSelectedSecondaryMetricKey,
+    loadSample,
   } = useSpreadsheet()
   const { isGuest, isGuestTrialExhausted, setShowSignupModal } = useAuth()
   
@@ -359,6 +361,156 @@ export default function Dashboard() {
   const pagesList = dynamicPages.length > 0 ? dynamicPages : MOCK_MOCKUP_DATA.pages
   const socialList = dynamicSocial.length > 0 ? dynamicSocial : MOCK_MOCKUP_DATA.social
   const timeOnSiteList = dynamicTimeOnSite.length > 0 ? dynamicTimeOnSite : MOCK_MOCKUP_DATA.timeOnSite
+
+  if (!hasData) {
+    return (
+      <div className={`dashboard-shell fade-in${isFullscreen ? ' fs-active' : ''}`} ref={rootRef}>
+        <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.json" style={{ display: 'none' }} onChange={handleFileChange} />
+        
+        <div className="dashboard-empty-state-workspace" style={{
+          padding: '40px 24px',
+          maxWidth: '1000px',
+          margin: '0 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '32px',
+          fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif"
+        }}>
+          {/* Header */}
+          <div style={{ textAlign: 'center', maxWidth: '600px' }}>
+            <h2 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text)', marginBottom: '10px' }}>Welcome to Value Analytics</h2>
+            <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+              Connect your data. Choose a recommended sample dataset below to explore, or upload your own Excel/CSV file to start generating real-time analytics.
+            </p>
+          </div>
+
+          {/* Upload Card */}
+          <div 
+            onClick={handleUploadClick}
+            className="glass-card"
+            style={{
+              width: '100%',
+              border: '2px dashed var(--border)',
+              borderRadius: '16px',
+              padding: '48px 24px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '16px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxSizing: 'border-box'
+            }}
+          >
+            <div style={{
+              width: '54px',
+              height: '54px',
+              borderRadius: '50%',
+              background: 'rgba(99, 102, 241, 0.1)',
+              color: 'var(--accent)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              {uploading ? (
+                <Loader2 size={24} className="spin" />
+              ) : (
+                <UploadCloud size={24} />
+              )}
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)', display: 'block', marginBottom: '4px' }}>
+                {uploading ? 'Processing file...' : 'Upload your custom spreadsheet'}
+              </span>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                Supports Microsoft Excel (.xlsx, .xls), CSV (.csv), or JSON (.json)
+              </span>
+            </div>
+            {uploadErr && (
+              <div style={{ color: 'var(--red)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '8px' }}>
+                <Check size={12} style={{ transform: 'rotate(45deg)', color: 'var(--red)' }} /> {uploadErr}
+              </div>
+            )}
+          </div>
+
+          {/* Section Divider */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '100%',
+            gap: '16px',
+            color: 'var(--text-muted)',
+            fontSize: '11px',
+            fontWeight: 800,
+            letterSpacing: '0.1em'
+          }}>
+            <span style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+            <span>OR CHOOSE A SAMPLE DATASET</span>
+            <span style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+          </div>
+
+          {/* Recommended Datasets Grid */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: '16px',
+            width: '100%'
+          }}>
+            {SAMPLE_DATASETS.map(ds => (
+              <div 
+                key={ds.id}
+                onClick={() => loadSample(ds)}
+                className="glass-card ds-hover-card"
+                style={{
+                  borderRadius: '16px',
+                  padding: '24px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  transition: 'all 0.2s ease',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  boxSizing: 'border-box'
+                }}
+              >
+                {/* Visual Glow Indicator */}
+                <span style={{
+                  position: 'absolute',
+                  top: 0, left: 0,
+                  width: '4px', height: '100%',
+                  background: ds.tagColor
+                }} />
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '28px' }}>{ds.icon}</span>
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    padding: '3px 8px',
+                    borderRadius: '12px',
+                    background: `${ds.tagColor}12`,
+                    color: ds.tagColor,
+                    border: `1px solid ${ds.tagColor}20`
+                  }}>{ds.tag}</span>
+                </div>
+
+                <div>
+                  <h3 style={{ fontSize: '15px', fontWeight: 750, color: 'var(--text)', marginBottom: '4px' }}>{ds.name}</h3>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.5' }}>{ds.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={`dashboard-shell fade-in${isFullscreen ? ' fs-active' : ''}`} ref={rootRef}>
