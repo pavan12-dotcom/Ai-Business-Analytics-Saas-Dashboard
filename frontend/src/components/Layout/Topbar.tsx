@@ -114,9 +114,8 @@ export default function Topbar({ onToggleSidebar, isDashboard }: { onToggleSideb
   const getStatusBadge = () => {
     if (realtimeStatus === 'live') {
       return (
-        <div className="db-status-badge db-connected" title="Connected to Supabase Realtime">
+        <div className="db-status-badge db-connected" title="Connected to Supabase Realtime" style={{ padding: '6px 10px' }}>
           <span className="db-dot dot-green" />
-          Live ● Realtime
         </div>
       )
     }
@@ -125,9 +124,8 @@ export default function Topbar({ onToggleSidebar, isDashboard }: { onToggleSideb
       case 'connected':
       case 'empty_seeded':
         return (
-          <div className="db-status-badge db-connected" title={message}>
+          <div className="db-status-badge db-connected" title={message} style={{ padding: '6px 10px' }}>
             <span className="db-dot dot-green" />
-            Live DB
           </div>
         )
       case 'no_tables':
