@@ -224,7 +224,7 @@ export default function Topbar({ onToggleSidebar, isDashboard }: { onToggleSideb
                 </>
               ) : (
                 <>
-                  <CheckCircle2 size={12} style={{ color: '#4ade80' }} /> Demo: {remainingTrials} Trial{remainingTrials !== 1 ? 's' : ''} & {remainingQuestions} Q{remainingQuestions !== 1 ? 's' : ''} Left
+                  <CheckCircle2 size={12} style={{ color: '#4ade80' }} /> Demo
                 </>
               )}
             </div>
