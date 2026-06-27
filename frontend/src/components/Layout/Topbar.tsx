@@ -214,18 +214,12 @@ export default function Topbar({ onToggleSidebar, isDashboard }: { onToggleSideb
                 transition: 'all 0.3s ease'
               }}
             >
-              <span
-                className={isExhausted ? 'db-dot dot-red-pulse' : 'db-dot dot-green'}
-                style={{ background: isExhausted ? '#f87171' : '#4ade80' }}
-              />
               {isExhausted ? (
                 <>
                   <AlertCircle size={12} style={{ color: '#f87171' }} /> Demo Limit Reached
                 </>
               ) : (
-                <>
-                  <CheckCircle2 size={12} style={{ color: '#4ade80' }} /> Demo
-                </>
+                <span>Demo Mode</span>
               )}
             </div>
           )
