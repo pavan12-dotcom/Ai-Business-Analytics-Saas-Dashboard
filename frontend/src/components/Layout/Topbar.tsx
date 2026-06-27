@@ -20,7 +20,9 @@ import {
   CheckCircle2,
   Moon,
   Sun,
-  Menu
+  Menu,
+  Maximize2,
+  Minimize2
 } from 'lucide-react'
 import { logActivity } from '../../services/audit'
 import { formatNumber } from '../../services/dataCleaner'
@@ -43,6 +45,22 @@ export default function Topbar({ onToggleSidebar, isDashboard }: { onToggleSideb
   const { user, userRole, setRole, isGuest, guestQueryCount, uploadCount } = useAuth()
   const { sheetNames, activeSheetName, selectSheet } = useSpreadsheet()
   const title = titles[pathname] ?? 'Dashboard'
+
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', onFsChange)
+    return () => document.removeEventListener('fullscreenchange', onFsChange)
+  }, [])
+
+  const toggleFullscreen = async () => {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen()
+    } else {
+      await document.exitFullscreen()
+    }
+  }
 
   const [dbStatus, setDbStatus] = useState<{ status: string; message: string }>({
     status: 'checking',
@@ -492,6 +510,16 @@ export default function Topbar({ onToggleSidebar, isDashboard }: { onToggleSideb
             </div>
           )}
         </div>
+
+        {/* Fullscreen Toggler */}
+        <button 
+          className="theme-toggle-btn" 
+          onClick={toggleFullscreen} 
+          title={isFullscreen ? 'Exit Fullscreen' : 'Toggle Fullscreen'}
+          style={{ cursor: 'pointer', outline: 'none' }}
+        >
+          {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+        </button>
 
         {/* Theme Toggler */}
         <button 
