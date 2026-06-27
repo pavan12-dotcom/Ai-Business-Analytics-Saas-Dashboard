@@ -658,7 +658,7 @@ export default function Dashboard() {
               </div>
               <div className="kpi-value">{kpiCard1.val}</div>
               <div className="kpi-sparkline-wrap">
-                <ResponsiveContainer width="100%" height={38}>
+                <ResponsiveContainer width="100%" height={28}>
                   <AreaChart data={spark1} margin={{ top: 2, bottom: 0, left: 0, right: 0 }}>
                     <defs>
                       <linearGradient id="grad-spark1" x1="0" y1="0" x2="0" y2="1">
@@ -666,7 +666,7 @@ export default function Dashboard() {
                         <stop offset="95%" stopColor={kpiCard1.color} stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <Area type="monotone" dataKey="val" stroke={kpiCard1.color} strokeWidth={2.5} fill="url(#grad-spark1)" dot={false} />
+                    <Area type="monotone" dataKey="val" stroke={kpiCard1.color} strokeWidth={2.2} fill="url(#grad-spark1)" dot={false} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -683,7 +683,7 @@ export default function Dashboard() {
               </div>
               <div className="kpi-value">{kpiCard2.val}</div>
               <div className="kpi-sparkline-wrap">
-                <ResponsiveContainer width="100%" height={38}>
+                <ResponsiveContainer width="100%" height={28}>
                   <AreaChart data={spark2} margin={{ top: 2, bottom: 0, left: 0, right: 0 }}>
                     <defs>
                       <linearGradient id="grad-spark2" x1="0" y1="0" x2="0" y2="1">
@@ -691,7 +691,7 @@ export default function Dashboard() {
                         <stop offset="95%" stopColor={kpiCard2.color} stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <Area type="monotone" dataKey="val" stroke={kpiCard2.color} strokeWidth={2.5} fill="url(#grad-spark2)" dot={false} />
+                    <Area type="monotone" dataKey="val" stroke={kpiCard2.color} strokeWidth={2.2} fill="url(#grad-spark2)" dot={false} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -708,7 +708,7 @@ export default function Dashboard() {
               </div>
               <div className="kpi-value">{kpiCard3.val}</div>
               <div className="kpi-sparkline-wrap">
-                <ResponsiveContainer width="100%" height={38}>
+                <ResponsiveContainer width="100%" height={28}>
                   <AreaChart data={spark3} margin={{ top: 2, bottom: 0, left: 0, right: 0 }}>
                     <defs>
                       <linearGradient id="grad-spark3" x1="0" y1="0" x2="0" y2="1">
@@ -716,7 +716,7 @@ export default function Dashboard() {
                         <stop offset="95%" stopColor={kpiCard3.color} stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <Area type="monotone" dataKey="val" stroke={kpiCard3.color} strokeWidth={2.5} fill="url(#grad-spark3)" dot={false} />
+                    <Area type="monotone" dataKey="val" stroke={kpiCard3.color} strokeWidth={2.2} fill="url(#grad-spark3)" dot={false} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
