@@ -9,10 +9,22 @@ import {
 import {
   UploadCloud, TrendingUp, TrendingDown, Database, Layers,
   Filter, X, ChevronDown, ChevronUp, Maximize2, Minimize2, Check,
-  Activity, ArrowUpRight, ArrowDownRight, FileText, Loader2
+  Activity, ArrowUpRight, ArrowDownRight, FileText, Loader2,
+  ShoppingBag, DollarSign, Users, Megaphone
 } from 'lucide-react'
 import { SAMPLE_DATASETS } from '../data/sampleDatasets'
 import './Dashboard.css'
+
+const getDsIcon = (iconName: string) => {
+  switch (iconName) {
+    case 'ShoppingBag': return <ShoppingBag size={20} />
+    case 'TrendingUp': return <TrendingUp size={20} />
+    case 'DollarSign': return <DollarSign size={20} />
+    case 'Users': return <Users size={20} />
+    case 'Megaphone': return <Megaphone size={20} />
+    default: return <TrendingUp size={20} />
+  }
+}
 
 // Premium color palettes matching mockup
 const CHART_COLORS = ['#f97316', '#06b6d4', '#a855f7', '#ec4899', '#10b981']
@@ -541,7 +553,19 @@ export default function Dashboard() {
                     background: ds.tagColor
                   }} />
 
-                  <span style={{ fontSize: '20px', flexShrink: 0 }}>{ds.icon}</span>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: `${ds.tagColor}15`,
+                    color: ds.tagColor,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    {getDsIcon(ds.icon)}
+                  </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

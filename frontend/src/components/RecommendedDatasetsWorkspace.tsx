@@ -2,7 +2,18 @@ import React, { useRef, useState } from 'react'
 import { useSpreadsheet } from '../context/SpreadsheetContext'
 import { useAuth } from '../context/AuthContext'
 import { SAMPLE_DATASETS } from '../data/sampleDatasets'
-import { UploadCloud, Loader2, Check } from 'lucide-react'
+import { UploadCloud, Loader2, Check, ShoppingBag, TrendingUp, DollarSign, Users, Megaphone } from 'lucide-react'
+
+const getDsIcon = (iconName: string) => {
+  switch (iconName) {
+    case 'ShoppingBag': return <ShoppingBag size={20} />
+    case 'TrendingUp': return <TrendingUp size={20} />
+    case 'DollarSign': return <DollarSign size={20} />
+    case 'Users': return <Users size={20} />
+    case 'Megaphone': return <Megaphone size={20} />
+    default: return <TrendingUp size={20} />
+  }
+}
 
 export default function RecommendedDatasetsWorkspace({ featureName = 'Analytics' }: { featureName?: string }) {
   const { loadSample, upload, uploadDoc } = useSpreadsheet()
@@ -157,7 +168,19 @@ export default function RecommendedDatasetsWorkspace({ featureName = 'Analytics'
                   background: ds.tagColor
                 }} />
 
-                <span style={{ fontSize: '20px', flexShrink: 0 }}>{ds.icon}</span>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: `${ds.tagColor}15`,
+                  color: ds.tagColor,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  {getDsIcon(ds.icon)}
+                </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
