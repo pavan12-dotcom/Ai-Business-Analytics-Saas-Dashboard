@@ -584,6 +584,28 @@ export default function Dashboard() {
               <span>COLUMNS FILTERS</span>
             </div>
             <div className="filters-list-container">
+              <button 
+                onClick={reset} 
+                className="filters-show-more-btn" 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px', 
+                  padding: '6px 8px', 
+                  marginBottom: '8px', 
+                  borderRadius: '6px', 
+                  background: 'rgba(99,102,241,0.08)', 
+                  border: '1px solid rgba(99,102,241,0.2)', 
+                  color: 'var(--accent)', 
+                  fontSize: '10px', 
+                  fontWeight: 750, 
+                  cursor: 'pointer', 
+                  width: '100%' 
+                }}
+              >
+                <Database size={12} />
+                <span>Switch Dataset</span>
+              </button>
               {Object.entries(filterOptions).map(([col, options]) => {
                 const chosen = filterState[col] || new Set()
                 const isOpen = !collapsed[col]
@@ -621,47 +643,6 @@ export default function Dashboard() {
         )}
 
         <div className="dashboard-content-main">
-          {/* Active Dataset Bar with Quick-Switch to Recommended Datasets */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '10px 16px',
-            marginBottom: '16px',
-            background: 'var(--card-bg, rgba(255, 255, 255, 0.7))',
-            backdropFilter: 'blur(12px)',
-            borderRadius: '12px',
-            border: '1px solid var(--border)',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
-              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>Active Dataset:</span>
-              <span style={{ fontSize: '13px', fontWeight: 750, color: 'var(--text)' }}>{datasetName || activeSheet?.filename || 'Loaded Dataset'}</span>
-            </div>
-            <button
-              onClick={reset}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                border: '1px solid var(--border)',
-                background: 'var(--bg-subtle, #f8fafc)',
-                color: 'var(--text)',
-                fontSize: '12px',
-                fontWeight: 650,
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text)'; }}
-            >
-              <Database size={13} />
-              <span>Recommended Datasets</span>
-            </button>
-          </div>
 
           {/* ════ ROW 1: 3 KPI cards + Devices Donut ════ */}
           <div className="dashboard-row row-kpis-devices">

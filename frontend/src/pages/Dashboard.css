@@ -371,15 +371,15 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 /* ════ Cards Overhaul ════ */
 .kpi-card-mockup, .devices-donut-card, .realtime-data-card, .site-traffic-card, .pages-list-card, .social-traffic-card, .middle-time-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 20px;
+  border-radius: 14px;
+  padding: 14px 16px;
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
@@ -397,24 +397,24 @@
 .row-kpis-devices {
   display: grid;
   grid-template-columns: repeat(3, 1fr) 1.3fr;
-  gap: 16px;
+  gap: 10px;
 }
 
 .kpi-card-mockup {
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: 10px 14px;
 }
 
 .kpi-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .kpi-title {
-  font-size: 11.5px;
-  font-weight: 700;
+  font-size: 10.5px;
+  font-weight: 750;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -424,7 +424,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
 }
 
@@ -437,24 +437,24 @@
 }
 
 .kpi-value {
-  font-size: 30px;
-  font-weight: 900;
+  font-size: 24px;
+  font-weight: 850;
   color: var(--text);
-  letter-spacing: -0.04em;
+  letter-spacing: -0.03em;
   font-family: 'Plus Jakarta Sans', sans-serif;
   line-height: 1.1;
-  margin: 6px 0;
+  margin: 2px 0;
 }
 
 .kpi-sparkline-wrap {
   width: 100%;
-  height: 24px;
-  margin-top: 6px;
+  height: 18px;
+  margin-top: 2px;
 }
 
 /* ── Devices Donut Card ── */
 .devices-donut-card {
-  padding: 16px 20px;
+  padding: 10px 14px;
 }
 
 .devices-card-header {
@@ -562,14 +562,14 @@
 .row-middle-charts {
   display: grid;
   grid-template-columns: 1fr 2fr 1.3fr;
-  gap: 16px;
+  gap: 10px;
 }
 
 .card-header-mockup {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   flex-shrink: 0;
 }
 
@@ -742,7 +742,7 @@
 .row-bottom-charts {
   display: grid;
   grid-template-columns: 1fr 1.3fr;
-  gap: 16px;
+  gap: 10px;
 }
 
 /* Social Traffic */
