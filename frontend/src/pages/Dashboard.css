@@ -853,3 +853,13 @@
   .pages-list-card { grid-column: span 1; }
   .row-bottom-charts { grid-template-columns: 1fr; }
 }
+
+/* Recommended Datasets Hover Card */
+.ds-hover-card {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ds-hover-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -10px rgba(99, 102, 241, 0.25);
+  border-color: rgba(99, 102, 241, 0.4) !important;
+}

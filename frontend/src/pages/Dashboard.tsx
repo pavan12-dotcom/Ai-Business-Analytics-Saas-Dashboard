@@ -369,7 +369,7 @@ export default function Dashboard() {
         
         <div className="dashboard-empty-state-workspace" style={{
           padding: '40px 24px',
-          maxWidth: '1000px',
+          maxWidth: '100%',
           margin: '0 auto',
           display: 'flex',
           flexDirection: 'column',
@@ -455,7 +455,7 @@ export default function Dashboard() {
           {/* Recommended Datasets Grid */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
             gap: '16px',
             width: '100%'
           }}>
