@@ -180,7 +180,9 @@ export default function Dashboard() {
   const primaryMetric = selectedPrimaryMetricKey || analytics.primaryMetricKey || metricCols[0] || ''
   const secondMetric  = selectedSecondaryMetricKey || metricCols.find(c => c !== primaryMetric) || ''
   const primaryCat    = selectedCategoryKey || analytics.primaryCategoryKey || catCols[0] || ''
-  const secondCat     = catCols.find(c => c !== primaryCat) || catCols[1] || ''
+  const secondCat     = catCols.find(c => c !== primaryCat) || catCols[1] || analytics.statusKey || cols[1] || ''
+  const thirdCat      = analytics.primaryNameKey || cols.find(c => /product|item|sku|customer|name|title|page/i.test(c)) || catCols[2] || cols[0] || ''
+  const fourthCat     = catCols.find(c => c !== primaryCat && c !== secondCat && c !== thirdCat) || cols.find(c => /channel|method|payment|type|segment|region/i.test(c)) || catCols[3] || cols[2] || ''
   const timeKey       = selectedTimeKey || analytics.primaryTimeKey || dateCols[0] || ''
 
   // ── Filter options ──
@@ -262,7 +264,6 @@ export default function Dashboard() {
     const aggregated = agg(filteredRows, primaryCat, primaryMetric, 'sum')
     const totalVal = aggregated.reduce((s, x) => s + x.value, 0)
     
-    // Distribute into 3 slices: Desktop/Mobile/Tablet representations
     const desktopSlice = aggregated[0] || { name: 'Primary Group', value: 0 }
     const mobileSlice = aggregated[1] || { name: 'Secondary Group', value: 0 }
     const tabletSlice = aggregated.slice(2).reduce((sum, x) => sum + x.value, 0)
@@ -272,6 +273,7 @@ export default function Dashboard() {
 
     return {
       total: fmtVal(totalVal),
+      title: primaryCat || 'Category Breakdown',
       list: [
         { name: desktopSlice.name, value: desktopSlice.value, pct: getPct(desktopSlice.value), color: '#f97316' },
         { name: mobileSlice.name, value: mobileSlice.value, pct: getPct(mobileSlice.value), color: '#06b6d4' },
@@ -281,16 +283,20 @@ export default function Dashboard() {
   }, [filteredRows, primaryCat, primaryMetric, hasData])
 
   const dynamicRealtime = useMemo(() => {
-    if (!hasData || !primaryCat) return null
-    const items = agg(filteredRows, primaryCat, primaryMetric, 'count').slice(0, 4)
+    const targetCol = secondCat || primaryCat
+    if (!hasData || !targetCol) return null
+    const items = agg(filteredRows, targetCol, primaryMetric, 'count').slice(0, 4)
     const maxVal = Math.max(...items.map(i => i.value), 1)
-    return items.map(item => ({
-      label: item.name,
-      value: item.value,
-      max: maxVal + Math.round(maxVal * 0.2),
-      progress: Math.round((item.value / maxVal) * 100)
-    }))
-  }, [filteredRows, primaryCat, primaryMetric, hasData])
+    return {
+      title: targetCol ? `${targetCol} Distribution` : 'Status Distribution',
+      items: items.map(item => ({
+        label: item.name,
+        value: item.value,
+        max: maxVal + Math.round(maxVal * 0.2),
+        progress: Math.round((item.value / maxVal) * 100)
+      }))
+    }
+  }, [filteredRows, secondCat, primaryCat, primaryMetric, hasData])
 
   const dynamicTraffic = useMemo(() => {
     if (!hasData || !timeKey || !primaryMetric) return []
@@ -311,27 +317,35 @@ export default function Dashboard() {
   }, [filteredRows, timeKey, primaryMetric, secondMetric, hasData])
 
   const dynamicPages = useMemo(() => {
-    if (!hasData || !primaryCat) return []
-    const items = agg(filteredRows, primaryCat, primaryMetric, 'sum').slice(0, 8)
+    const targetCol = thirdCat || primaryCat
+    if (!hasData || !targetCol) return null
+    const items = agg(filteredRows, targetCol, primaryMetric, 'sum').slice(0, 8)
     const maxVal = Math.max(...items.map(i => i.value), 1)
-    return items.map(item => ({
-      path: item.name,
-      value: formatNumber(item.value),
-      progress: Math.round((item.value / maxVal) * 100)
-    }))
-  }, [filteredRows, primaryCat, primaryMetric, hasData])
+    return {
+      title: targetCol ? `Top ${targetCol}s` : 'Top Items',
+      items: items.map(item => ({
+        path: item.name,
+        value: formatNumber(item.value),
+        progress: Math.round((item.value / maxVal) * 100)
+      }))
+    }
+  }, [filteredRows, thirdCat, primaryCat, primaryMetric, hasData])
 
   const dynamicSocial = useMemo(() => {
-    if (!hasData || !primaryCat) return []
-    const items = agg(filteredRows, primaryCat, '', 'count').slice(0, 5)
+    const targetCol = fourthCat || secondCat || primaryCat
+    if (!hasData || !targetCol) return null
+    const items = agg(filteredRows, targetCol, '', 'count').slice(0, 5)
     const totalCount = items.reduce((s, x) => s + x.value, 0)
-    return items.map((item, idx) => ({
-      name: item.name,
-      value: item.value,
-      pct: totalCount > 0 ? Math.round((item.value / totalCount) * 100) : 0,
-      color: CHART_COLORS[idx % CHART_COLORS.length]
-    }))
-  }, [filteredRows, primaryCat, hasData])
+    return {
+      title: targetCol ? `${targetCol} Mix` : 'Channel Breakdown',
+      items: items.map((item, idx) => ({
+        name: item.name,
+        value: item.value,
+        pct: totalCount > 0 ? Math.round((item.value / totalCount) * 100) : 0,
+        color: CHART_COLORS[idx % CHART_COLORS.length]
+      }))
+    }
+  }, [filteredRows, fourthCat, secondCat, primaryCat, hasData])
 
   const dynamicTimeOnSite = useMemo(() => {
     if (!hasData || !timeKey || !primaryMetric) return []
@@ -356,10 +370,10 @@ export default function Dashboard() {
   const devicesList = dynamicDevices ? dynamicDevices.list : MOCK_MOCKUP_DATA.devices
   const devicesTotalLabel = dynamicDevices ? dynamicDevices.total : MOCK_MOCKUP_DATA.devicesTotal
 
-  const realtimeList = dynamicRealtime || MOCK_MOCKUP_DATA.realtime
+  const realtimeList = dynamicRealtime ? dynamicRealtime.items : MOCK_MOCKUP_DATA.realtime
   const trafficChart = dynamicTraffic.length > 0 ? dynamicTraffic : MOCK_MOCKUP_DATA.traffic
-  const pagesList = dynamicPages.length > 0 ? dynamicPages : MOCK_MOCKUP_DATA.pages
-  const socialList = dynamicSocial.length > 0 ? dynamicSocial : MOCK_MOCKUP_DATA.social
+  const pagesList = dynamicPages ? dynamicPages.items : MOCK_MOCKUP_DATA.pages
+  const socialList = dynamicSocial ? dynamicSocial.items : MOCK_MOCKUP_DATA.social
   const timeOnSiteList = dynamicTimeOnSite.length > 0 ? dynamicTimeOnSite : MOCK_MOCKUP_DATA.timeOnSite
 
   if (!hasData) {
@@ -697,8 +711,8 @@ export default function Dashboard() {
             {/* Devices Donut Chart Card */}
             <div className="devices-donut-card">
               <div className="devices-card-header">
-                <span className="devices-title">Devices</span>
-                <span className="devices-sub-title">Today</span>
+                <span className="devices-title">{hasData ? (dynamicDevices?.title || 'Breakdown') : 'Devices'}</span>
+                <span className="devices-sub-title">{hasData ? 'By Category' : 'Today'}</span>
               </div>
               <div className="devices-donut-container">
                 <div className="donut-chart-wrap">
@@ -744,7 +758,7 @@ export default function Dashboard() {
             {/* Real-time Data Card */}
             <div className="realtime-data-card">
               <div className="card-header-mockup">
-                <span className="card-title-mockup">Real-time Data</span>
+                <span className="card-title-mockup">{hasData ? (dynamicRealtime?.title || 'Status Distribution') : 'Real-time Data'}</span>
               </div>
               <div className="realtime-rows-list">
                 {realtimeList.map((item, idx) => (
@@ -765,10 +779,10 @@ export default function Dashboard() {
             {/* Site Traffic Curved Double Line Area Chart */}
             <div className="site-traffic-card">
               <div className="card-header-mockup">
-                <span className="card-title-mockup">Site traffic</span>
+                <span className="card-title-mockup">{hasData ? `${primaryMetric} Trend` : 'Site traffic'}</span>
                 <div className="traffic-legend-chips">
-                  <span className="traffic-legend-chip"><span className="dot dot-blue" /> New visitor</span>
-                  <span className="traffic-legend-chip"><span className="dot dot-purple" /> Returning visitor</span>
+                  <span className="traffic-legend-chip"><span className="dot dot-blue" /> {hasData ? primaryMetric : 'New visitor'}</span>
+                  <span className="traffic-legend-chip"><span className="dot dot-purple" /> {hasData ? (secondMetric || 'Secondary') : 'Returning visitor'}</span>
                 </div>
               </div>
               <div className="traffic-chart-wrapper">
@@ -798,8 +812,8 @@ export default function Dashboard() {
             {/* Pages List Card */}
             <div className="pages-list-card">
               <div className="card-header-mockup">
-                <span className="card-title-mockup">Pages</span>
-                <span className="pages-card-sub">Last month</span>
+                <span className="card-title-mockup">{hasData ? (dynamicPages?.title || 'Top Items') : 'Pages'}</span>
+                <span className="pages-card-sub">{hasData ? `By ${primaryMetric}` : 'Last month'}</span>
               </div>
               <div className="pages-rows-list">
                 {pagesList.map((page, idx) => (
@@ -822,8 +836,8 @@ export default function Dashboard() {
             {/* Social Traffic Card */}
             <div className="social-traffic-card">
               <div className="card-header-mockup">
-                <span className="card-title-mockup">Traffic from social</span>
-                <span className="social-card-sub">Last week</span>
+                <span className="card-title-mockup">{hasData ? (dynamicSocial?.title || 'Channel Breakdown') : 'Traffic from social'}</span>
+                <span className="social-card-sub">{hasData ? 'Distribution' : 'Last week'}</span>
               </div>
               <div className="social-donut-wrap">
                 <div className="social-pie-chart">
@@ -844,7 +858,7 @@ export default function Dashboard() {
                   </ResponsiveContainer>
                   <div className="social-center-label">
                     <span className="social-label-total">Total</span>
-                    <span className="social-label-value">1578</span>
+                    <span className="social-label-value">{hasData ? socialList.reduce((a, b) => a + (b.value || 0), 0) : 1578}</span>
                   </div>
                 </div>
                 {/* Social Legend */}
@@ -863,8 +877,8 @@ export default function Dashboard() {
             {/* Middle Time on Site Column Chart */}
             <div className="middle-time-card">
               <div className="card-header-mockup">
-                <span className="card-title-mockup">Middle time on site</span>
-                <span className="time-card-sub">Last 14 days</span>
+                <span className="card-title-mockup">{hasData && timeKey ? `${primaryMetric} Timeline` : 'Middle time on site'}</span>
+                <span className="time-card-sub">{hasData ? 'Period Distribution' : 'Last 14 days'}</span>
               </div>
               <div className="time-bar-chart-wrap">
                 <ResponsiveContainer width="100%" height="100%">
