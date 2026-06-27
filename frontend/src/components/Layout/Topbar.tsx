@@ -1,21 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { fetchDBStatus, markNotificationRead as apiMarkRead, clearNotifications as apiClear } from '../../services/api'
+import { fetchDBStatus } from '../../services/api'
 import { useRealtime } from '../../hooks/useRealtime'
 import { useSpreadsheet } from '../../context/SpreadsheetContext'
 import {
-  Bell,
-  Shield,
-  Check,
-  Trash2,
-  ShieldAlert,
-  Sparkles,
-  UserCheck,
-  AlertTriangle,
-  Activity,
   Layers,
-  Info,
   AlertCircle,
   CheckCircle2,
   Moon,
@@ -42,7 +32,7 @@ const titles: Record<string, string> = {
 export default function Topbar({ onToggleSidebar, isDashboard }: { onToggleSidebar?: () => void; isDashboard?: boolean }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { user, userRole, setRole, isGuest, guestQueryCount, uploadCount } = useAuth()
+  const { user, isGuest, guestQueryCount, uploadCount } = useAuth()
   const { sheetNames, activeSheetName, selectSheet } = useSpreadsheet()
   const title = titles[pathname] ?? 'Dashboard'
 
@@ -71,41 +61,7 @@ export default function Topbar({ onToggleSidebar, isDashboard }: { onToggleSideb
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
   })
 
-  // Live notifications from Supabase Realtime
-  const { notifications: liveNotifications, unreadCount: liveUnread, markNotificationRead: rtMarkRead, status: realtimeStatus } = useRealtime()
-
-  // Local UI-only notifications (from window events like file upload)
-  const [localNotifs, setLocalNotifs] = useState<any[]>(() => {
-    const saved = localStorage.getItem('local_notifications')
-    if (saved) return JSON.parse(saved)
-    return []
-  })
-
-  // Merge live DB notifs + local UI events
-  const allNotifications = [
-    ...localNotifs,
-    ...liveNotifications.map(n => ({
-      id: `rt_${n.id}`,
-      title: n.title,
-      desc: n.message,
-      read: n.read,
-      type: n.type === 'revenue' ? 'success' : n.type === 'churn' ? 'warning' : 'info',
-      time: n.timestamp,
-      isRealtime: true,
-      rtId: n.id,
-    }))
-  ]
-
-  const [showNotifications, setShowNotifications] = useState(false)
-  const notifRef = useRef<HTMLDivElement>(null)
-  const [showRoleDropdown, setShowRoleDropdown] = useState(false)
-  const roleRef = useRef<HTMLDivElement>(null)
-  const [bellPing, setBellPing] = useState(false)
-  const prevUnreadRef = useRef(0)
-
-  useEffect(() => {
-    localStorage.setItem('local_notifications', JSON.stringify(localNotifs))
-  }, [localNotifs])
+  const { status: realtimeStatus } = useRealtime()
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -115,66 +71,6 @@ export default function Topbar({ onToggleSidebar, isDashboard }: { onToggleSideb
     }
     localStorage.setItem('theme', theme)
   }, [theme])
-
-  // Listen for click outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
-        setShowNotifications(false)
-      }
-      if (roleRef.current && !roleRef.current.contains(event.target as Node)) {
-        setShowRoleDropdown(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  // Bell ping animation on new unread
-  useEffect(() => {
-    const totalUnread = allNotifications.filter(n => !n.read).length
-    if (totalUnread > prevUnreadRef.current && prevUnreadRef.current !== 0) {
-      setBellPing(true)
-      setTimeout(() => setBellPing(false), 2000)
-    }
-    prevUnreadRef.current = totalUnread
-  }, [allNotifications])
-
-  // Listen for custom events from file uploads / reports
-  useEffect(() => {
-    const handleSpreadsheetUploaded = (e: Event) => {
-      const detail = (e as any).detail || { filename: 'revenue.xlsx' }
-      const newNotif = {
-        id: Math.random().toString(36).substring(2, 9),
-        title: 'File Uploaded',
-        desc: `Spreadsheet "${detail.filename}" uploaded and parsed successfully.`,
-        read: false,
-        type: 'success',
-        time: 'Just now'
-      }
-      setLocalNotifs(prev => [newNotif, ...prev])
-    }
-
-    const handleReportGenerated = (e: Event) => {
-      const detail = (e as any).detail || { name: 'CEO Dashboard' }
-      const newNotif = {
-        id: Math.random().toString(36).substring(2, 9),
-        title: 'Report Compiled',
-        desc: `Exported "${detail.name}" report deck to PDF layout.`,
-        read: false,
-        type: 'info',
-        time: 'Just now'
-      }
-      setLocalNotifs(prev => [newNotif, ...prev])
-    }
-
-    window.addEventListener('spreadsheet_uploaded', handleSpreadsheetUploaded)
-    window.addEventListener('report_generated', handleReportGenerated)
-    return () => {
-      window.removeEventListener('spreadsheet_uploaded', handleSpreadsheetUploaded)
-      window.removeEventListener('report_generated', handleReportGenerated)
-    }
-  }, [])
 
   useEffect(() => {
     let active = true
@@ -215,35 +111,7 @@ export default function Topbar({ onToggleSidebar, isDashboard }: { onToggleSideb
   const now = new Date()
   const dateStr = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
-  const unreadCount = allNotifications.filter(n => !n.read).length
-
-  const markAllRead = () => {
-    setLocalNotifs(prev => prev.map(n => ({ ...n, read: true })))
-    liveNotifications.forEach(n => {
-      if (!n.read) {
-        rtMarkRead(n.id)
-        apiMarkRead(n.id).catch(() => {})
-      }
-    })
-    logActivity('Marked all notifications as read', user?.user_metadata?.name || 'User')
-  }
-
-  const markRead = (n: any) => {
-    if (n.isRealtime) {
-      rtMarkRead(n.rtId)
-      apiMarkRead(n.rtId).catch(() => {})
-    } else {
-      setLocalNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))
-    }
-  }
-
-  const deleteNotif = (id: string, title: string) => {
-    setLocalNotifs(prev => prev.filter(n => n.id !== id))
-    logActivity(`Dismissed notification: ${title}`, user?.user_metadata?.name || 'User')
-  }
-
   const getStatusBadge = () => {
-    // Use realtime status when available
     if (realtimeStatus === 'live') {
       return (
         <div className="db-status-badge db-connected" title="Connected to Supabase Realtime">
@@ -290,16 +158,6 @@ export default function Topbar({ onToggleSidebar, isDashboard }: { onToggleSideb
             DB Error
           </div>
         )
-    }
-  }
-
-  // Get current role icon
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'Admin': return <Shield size={13} />
-      case 'Manager': return <Layers size={13} />
-      case 'Analyst': return <Activity size={13} />
-      default: return <Info size={13} />
     }
   }
 
@@ -407,109 +265,6 @@ export default function Topbar({ onToggleSidebar, isDashboard }: { onToggleSideb
         )}
 
         {getStatusBadge()}
-
-        {/* 1. ROLE SWITCHER (RBAC) */}
-        <div className="role-switcher-wrap" ref={roleRef}>
-          <button 
-            className="role-selector-btn" 
-            onClick={() => setShowRoleDropdown(!showRoleDropdown)}
-            title="Switch Access Role"
-            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-          >
-            {getRoleIcon(userRole)}
-            <span className="role-btn-text">Role: {userRole}</span>
-            <span className={`arrow-icon ${showRoleDropdown ? 'open' : ''}`} style={{ fontSize: '9px', marginLeft: '2px', opacity: 0.7 }}>▼</span>
-          </button>
-
-          {showRoleDropdown && (
-            <div className="role-dropdown-menu">
-              <div className="dropdown-section-title">Select Access Role</div>
-              {[
-                { name: 'Admin', desc: 'Full privileges including API settings & seat control' },
-                { name: 'Manager', desc: 'Configure profiles and view logs. API overrides locked' },
-                { name: 'Analyst', desc: 'Default seat. Standard dashboard & analysis features' },
-                { name: 'Viewer', desc: 'Read-only dashboard. Analysis actions restricted' }
-              ].map(role => (
-                <button
-                  key={role.name}
-                  className={`role-option-btn ${userRole === role.name ? 'active' : ''}`}
-                  onClick={() => {
-                    setRole(role.name as any)
-                    setShowRoleDropdown(false)
-                  }}
-                >
-                  <div className="option-icon-wrap">{getRoleIcon(role.name as any)}</div>
-                  <div className="option-text-wrap">
-                    <span className="option-name">{role.name}</span>
-                    <span className="option-desc">{role.desc}</span>
-                  </div>
-                  {userRole === role.name && <Check className="check-icon" size={12} />}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* 2. NOTIFICATION CENTER */}
-        <div className="notification-center-wrap" ref={notifRef}>
-          <button 
-            className={`notif-bell-btn ${unreadCount > 0 ? 'unread' : ''} ${bellPing ? 'bell-ping' : ''}`}
-            onClick={() => setShowNotifications(!showNotifications)}
-            title="Notification Center"
-          >
-            <Bell size={16} />
-            {unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
-          </button>
-
-          {showNotifications && (
-            <div className="notif-dropdown-menu glass-card">
-              <div className="notif-header">
-                <span className="notif-header-title">Notifications</span>
-                {unreadCount > 0 && (
-                  <button className="mark-all-read-btn" onClick={markAllRead}>
-                    Mark all read
-                  </button>
-                )}
-              </div>
-              <div className="notif-list">
-                {allNotifications.length === 0 ? (
-                  <div className="notif-empty-state">No alerts in inbox</div>
-                ) : (
-                  allNotifications.map(n => (
-                    <div 
-                      key={n.id} 
-                      className={`notif-item ${n.read ? 'read' : 'unread'} ${n.type}`}
-                      onClick={() => markRead(n)}
-                    >
-                      <div className="notif-dot-column">
-                        <span className="notif-type-dot" />
-                      </div>
-                      <div className="notif-body">
-                        <div className="notif-title-row">
-                          <span className="notif-item-title">{n.title}</span>
-                          <span className="notif-time">{n.time}</span>
-                        </div>
-                        <p className="notif-desc">{n.desc}</p>
-                      </div>
-                      {!n.isRealtime && (
-                        <button 
-                          className="notif-dismiss-btn"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            deleteNotif(n.id, n.title)
-                          }}
-                          title="Dismiss"
-                        >
-                          <Trash2 size={11} />
-                        </button>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </div>
 
         {/* Fullscreen Toggler */}
         <button 

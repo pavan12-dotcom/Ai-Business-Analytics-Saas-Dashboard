@@ -213,20 +213,6 @@ export default function Settings() {
 
   return (
     <div className="settings-page fade-in">
-      {isRestricted && (
-        <div className="settings-warning-banner glass-card">
-          <div className="warning-banner-icon">
-            <Lock size={18} />
-          </div>
-          <div className="warning-banner-content">
-            <div className="warning-banner-title">Workspace Restricted ({userRole} Mode)</div>
-            <div className="warning-banner-desc">
-              Your active workspace permission level is set to <strong>{userRole}</strong>. Profiling fields, custom overrides, and dangerous options are locked.
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="settings-grid">
         {/* Left side: Forms */}
         <div className="settings-left-col">
@@ -249,16 +235,6 @@ export default function Settings() {
                 </div>
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                  {/* Role badge */}
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    background: `color-mix(in srgb, ${roleBadgeColor[userRole] ?? 'var(--accent)'} 15%, transparent)`,
-                    color: roleBadgeColor[userRole] ?? 'var(--accent)',
-                    border: `1px solid color-mix(in srgb, ${roleBadgeColor[userRole] ?? 'var(--accent)'} 40%, transparent)`,
-                    borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 700, letterSpacing: '0.4px'
-                  }}>
-                    {getRoleIcon(userRole)} {userRole}
-                  </span>
 
                   {/* Plan badge */}
                   <span style={{
@@ -346,10 +322,6 @@ export default function Settings() {
               <div className="field">
                 <label className="field-label">Email Address</label>
                 <input className="field-input disabled-input" value={email} disabled />
-              </div>
-              <div className="field">
-                <label className="field-label">User Role</label>
-                <input className="field-input disabled-input" value={userRole} disabled />
               </div>
             </div>
 
