@@ -333,7 +333,7 @@ export default function CustomerIntelligence() {
             </div>
           </div>
           <div className="int-chart-wrap">
-            <ResponsiveContainer width="100%" height={260}>
+            <ResponsiveContainer width="100%" height={200}>
               <BarChart data={churnData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                 <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3"/>
                 <XAxis dataKey="segment" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }}/>
@@ -368,7 +368,7 @@ export default function CustomerIntelligence() {
             </div>
           </div>
           <div className="int-chart-wrap">
-            <ResponsiveContainer width="100%" height={260}>
+            <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={ttvData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gTtv" x1="0" y1="0" x2="0" y2="1">
@@ -400,7 +400,7 @@ export default function CustomerIntelligence() {
             </div>
           </div>
           <div className="int-chart-wrap">
-            <ResponsiveContainer width="100%" height={260}>
+            <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={monthly} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gCustRev" x1="0" y1="0" x2="0" y2="1">
