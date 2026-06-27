@@ -578,7 +578,7 @@ export default function Dashboard() {
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            justify: 'space-between',
+            justifyContent: 'space-between',
             padding: '10px 16px',
             marginBottom: '16px',
             background: 'var(--card-bg, rgba(255, 255, 255, 0.7))',
