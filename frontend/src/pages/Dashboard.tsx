@@ -801,7 +801,7 @@ export default function Dashboard() {
               </div>
               <div className="traffic-chart-wrapper">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={trafficChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <AreaChart data={trafficChart} margin={{ top: 10, right: 10, left: -5, bottom: 0 }}>
                     <defs>
                       <linearGradient id="trafficGrad1" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.12}/>
@@ -814,10 +814,10 @@ export default function Dashboard() {
                     </defs>
                     <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
                     <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'var(--text-muted)' }} />
-                    <YAxis axisLine={false} tickLine={false} tickCount={6} tick={{ fontSize: 9, fill: 'var(--text-muted)' }} />
-                    <Tooltip cursor={{ stroke: 'rgba(255,255,255,0.06)' }} />
-                    <Area type="monotone" dataKey="line1" stroke="#06b6d4" strokeWidth={2} fill="url(#trafficGrad1)" dot={false} />
-                    <Area type="monotone" dataKey="line2" stroke="#8b5cf6" strokeWidth={2} fill="url(#trafficGrad2)" dot={false} />
+                    <YAxis axisLine={false} tickLine={false} tickCount={6} tick={{ fontSize: 9, fill: 'var(--text-muted)' }} tickFormatter={formatYAxisTick} />
+                    <Tooltip cursor={{ stroke: 'rgba(255,255,255,0.06)' }} content={<CustomTooltip />} />
+                    <Area type="monotone" dataKey="line1" name={hasData ? primaryMetric : 'Line 1'} stroke="#06b6d4" strokeWidth={2} fill="url(#trafficGrad1)" dot={false} />
+                    <Area type="monotone" dataKey="line2" name={hasData ? (secondMetric || 'Secondary') : 'Line 2'} stroke="#8b5cf6" strokeWidth={2} fill="url(#trafficGrad2)" dot={false} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
