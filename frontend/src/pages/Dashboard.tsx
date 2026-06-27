@@ -364,11 +364,11 @@ export default function Dashboard() {
 
   if (!hasData) {
     return (
-      <div className={`dashboard-shell fade-in${isFullscreen ? ' fs-active' : ''}`} ref={rootRef} style={{ height: 'calc(100vh - 80px)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className={`dashboard-shell fade-in${isFullscreen ? ' fs-active' : ''}`} ref={rootRef} style={{ height: '100%', minHeight: '100%', boxSizing: 'border-box', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
         <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.json" style={{ display: 'none' }} onChange={handleFileChange} />
         
         <div className="dashboard-empty-state-workspace" style={{
-          padding: '20px',
+          padding: '10px',
           width: '100%',
           maxWidth: '1100px',
           margin: '0 auto',
@@ -385,11 +385,11 @@ export default function Dashboard() {
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
-            gap: '20px'
+            gap: '12px'
           }}>
             <div>
-              <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text)', marginBottom: '8px' }}>Welcome to Value Analytics</h2>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+              <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text)', marginBottom: '6px' }}>Welcome to Value Analytics</h2>
+              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.45' }}>
                 Connect your business data. Upload your own Excel/CSV file to start generating real-time analytics, or choose a recommended sample dataset to explore.
               </p>
             </div>
@@ -401,7 +401,7 @@ export default function Dashboard() {
               style={{
                 border: '2px dashed var(--border)',
                 borderRadius: '16px',
-                padding: '40px 24px',
+                padding: '30px 20px',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -464,10 +464,10 @@ export default function Dashboard() {
               Or Choose a Recommended Dataset
             </span>
 
-            <div style={{
+             <div style={{
               display: 'flex',
               flexDirection: 'column',
-              gap: '10px'
+              gap: '8px'
             }}>
               {SAMPLE_DATASETS.map(ds => (
                 <div 
@@ -476,7 +476,7 @@ export default function Dashboard() {
                   className="glass-card ds-hover-card"
                   style={{
                     borderRadius: '12px',
-                    padding: '12px 16px',
+                    padding: '10px 14px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -494,13 +494,13 @@ export default function Dashboard() {
                     background: ds.tagColor
                   }} />
 
-                  <span style={{ fontSize: '22px', flexShrink: 0 }}>{ds.icon}</span>
+                  <span style={{ fontSize: '20px', flexShrink: 0 }}>{ds.icon}</span>
 
                   <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <h4 style={{ fontSize: '13.5px', fontWeight: 750, color: 'var(--text)' }}>{ds.name}</h4>
+                      <h4 style={{ fontSize: '13px', fontWeight: 750, color: 'var(--text)' }}>{ds.name}</h4>
                       <span style={{
-                        fontSize: '9px',
+                        fontSize: '8px',
                         fontWeight: 800,
                         textTransform: 'uppercase',
                         letterSpacing: '0.05em',
@@ -511,7 +511,7 @@ export default function Dashboard() {
                         border: `1px solid ${ds.tagColor}20`
                       }}>{ds.tag}</span>
                     </div>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', lineHeight: '1.4' }}>{ds.description}</p>
+                    <p style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px', lineHeight: '1.3' }}>{ds.description}</p>
                   </div>
                 </div>
               ))}
