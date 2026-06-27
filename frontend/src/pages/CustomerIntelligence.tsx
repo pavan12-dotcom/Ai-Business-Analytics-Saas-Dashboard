@@ -193,14 +193,24 @@ export default function CustomerIntelligence() {
 
   // ── REAL churn risk from categories ───────────────────────
   const churnData = useMemo(() => {
-    if (hasData && categories.length > 0) {
-      return categories.slice(0, 6).map((cat, i) => ({
-        segment: cat.label,
-        risk: Math.round(5 + (cat.pct / 100) * 60),
-      }))
+    if (hasData && rawRows.length > 0) {
+      const targetCol = secondCat || primaryCat
+      if (targetCol) {
+        const counts: Record<string, number> = {}
+        rawRows.forEach((r: any) => {
+          const k = String(r[targetCol] ?? '')
+          if (k && k !== 'undefined') counts[k] = (counts[k] || 0) + 1
+        })
+        const total = rawRows.length
+        const sorted = Object.entries(counts).map(([seg, count]) => ({
+          segment: seg,
+          risk: Math.min(95, Math.max(8, Math.round((count / total) * 100 * 2.5)))
+        })).sort((a, b) => b.risk - a.risk).slice(0, 6)
+        if (sorted.length > 0) return sorted
+      }
     }
     return MOCK_CHURN
-  }, [hasData, categories])
+  }, [hasData, rawRows, secondCat, primaryCat])
 
   // ── REAL TTV from monthly data ─────────────────────────────
   const ttvData = useMemo(() => {

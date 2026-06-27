@@ -246,6 +246,8 @@ export default function Analytics() {
   const primaryMetric = selectedPrimaryMetricKey || analytics.primaryMetricKey || metricCols[0] || ''
   const secondMetric  = selectedSecondaryMetricKey || metricCols.find(c => c !== primaryMetric) || ''
   const primaryCat    = selectedCategoryKey || analytics.primaryCategoryKey || catCols[0] || ''
+  const secondCat     = catCols.find(c => c !== primaryCat) || catCols[1] || cols[1] || ''
+  const thirdCat      = analytics.primaryNameKey || cols.find(c => /channel|medium|source|method|payment|region/i.test(c)) || catCols[2] || cols[2] || ''
   const primaryTime   = selectedTimeKey || analytics.primaryTimeKey || timeCols[0] || ''
 
   const agg = (groupCol: string, valCol: string, mode: 'sum' | 'count' = 'sum') => {
@@ -260,15 +262,16 @@ export default function Analytics() {
   }
 
   const dynamicSegments = useMemo(() => {
-    if (!hasData || !primaryCat) return null
-    const items = agg(primaryCat, primaryMetric, 'count').slice(0, 6)
+    const targetCol = secondCat || primaryCat
+    if (!hasData || !targetCol) return null
+    const items = agg(targetCol, primaryMetric, 'count').slice(0, 6)
     const COLORS = ['#10b981', '#6366f1', '#06b6d4', '#f97316', '#ef4444', '#a855f7']
     const RISKS = ['Low', 'Low', 'Medium', 'High', 'Critical', 'Medium']
     return items.map((item, i) => ({
       name: item.name, value: item.value,
       color: COLORS[i % COLORS.length], risk: RISKS[i % RISKS.length]
     }))
-  }, [rawRows, primaryCat, primaryMetric, hasData])
+  }, [rawRows, secondCat, primaryCat, primaryMetric, hasData])
 
   const dynamicMonthly = useMemo(() => {
     if (!hasData || !primaryTime || !primaryMetric) return []
@@ -299,11 +302,12 @@ export default function Analytics() {
   }, [rawRows, primaryCat, primaryMetric, hasData])
 
   const dynamicChannels = useMemo(() => {
-    if (!hasData || !primaryCat) return null
+    const targetCol = thirdCat || secondCat || primaryCat
+    if (!hasData || !targetCol) return null
     const COLORS = ['#10b981', '#6366f1', '#ec4899', '#f97316', '#06b6d4', '#a855f7']
-    const items = agg(primaryCat, '', 'count').slice(0, 6)
+    const items = agg(targetCol, '', 'count').slice(0, 6)
     return items.map((item, i) => ({ channel: item.name, value: item.value, cost: 0, color: COLORS[i % COLORS.length] }))
-  }, [rawRows, primaryCat, hasData])
+  }, [rawRows, thirdCat, secondCat, primaryCat, hasData])
 
   // ── Resolved data (dynamic if uploaded, mock if demo) ────
   const displayKpis = hasData ? kpis.slice(0, 8).map((k, i) => ({

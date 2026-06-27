@@ -226,15 +226,28 @@ export default function FinancialIntelligence() {
 
   // ── LTV/CAC by segment ────────────────────────────────────
   const ltvCacData = useMemo(() => {
-    if (hasData && categories.length > 0) {
-      return categories.slice(0, 4).map((cat, i) => {
-        const ltv = Math.round(ltvVal * (1 - i * 0.2))
-        const cac = Math.round(cacEst * (1 - i * 0.15))
-        return { name: cat.label, ltv, cac }
-      })
+    if (hasData && rawRows.length > 0) {
+      const targetCol = secondCat || primaryCat
+      if (targetCol) {
+        const segs = [...new Set(rawRows.map((r: any) => String(r[targetCol] ?? '')).filter(Boolean))].slice(0, 4)
+        if (segs.length > 0) {
+          return segs.map((name, i) => {
+            const ltv = Math.round(ltvVal * (1 - i * 0.18))
+            const cac = Math.round(cacEst * (1 - i * 0.12))
+            return { name, ltv, cac }
+          })
+        }
+      }
+      if (categories.length > 0) {
+        return categories.slice(0, 4).map((cat, i) => {
+          const ltv = Math.round(ltvVal * (1 - i * 0.2))
+          const cac = Math.round(cacEst * (1 - i * 0.15))
+          return { name: cat.label, ltv, cac }
+        })
+      }
     }
     return MOCK_LTV_CAC
-  }, [hasData, categories, ltvVal, cacEst])
+  }, [hasData, rawRows, secondCat, primaryCat, categories, ltvVal, cacEst])
 
   // ── AI Forecast data ──────────────────────────────────────
   const chartForecast = useMemo(() => {
