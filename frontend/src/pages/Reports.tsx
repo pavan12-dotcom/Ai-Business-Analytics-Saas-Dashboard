@@ -248,7 +248,7 @@ export default function Reports() {
                   <div className="card glass-card">
                     <div className="card-title">{valueMetricName} Growth Profile</div>
                     <div className="card-sub" style={{ marginBottom: 12 }}>Time-series progress view</div>
-                    <ResponsiveContainer width="100%" height={240}>
+                    <ResponsiveContainer width="100%" height={190}>
                       <BarChart data={monthly} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                         <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
@@ -311,7 +311,7 @@ export default function Reports() {
                   <div className="card glass-card">
                     <div className="card-title">Dimensional Segment Strengths</div>
                     <div className="card-sub" style={{ marginBottom: 12 }}>Visual representation of category counts</div>
-                    <ResponsiveContainer width="100%" height={240}>
+                    <ResponsiveContainer width="100%" height={190}>
                       <BarChart data={categories} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                         <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} />
