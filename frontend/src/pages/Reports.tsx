@@ -29,6 +29,7 @@ import {
   Line,
   LabelList
 } from 'recharts'
+import RecommendedDatasetsWorkspace from '../components/RecommendedDatasetsWorkspace'
 import './Reports.css'
 
 const statusClass: Record<string, string> = {
@@ -197,24 +198,7 @@ export default function Reports() {
       </div>
 
       {!hasData ? (
-        <div className="card no-print" style={{
-          padding: '60px 40px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          textAlign: 'center',
-          gap: 12,
-          marginTop: 20
-        }}>
-          <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text)' }}>No reports available</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 450, margin: 0, lineHeight: 1.6 }}>
-            Upload a dataset to generate AI-powered analytics.
-          </p>
-          <button className="btn btn-primary" onClick={() => navigate('/app')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            Go to Dashboard
-          </button>
-        </div>
+        <RecommendedDatasetsWorkspace featureName="Executive Reports" />
       ) : (
         <>
           {/* ────────────────── 1. EXECUTIVE SUMMARY TEMPLATE ────────────────── */}
