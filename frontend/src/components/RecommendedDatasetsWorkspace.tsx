@@ -37,6 +37,14 @@ export default function RecommendedDatasetsWorkspace({ featureName = 'Analytics'
     if (fileRef.current) fileRef.current.value = ''
   }
 
+  const handleSampleClick = (ds: any) => {
+    setUploading(true)
+    setTimeout(() => {
+      loadSample(ds)
+      setUploading(false)
+    }, 50)
+  }
+
   return (
     <div className="dashboard-shell fade-in" style={{ height: '100%', minHeight: '100%', boxSizing: 'border-box', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.json" style={{ display: 'none' }} onChange={handleFileChange} />
@@ -146,7 +154,7 @@ export default function RecommendedDatasetsWorkspace({ featureName = 'Analytics'
             {SAMPLE_DATASETS.map(ds => (
               <div 
                 key={ds.id}
-                onClick={() => loadSample(ds)}
+                onClick={() => handleSampleClick(ds)}
                 className="glass-card ds-hover-card"
                 style={{
                   borderRadius: '12px',

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useSpreadsheet } from '../context/SpreadsheetContext'
+import { DOMAIN_VOCABULARIES, DataEngine } from '../services/dataEngine'
 import { formatNumber, formatYAxisTick, cleanNumericValue } from '../services/dataCleaner'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
@@ -151,6 +152,9 @@ export default function Dashboard() {
     selectedSecondaryMetricKey,
     setSelectedSecondaryMetricKey,
     loadSample,
+    engine,
+    sharedKPIs,
+    shared,
   } = useSpreadsheet()
   const { isGuest, isGuestTrialExhausted, setShowSignupModal } = useAuth()
   
@@ -189,6 +193,14 @@ export default function Dashboard() {
     setUploading(false)
     if (!res.success) setUploadErr(res.error || 'Upload failed')
     if (fileRef.current) fileRef.current.value = ''
+  }
+
+  const handleSampleClick = (ds: any) => {
+    setUploading(true)
+    setTimeout(() => {
+      loadSample(ds)
+      setUploading(false)
+    }, 50)
   }
 
   // ── Raw data selectors ──
@@ -260,15 +272,32 @@ export default function Dashboard() {
   }
 
   // ── Dynamic Dynamic Mappings if User Uploaded Custom Data ──
+  const vocab = shared?.vocab || DOMAIN_VOCABULARIES.GENERIC
+
   const dynamicKpis = useMemo(() => {
-    if (!hasData || !primaryMetric) return null
-    const vals = filteredRows.map((r: any) => cleanNumericValue(r[primaryMetric])).filter((v: any) => v !== null) as number[]
-    const total = vals.reduce((a, b) => a + b, 0)
-    const avg = vals.length ? total / vals.length : 0
-    const segs = new Set(filteredRows.map((r: any) => r[primaryCat]).filter(Boolean)).size
-    const isCurr = /revenue|cost|amount|salary|spend|profit/i.test(primaryMetric)
+    if (!hasData || !engine) return null
+
+    // Instantiate a temporary DataEngine on filteredRows, passing active override keys!
+    const filteredEngine = new DataEngine(filteredRows, {
+      primaryMetricKey: primaryMetric,
+      primaryTimeKey: timeKey,
+      primaryCategoryKey: primaryCat,
+    })
     
+    // Retrieve KPIs based on active selections from filteredRows!
+    const revKPI = filteredEngine.getRevenueKPIs()
+    const custKPI = filteredEngine.getCustomerKPIs()
+    const ltvCacKPI = filteredEngine.getLtvCacRatio()
+    
+    const totalRev = revKPI.total ?? 0
+    const activeCust = custKPI.active ?? 0
+    const ratioVal = ltvCacKPI.ratio !== null ? `${ltvCacKPI.ratio}x` : 'N/A'
+    
+    const isCurr = revKPI.column ? /revenue|mrr|amount|salary|cost|price|sales|income|spend|profit/i.test(revKPI.column) : true
+
     // Build sparklines from actual rows
+    const vals = filteredRows.map((r: any) => cleanNumericValue(r[revKPI.column || ''])).filter((v: any) => v !== null) as number[]
+    const avg = vals.length ? totalRev / vals.length : 0
     const chunk = Math.max(1, Math.floor(vals.length / 8))
     const getSpark = (startOffset = 0) => {
       return Array.from({ length: 8 }).map((_, idx) => {
@@ -278,14 +307,14 @@ export default function Dashboard() {
     }
 
     return {
-      kpi1: { label: `Total ${primaryMetric}`, val: fmtVal(total, isCurr), change: '+12%', up: true, color: '#f97316' },
-      kpi2: { label: `Average ${primaryMetric}`, val: fmtVal(avg, isCurr), change: '+23%', up: true, color: '#ec4899' },
-      kpi3: { label: `Segments`, val: String(segs), change: '+8%', up: true, color: '#06b6d4' },
+      kpi1: { label: `Total ${vocab.MONETARY_VALUE}`, val: fmtVal(totalRev, isCurr), change: '+12%', up: true, color: '#f97316' },
+      kpi2: { label: `Active ${vocab.ENTITY}s`, val: fmtVal(activeCust, false), change: '+23%', up: true, color: '#ec4899' },
+      kpi3: { label: `LTV : CAC`, val: ratioVal, change: '+8%', up: true, color: '#06b6d4' },
       spark1: getSpark(0),
       spark2: getSpark(Math.floor(vals.length * 0.3)),
       spark3: getSpark(Math.floor(vals.length * 0.6))
     }
-  }, [filteredRows, primaryMetric, primaryCat, hasData])
+  }, [filteredRows, hasData, engine, vocab, primaryMetric, timeKey, primaryCat])
 
   const dynamicDevices = useMemo(() => {
     if (!hasData || !primaryCat) return null
@@ -345,7 +374,14 @@ export default function Dashboard() {
   }, [filteredRows, timeKey, primaryMetric, secondMetric, hasData])
 
   const dynamicPages = useMemo(() => {
-    const targetCol = thirdCat || primaryCat
+    let targetCol = thirdCat || primaryCat
+    if (engine && targetCol) {
+      const profile = engine.profile[targetCol]
+      if (profile && profile.uniqueCount > engine.raw.length * 0.5) {
+        const fallbackCol = engine.findColumn(['segment', 'tier', 'plan', 'category', 'channel', 'status', 'type', 'name'])
+        if (fallbackCol) targetCol = fallbackCol
+      }
+    }
     if (!hasData || !targetCol) return null
     const items = agg(filteredRows, targetCol, primaryMetric, 'sum').slice(0, 8)
     const maxVal = Math.max(...items.map(i => i.value), 1)
@@ -357,7 +393,7 @@ export default function Dashboard() {
         progress: Math.round((item.value / maxVal) * 100)
       }))
     }
-  }, [filteredRows, thirdCat, primaryCat, primaryMetric, hasData])
+  }, [filteredRows, thirdCat, primaryCat, primaryMetric, hasData, engine])
 
   const dynamicSocial = useMemo(() => {
     const targetCol = fourthCat || secondCat || primaryCat
@@ -393,13 +429,20 @@ export default function Dashboard() {
         .slice(0, 14)
       if (sorted.length > 0) return sorted
     }
-    const groupCol = secondCat || primaryCat
+    let groupCol = secondCat || primaryCat
+    if (engine && groupCol) {
+      const profile = engine.profile[groupCol]
+      if (profile && profile.uniqueCount > engine.raw.length * 0.5) {
+        const fallbackCol = engine.findColumn(['segment', 'tier', 'plan', 'category', 'channel', 'status', 'type', 'name'])
+        if (fallbackCol) groupCol = fallbackCol
+      }
+    }
     if (!groupCol) return []
     return agg(filteredRows, groupCol, primaryMetric, 'sum').slice(0, 10).map(g => ({
       day: g.name,
       val: g.value
     }))
-  }, [filteredRows, timeKey, primaryMetric, secondCat, primaryCat, hasData])
+  }, [filteredRows, timeKey, primaryMetric, secondCat, primaryCat, hasData, engine])
 
   // Truncate path/label strings
   const trunc = (s: string, n = 15) => s.length > n ? s.slice(0, n - 1) + '…' : s
@@ -531,7 +574,7 @@ export default function Dashboard() {
               {SAMPLE_DATASETS.map(ds => (
                 <div 
                   key={ds.id}
-                  onClick={() => loadSample(ds)}
+                  onClick={() => handleSampleClick(ds)}
                   className="glass-card ds-hover-card"
                   style={{
                     borderRadius: '12px',
@@ -952,7 +995,9 @@ export default function Dashboard() {
       <div className="sandbox-header-banner no-print">
         {hasData ? (
           <div className="banner-content">
-            <span className="banner-badge badge-active"><Check size={11} /> Dataset Active</span>
+            <span className="banner-badge badge-active">
+              <Check size={11} /> {shared?.domain === 'GENERIC' ? 'General' : `${shared?.domain}`} Dataset Detected
+            </span>
             <span className="banner-text">Viewing analytics for: <strong>{trunc(datasetName, 40)}</strong> ({formatNumber(rawRows.length)} rows)</span>
             <div className="banner-actions">
               {activeFilterCount > 0 && (

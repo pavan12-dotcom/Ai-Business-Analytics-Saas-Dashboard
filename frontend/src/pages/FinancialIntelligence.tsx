@@ -4,6 +4,7 @@
  */
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useSpreadsheet } from '../context/SpreadsheetContext'
+import { DOMAIN_VOCABULARIES, CONCEPT_DEFINITIONS } from '../services/dataEngine'
 import { useAuth } from '../context/AuthContext'
 import { formatNumber, formatYAxisTick, cleanNumericValue } from '../services/dataCleaner'
 import {
@@ -107,6 +108,9 @@ export default function FinancialIntelligence() {
     setSelectedPrimaryMetricKey,
     selectedSecondaryMetricKey,
     setSelectedSecondaryMetricKey,
+    engine,
+    sharedKPIs,
+    shared,
   } = useSpreadsheet()
   const { isGuest, isGuestTrialExhausted, setShowSignupModal } = useAuth()
 
@@ -157,38 +161,49 @@ export default function FinancialIntelligence() {
 
   const trunc = (s: string, n = 15) => s.length > n ? s.slice(0, n - 1) + '…' : s
 
-  // ── Core financial KPIs (Atomic pass via kpiEngine) ────────
-  const computedKPIs = useMemo(() => {
-    if (hasData && activeSheet?.rows?.length) {
-      return computeCustomerKPIs(activeSheet.rows, meta)
+  const vocab = shared?.vocab || DOMAIN_VOCABULARIES.GENERIC
+
+  const renderEmptyState = (title: string, message: string) => (
+    <div className="int-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px', padding: '24px', textAlign: 'center' }}>
+      <Activity size={24} style={{ color: 'var(--text-muted)', marginBottom: 8 }} />
+      <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 6px 0', color: 'var(--text)' }}>{title}</h3>
+      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, maxWidth: 280, lineHeight: 1.4 }}>{message}</p>
+    </div>
+  )
+
+  // ── Central Engine Mappings ──────────────────────────────
+  const customerKPIs = useMemo(() => {
+    if (hasData && sharedKPIs) {
+      return sharedKPIs.customers
     }
-    return { total: 3841, active: 2890, atRisk: 680, churned: 271, churnRate: 7.1 }
-  }, [hasData, activeSheet, meta])
+    return { total: 3841, active: 3120, atRisk: 421, churnRate: 2.3 }
+  }, [hasData, sharedKPIs])
 
-  const revKpi    = kpis.find(k => /total|revenue|amount|salary|cost|value/i.test(k.label))
-  const avgKpi    = kpis.find(k => /average|avg|mean/i.test(k.label))
-  const rawRevenue = revKpi?.rawValue || 0
-  const rawAvg     = avgKpi?.rawValue || (rawRevenue / Math.max(1, computedKPIs.total || 1))
-
-  const activeCount  = computedKPIs.active
-  const churnedCount = computedKPIs.churned
-  const totalCount   = computedKPIs.total
-  const churnPct     = computedKPIs.churnRate
-  const arpuVal      = activeCount > 0 ? rawRevenue / activeCount : rawAvg || 62
-  const ltvVal       = churnPct > 0 ? (arpuVal / (churnPct / 100)) : arpuVal * 15
-  const cacEst       = arpuVal * 1.8
-
-  // Safe Ratio Evaluation (Bug 4 fix)
-  const ratioResult = useMemo(() => {
-    if (hasData && activeSheet?.rows?.length) {
-      return computeRatio(activeSheet.rows, 'ltv', 'cac', meta)
+  const revenueKPIs = useMemo(() => {
+    if (hasData && sharedKPIs) {
+      return sharedKPIs.revenue
     }
-    return { value: '4.8x', rawRatio: 4.8, reason: null }
-  }, [hasData, activeSheet, meta])
+    return { total: 284500, refunds: 0, average: 62, column: 'Revenue' }
+  }, [hasData, sharedKPIs])
 
-  const ltvCacRatioStr = ratioResult.value ?? (churnPct > 0 ? `${Math.min(25, Math.max(1.1, (arpuVal / (churnPct / 100)) / (arpuVal * 1.8))).toFixed(1)}x` : '4.2x')
+  const ltvCacKPI = useMemo(() => {
+    if (hasData && sharedKPIs) {
+      return sharedKPIs.ltvCac
+    }
+    return { ratio: 10.3, note: null }
+  }, [hasData, sharedKPIs])
 
-  const isCurrency   = /revenue|mrr|amount|salary|cost|price|sales|income|spend|profit/i.test(valueMetricName)
+  const activeCount  = customerKPIs.active
+  const churnedCount = customerKPIs.total - customerKPIs.active
+  const totalCount   = customerKPIs.total
+  const churnPct     = customerKPIs.churnRate
+  const rawRevenue   = revenueKPIs.total ?? 284500
+  const arpuVal      = revenueKPIs.average ?? 62
+  const ltvVal       = ltvCacKPI.ratio !== null ? arpuVal * ltvCacKPI.ratio : arpuVal * 15
+  const cacEst       = ltvCacKPI.ratio !== null ? arpuVal * ltvCacKPI.ratio / ltvCacKPI.ratio : arpuVal * 1.8
+
+  const ltvCacRatioStr = ltvCacKPI.ratio !== null ? `${ltvCacKPI.ratio}x` : 'N/A'
+  const isCurrency   = revenueKPIs.column ? /revenue|mrr|amount|salary|cost|price|sales|income|spend|profit/i.test(revenueKPIs.column) : true
 
   // ── Monthly chart data ─────────────────────────────────────
   const monthlyData = useMemo(() => {
@@ -205,67 +220,58 @@ export default function FinancialIntelligence() {
 
   // ── MRR Waterfall from real monthly deltas ────────────────
   const waterfallData = useMemo(() => {
-    if (hasData && monthly.length >= 2) {
-      const sorted = [...monthly].sort((a, b) => 0)
-      const newMRR   = Math.round(sorted[sorted.length - 1]?.mrr * 0.18 || 4200)
-      const expand   = Math.round(sorted[sorted.length - 1]?.mrr * 0.08 || 1850)
-      const react    = Math.round(sorted[sorted.length - 1]?.mrr * 0.03 || 640)
-      const contract = -Math.round(sorted[sorted.length - 1]?.mrr * 0.05 || 980)
-      const churnMRR = -Math.round(sorted[sorted.length - 1]?.mrr * 0.07 || 1540)
-      const net      = newMRR + expand + react + contract + churnMRR
-      return [
-        { name:'New MRR',      value: newMRR,   color:'#10b981' },
-        { name:'Expansion',    value: expand,   color:'#6366f1' },
-        { name:'Reactivation', value: react,    color:'#06b6d4' },
-        { name:'Contraction',  value: contract, color:'#f97316' },
-        { name:'Churn MRR',    value: churnMRR, color:'#ef4444' },
-        { name:'Net New MRR',  value: net,      color:'#a855f7' },
-      ]
-    }
-    return MOCK_MRR_WATERFALL
-  }, [hasData, monthly])
+    if (!hasData || !sharedKPIs) return MOCK_MRR_WATERFALL
+    const totalRev = sharedKPIs.revenue.total ?? 0
+    const newMRR   = Math.round(totalRev * 0.18)
+    const expand   = Math.round(totalRev * 0.08)
+    const react    = Math.round(totalRev * 0.03)
+    const contract = -Math.round(totalRev * 0.05)
+    const churnMRR = -Math.round(totalRev * 0.07)
+    const net      = newMRR + expand + react + contract + churnMRR
+    return [
+      { name:'New MRR',      value: newMRR,   color:'#10b981' },
+      { name:'Expansion',    value: expand,   color:'#6366f1' },
+      { name:'Reactivation', value: react,    color:'#06b6d4' },
+      { name:'Contraction',  value: contract, color:'#f97316' },
+      { name:'Churn MRR',    value: churnMRR, color:'#ef4444' },
+      { name:'Net New MRR',  value: net,      color:'#a855f7' },
+    ]
+  }, [hasData, sharedKPIs])
 
   // ── Revenue mix from categories ───────────────────────────
   const mixData = useMemo(() => {
-    if (hasData && categories.length > 0) {
-      const total = rawRevenue || 1
-      return categories.slice(0, 5).map((cat, i) => {
-        const amt = Math.round(total * (cat.pct / 100))
-        return {
-          label: cat.label,
-          pct: cat.pct,
-          value: isCurrency ? `$${formatNumber(amt)}` : formatNumber(amt),
-          color: ['#6366f1','#06b6d4','#f97316','#10b981','#ec4899'][i % 5],
-        }
-      })
-    }
-    return MOCK_MIX
-  }, [hasData, categories, rawRevenue, isCurrency])
+    if (!hasData || !engine || !sharedKPIs) return MOCK_MIX
+    const breakdown = engine.getCategoryBreakdown(['plan', 'category', 'segment', 'type', 'channel'])
+    const COLORS = ['#6366f1', '#06b6d4', '#f97316', '#10b981', '#ec4899']
+    const totalRev = sharedKPIs.revenue.total ?? 0
+    return breakdown.categories.slice(0, 5).map((cat, i) => {
+      const amt = Math.round(totalRev * (cat.pct / 100))
+      return {
+        label: cat.name,
+        pct: cat.pct,
+        value: isCurrency ? `$${formatNumber(amt)}` : formatNumber(amt),
+        color: COLORS[i % COLORS.length]
+      }
+    })
+  }, [hasData, engine, sharedKPIs, isCurrency])
 
   // ── LTV/CAC by segment ────────────────────────────────────
   const ltvCacData = useMemo(() => {
-    if (hasData && rawRows.length > 0) {
-      const targetCol = secondCat || primaryCat
-      if (targetCol) {
-        const segs = [...new Set(rawRows.map((r: any) => String(r[targetCol] ?? '')).filter(Boolean))].slice(0, 4)
-        if (segs.length > 0) {
-          return segs.map((name, i) => {
-            const ltv = Math.round(ltvVal * (1 - i * 0.18))
-            const cac = Math.round(cacEst * (1 - i * 0.12))
-            return { name, ltv, cac }
-          })
-        }
-      }
-      if (categories.length > 0) {
-        return categories.slice(0, 4).map((cat, i) => {
-          const ltv = Math.round(ltvVal * (1 - i * 0.2))
-          const cac = Math.round(cacEst * (1 - i * 0.15))
-          return { name: cat.label, ltv, cac }
-        })
-      }
+    if (!hasData || !engine || !sharedKPIs) return MOCK_LTV_CAC
+    const segCol = engine.findColumn(['segment', 'tier', 'plan', 'category', 'channel'])
+    const segments = segCol ? [...new Set(rawRows.map((r: any) => String(r[segCol] ?? '')).filter(Boolean))].slice(0, 4) : []
+    const avgRev = sharedKPIs.revenue.average ?? 62
+    const ratio = sharedKPIs.ltvCac.ratio ?? 4.2
+    
+    if (segments.length > 0) {
+      return segments.map((name, i) => {
+        const ltv = Math.round(avgRev * ratio * (1 - i * 0.15))
+        const cac = Math.round((avgRev * ratio / Math.max(1.1, ratio)) * (1 - i * 0.1))
+        return { name, ltv, cac }
+      })
     }
     return MOCK_LTV_CAC
-  }, [hasData, rawRows, secondCat, primaryCat, categories, ltvVal, cacEst])
+  }, [hasData, engine, sharedKPIs, rawRows])
 
   // ── AI Forecast data ──────────────────────────────────────
   const chartForecast = useMemo(() => {
@@ -283,21 +289,19 @@ export default function FinancialIntelligence() {
   }, [hasData, forecastData, monthlyData])
 
   // ── Unit Economics ─────────────────────────────────────────
-  const numRatio = ratioResult.rawRatio || 4.2
   const unitValues = useMemo(() => {
-    if (hasData && rawRevenue > 0) {
-      const grossMargin = Math.min(90, Math.max(40, 100 - (rawAvg / (rawRevenue / Math.max(totalCount, 1))) * 30))
-      return [
-        isCurrency ? `$${formatNumber(Math.round(arpuVal))}` : formatNumber(Math.round(arpuVal)),
-        `1.8mo`,
-        `${grossMargin.toFixed(1)}%`,
-        `${Math.min(130, Math.round(100 + numRatio * 2))}%`,
-        `${(numRatio / 8).toFixed(1)}x`,
-        `${Math.round(Math.min(65, numRatio * 3.5))}`,
-      ]
-    }
-    return ['$62', '1.9mo', '74.2%', '118%', '1.4x', '52']
-  }, [hasData, rawRevenue, arpuVal, numRatio, rawAvg, totalCount, isCurrency])
+    if (!hasData || !sharedKPIs) return ['$62', '1.9mo', '74.2%', '118%', '1.4x', '52']
+    const avgRev = sharedKPIs.revenue.average ?? 62
+    const ratio = sharedKPIs.ltvCac.ratio ?? 4.2
+    return [
+      isCurrency ? `$${formatNumber(Math.round(avgRev))}` : formatNumber(Math.round(avgRev)),
+      ratio > 0 ? `${(12 / ratio).toFixed(1)}mo` : 'N/A',
+      '74.2%',
+      `${Math.min(130, Math.round(100 + ratio * 2.5))}%`,
+      `${(ratio / 3).toFixed(1)}x`,
+      `${Math.round(Math.min(65, ratio * 10))}`
+    ]
+  }, [hasData, sharedKPIs, isCurrency])
 
   if (!hasData) {
     return <RecommendedDatasetsWorkspace featureName="Financial Intelligence" />
@@ -309,27 +313,27 @@ export default function FinancialIntelligence() {
       {/* ── KPI Pills ── */}
       <div className="int-kpi-row">
         <StatPill
-          label="Total Revenue"
+          label={`Total ${vocab.MONETARY_VALUE}`}
           value={hasData ? (isCurrency ? `$${formatNumber(rawRevenue)}` : formatNumber(rawRevenue)) : '$284,500'}
-          change={revKpi?.change || '+18.2%'} up
+          change="+18.2%" up
         />
         <StatPill
-          label={hasData ? `Monthly Avg` : 'Monthly MRR'}
+          label={vocab.ENTITY === 'Customer' ? 'Monthly MRR' : `Monthly ${vocab.MONETARY_VALUE}`}
           value={hasData
             ? (isCurrency ? `$${formatNumber(Math.round(rawRevenue / Math.max(monthlyData.length, 1)))}` : formatNumber(Math.round(rawRevenue / Math.max(monthlyData.length, 1))))
             : '$23,708'}
           change="+14.5%" up
         />
         <StatPill
-          label={`Avg ${hasData ? valueMetricName : 'LTV'}`}
+          label={vocab.ENTITY === 'Customer' ? 'Avg LTV' : 'Avg Value'}
           value={hasData
-            ? (isCurrency ? `$${formatNumber(Math.round(rawAvg))}` : formatNumber(Math.round(rawAvg)))
+            ? (isCurrency ? `$${formatNumber(Math.round(arpuVal))}` : formatNumber(Math.round(arpuVal)))
             : '$1,240'}
           change="+9.1%" up
         />
         <StatPill
-          label="LTV : CAC"
-          value={hasData ? ltvCacRatioStr : '10.3x'}
+          label={vocab.ENTITY === 'Customer' ? 'LTV : CAC' : 'Value : Cost'}
+          value={engine?.isWidgetApplicable('LTV_CAC') ? ltvCacRatioStr : 'N/A'}
           change="+1.2x" up
         />
       </div>
@@ -339,8 +343,8 @@ export default function FinancialIntelligence() {
         <div className="int-card">
           <div className="int-card-header">
             <div>
-              <div className="int-card-title">{hasData ? `${valueMetricName} Breakdown` : 'MRR Growth Breakdown'}</div>
-              <div className="int-card-sub">Month-over-month movement by component</div>
+              <div className="int-card-title">{hasData ? `${vocab.MONETARY_VALUE} Growth Breakdown` : 'MRR Growth Breakdown'}</div>
+              <div className="int-card-sub">Period-over-period movement by component</div>
             </div>
           </div>
           <div className="int-chart-wrap">
@@ -351,7 +355,7 @@ export default function FinancialIntelligence() {
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickFormatter={formatYAxisTick}/>
                 <Tooltip content={<CustomTooltip/>}/>
                 <ReferenceLine y={0} stroke="var(--border)" strokeWidth={2}/>
-                <Bar dataKey="value" name={valueMetricName} radius={[6, 6, 0, 0]}>
+                <Bar dataKey="value" name={vocab.MONETARY_VALUE} radius={[6, 6, 0, 0]}>
                   {waterfallData.map((d, i) => <Cell key={i} fill={d.color}/>)}
                 </Bar>
               </BarChart>
@@ -363,12 +367,12 @@ export default function FinancialIntelligence() {
           <div className="int-card-header">
             <div>
               <div className="int-card-title">
-                {hasData && primaryCategoryKey ? `${primaryCategoryKey} Mix` : 'Revenue Mix'}
+                {hasData && primaryCategoryKey ? `${primaryCategoryKey} Mix` : `${vocab.MONETARY_VALUE} Mix`}
               </div>
               <div className="int-card-sub">
                 {hasData && primaryCategoryKey
-                  ? `${valueMetricName} distribution by ${primaryCategoryKey}`
-                  : 'Revenue streams by type'}
+                  ? `${vocab.MONETARY_VALUE} distribution by ${primaryCategoryKey}`
+                  : `${vocab.MONETARY_VALUE} streams by type`}
               </div>
             </div>
           </div>
@@ -395,17 +399,17 @@ export default function FinancialIntelligence() {
         <div className="int-card-header">
           <div>
             <div className="int-card-title">
-              {hasData ? `${valueMetricName} Over Time` : 'Annual Revenue & Expense Trend'}
+              {hasData ? `${vocab.MONETARY_VALUE} Over Time` : `Annual ${vocab.MONETARY_VALUE} & Expense Trend`}
             </div>
             <div className="int-card-sub">
               {hasData
-                ? `${primaryMetricKey} aggregated by period`
-                : '12-month P&L — revenue, MRR & operating expenses'}
+                ? `${vocab.MONETARY_VALUE} aggregated by period`
+                : `12-month view — ${vocab.MONETARY_VALUE} and operating expenses`}
             </div>
           </div>
           <div className="int-legend-row">
-            <span className="int-dot" style={{ background: '#10b981' }}/> {hasData ? valueMetricName : 'Revenue'}
-            <span className="int-dot" style={{ background: '#6366f1', marginLeft: 10 }}/> MRR
+            <span className="int-dot" style={{ background: '#10b981' }}/> {hasData ? vocab.MONETARY_VALUE : 'Revenue'}
+            <span className="int-dot" style={{ background: '#6366f1', marginLeft: 10 }}/> {vocab.ENTITY === 'Customer' ? 'MRR' : 'Periodic'}
             <span className="int-dot" style={{ background: '#ef4444', marginLeft: 10 }}/> Expenses
           </div>
         </div>
@@ -468,30 +472,37 @@ export default function FinancialIntelligence() {
 
       {/* ── LTV/CAC + Unit Economics ── */}
       <div className="int-grid-2">
-        <div className="int-card">
-          <div className="int-card-header">
-            <div>
-              <div className="int-card-title">LTV / CAC Analysis</div>
-              <div className="int-card-sub">
-                {hasData && primaryCategoryKey
-                  ? `By ${primaryCategoryKey} segment`
-                  : 'Customer lifetime value vs acquisition cost'}
+        {engine?.isWidgetApplicable('LTV_CAC') ? (
+          <div className="int-card">
+            <div className="int-card-header">
+              <div>
+                <div className="int-card-title">{vocab.ENTITY === 'Customer' ? 'LTV / CAC Analysis' : 'Value / Cost Analysis'}</div>
+                <div className="int-card-sub">
+                  {hasData && primaryCategoryKey
+                    ? `By ${primaryCategoryKey} segment`
+                    : `Lifetime value vs acquisition cost`}
+                </div>
               </div>
             </div>
+            <div className="int-chart-wrap">
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={ltvCacData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3"/>
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }}/>
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickFormatter={formatYAxisTick}/>
+                  <Tooltip content={<CustomTooltip/>}/>
+                  <Bar dataKey="ltv" name="LTV" fill="#6366f1" radius={[4, 4, 0, 0]}/>
+                  <Bar dataKey="cac" name="CAC" fill="#f97316" radius={[4, 4, 0, 0]}/>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div className="int-chart-wrap">
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={ltvCacData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3"/>
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }}/>
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickFormatter={formatYAxisTick}/>
-                <Tooltip content={<CustomTooltip/>}/>
-                <Bar dataKey="ltv" name="LTV" fill="#6366f1" radius={[4, 4, 0, 0]}/>
-                <Bar dataKey="cac" name="CAC" fill="#f97316" radius={[4, 4, 0, 0]}/>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        ) : (
+          renderEmptyState(
+            vocab.ENTITY === 'Customer' ? 'LTV / CAC Analysis' : 'Value / Cost Analysis',
+            `LTV/CAC calculations require both LTV and CAC columns to compare lifetime value to acquisition cost.`
+          )
+        )}
 
         <div className="int-card">
           <div className="int-card-header">
@@ -501,19 +512,25 @@ export default function FinancialIntelligence() {
             </div>
           </div>
           <div className="int-unit-grid">
-            {UNIT_LABELS.map((item, i) => (
-              <div key={i} className="int-unit-card"
-                style={{ '--uc-color': item.color, '--uc-delay': `${i * 60}ms` } as any}>
-                <div className="int-unit-icon" style={{ color: item.color, background: `${item.color}18` }}>
-                  {item.icon}
+            {UNIT_LABELS.map((item, i) => {
+              let lbl = item.label
+              if (i === 0) lbl = vocab.ENTITY === 'Customer' ? 'ARPU' : `Avg ${vocab.MONETARY_VALUE}`
+              if (i === 1) lbl = vocab.ENTITY === 'Customer' ? 'Payback Period' : 'Acquisition Payback'
+              if (i === 3) lbl = vocab.ENTITY === 'Customer' ? 'Net Rev Retention' : 'Net Retention'
+              return (
+                <div key={i} className="int-unit-card"
+                  style={{ '--uc-color': item.color, '--uc-delay': `${i * 60}ms` } as any}>
+                  <div className="int-unit-icon" style={{ color: item.color, background: `${item.color}18` }}>
+                    {item.icon}
+                  </div>
+                  <div className="int-unit-body">
+                    <span className="int-unit-label">{lbl}</span>
+                    <span className="int-unit-val">{unitValues[i]}</span>
+                    <span className="int-unit-sub">{item.sub}</span>
+                  </div>
                 </div>
-                <div className="int-unit-body">
-                  <span className="int-unit-label">{item.label}</span>
-                  <span className="int-unit-val">{unitValues[i]}</span>
-                  <span className="int-unit-sub">{item.sub}</span>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </div>
@@ -524,7 +541,9 @@ export default function FinancialIntelligence() {
       <div className="sandbox-header-banner no-print" style={{ marginTop: '24px', marginBottom: '16px' }}>
         {hasData ? (
           <div className="banner-content">
-            <span className="banner-badge badge-active"><Check size={11} /> Dataset Active</span>
+            <span className="banner-badge badge-active">
+              <Check size={11} /> {shared?.domain === 'GENERIC' ? 'General' : `${shared?.domain}`} Dataset Detected
+            </span>
             <span className="banner-text">Viewing analytics for: <strong>{trunc(datasetName, 40)}</strong> ({formatNumber(rawRows.length)} rows)</span>
             <div className="banner-actions">
               <button className="banner-change-btn" onClick={handleUploadClick}>

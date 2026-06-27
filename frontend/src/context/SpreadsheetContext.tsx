@@ -7,6 +7,7 @@ import { useAuth } from './AuthContext'
 import { computeAnalytics, type AnalyticsResult } from '../services/analyticsEngine'
 import { cleanNumericValue, formatNumber, detectDuplicates } from '../services/dataCleaner'
 import type { SampleDataset } from '../data/sampleDatasets'
+import { DataEngine } from '../services/dataEngine'
 
 // ── Sheet info for multi-sheet Excel workbooks ────────────────────
 export interface SheetInfo {
@@ -45,6 +46,20 @@ interface SpreadsheetContextType {
   setSelectedPrimaryMetricKey: React.Dispatch<React.SetStateAction<string>>
   selectedSecondaryMetricKey: string
   setSelectedSecondaryMetricKey: React.Dispatch<React.SetStateAction<string>>
+  engine: DataEngine | null
+  sharedKPIs: {
+    revenue: any
+    customers: any
+    ltvCac: any
+    domain: any
+  } | null
+  shared: {
+    domain: string
+    vocab: any
+    entityKPIs: any
+    monetaryKPIs: any
+    grouping: any
+  } | null
 }
 
 const SpreadsheetContext = createContext<SpreadsheetContextType>({} as SpreadsheetContextType)
@@ -494,7 +509,12 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       return { success: false, error: 'Invalid file type. Please upload Excel (.xlsx, .xls), CSV (.csv), or JSON (.json) files.' }
     }
 
+    setLoading(true)
     return new Promise((resolve) => {
+      const wrappedResolve = (val: { success: boolean; error: string | null }) => {
+        setLoading(false)
+        resolve(val)
+      }
       const reader = new FileReader()
       reader.onload = async (e) => {
         try {
@@ -589,7 +609,7 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
           }
 
           if (json.length === 0) {
-            resolve({ success: false, error: 'The uploaded dataset contains no data rows.' })
+            wrappedResolve({ success: false, error: 'The uploaded dataset contains no data rows.' })
             return
           }
 
@@ -597,7 +617,7 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
           const isExcel = extension === 'xlsx' || extension === 'xls'
           const maxRows = isExcel ? 20000 : 2000
           if (json.length > maxRows) {
-            resolve({ success: false, error: `Dataset exceeds the limit of ${maxRows.toLocaleString()} rows for ${isExcel ? 'Excel' : 'CSV/JSON'} files. Please upload a smaller file.` })
+            wrappedResolve({ success: false, error: `Dataset exceeds the limit of ${maxRows.toLocaleString()} rows for ${isExcel ? 'Excel' : 'CSV/JSON'} files. Please upload a smaller file.` })
             return
           }
 
@@ -655,17 +675,17 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
             } else {
               refreshSubscription()
             }
-            resolve({ success: true, error: null })
+            wrappedResolve({ success: true, error: null })
           } else {
-            resolve({ success: false, error: 'Failed to upload dataset data to server.' })
+            wrappedResolve({ success: false, error: 'Failed to upload dataset data to server.' })
           }
         } catch (err: any) {
           const errMsg = err.response?.data?.error || err.message || 'Unknown server error'
-          resolve({ success: false, error: `Upload Error: ${errMsg}` })
+          wrappedResolve({ success: false, error: `Upload Error: ${errMsg}` })
         }
       }
       reader.onerror = () => {
-        resolve({ success: false, error: 'Failed to read dataset file.' })
+        wrappedResolve({ success: false, error: 'Failed to read dataset file.' })
       }
       if (extension === 'json') {
         reader.readAsText(file)
@@ -683,6 +703,7 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
     const sheetData = sheetsData[name]
     if (!sheetData) return
 
+    setLoading(true)
     setActiveSheetName(name)
     // Persist active sheet change to sessionStorage
     persistSheetsData(sheetsData, sheetsFilename, name)
@@ -708,6 +729,8 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       await uploadSpreadsheet(payload)
     } catch (err) {
       console.warn('selectSheet: failed to sync to backend', err)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -746,13 +769,18 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       return { success: false, error: 'Document exceeds the limit of 10MB. Please upload a smaller file.' }
     }
 
+    setLoading(true)
     return new Promise((resolve) => {
+      const wrappedResolve = (val: { success: boolean; error: string | null }) => {
+        setLoading(false)
+        resolve(val)
+      }
       const reader = new FileReader()
       reader.onload = async (e) => {
         try {
           const dataUrl = e.target?.result as string
           if (!dataUrl) {
-            resolve({ success: false, error: 'Failed to read document file.' })
+            wrappedResolve({ success: false, error: 'Failed to read document file.' })
             return
           }
           const base64 = dataUrl.split(',')[1]
@@ -779,17 +807,17 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
               // authenticated: backend has already incremented DB; refresh UI counters
               refreshSubscription()
             }
-            resolve({ success: true, error: null })
+            wrappedResolve({ success: true, error: null })
           } else {
-            resolve({ success: false, error: 'Failed to upload document.' })
+            wrappedResolve({ success: false, error: 'Failed to upload document.' })
           }
         } catch (err: any) {
           const errMsg = err.response?.data?.error || err.message || 'Unknown server error'
-          resolve({ success: false, error: errMsg })
+          wrappedResolve({ success: false, error: errMsg })
         }
       }
       reader.onerror = () => {
-        resolve({ success: false, error: 'Failed to read document file.' })
+        wrappedResolve({ success: false, error: 'Failed to read document file.' })
       }
       reader.readAsDataURL(file)
     })
@@ -886,38 +914,80 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
   }, [activeSheet, sampleSheet, activeDocument])
 
   // ── Compute analytics whenever any data source changes ────────
-  const effectiveSource = activeSheet || sampleSheet || (
-    activeDocument?.parsedRows?.length > 0 ? {
-      filename: activeDocument.filename,
-      rows: activeDocument.parsedRows,
-      columns_metadata: activeDocument.columnsMetadata || {},
-    } : null
-  )
+  const effectiveSource = useMemo(() => {
+    if (activeSheet) return activeSheet
+    if (sampleSheet) return sampleSheet
+    if (activeDocument?.parsedRows?.length > 0) {
+      return {
+        filename: activeDocument.filename,
+        rows: activeDocument.parsedRows,
+        columns_metadata: activeDocument.columnsMetadata || {},
+      }
+    }
+    return null
+  }, [activeSheet, sampleSheet, activeDocument])
 
-  const analytics = useMemo(() => {
+  const baseAnalytics = useMemo(() => {
     if (!effectiveSource) return computeAnalytics([], {}, '')
-    
-    // First compute default values to fall back to if overrides aren't set yet
-    const dryRun = computeAnalytics(
+    return computeAnalytics(
       effectiveSource.rows || [],
       effectiveSource.columns_metadata || {},
       effectiveSource.filename || 'Dataset'
     )
+  }, [effectiveSource])
+
+  const analytics = useMemo(() => {
+    if (!effectiveSource || !baseAnalytics) return baseAnalytics || computeAnalytics([], {}, '')
     
+    // Fall back to baseAnalytics if no overrides are set yet
+    if (!selectedPrimaryMetricKey && !selectedTimeKey && !selectedCategoryKey) {
+      return baseAnalytics
+    }
+
     return computeAnalytics(
       effectiveSource.rows || [],
       effectiveSource.columns_metadata || {},
       effectiveSource.filename || 'Dataset',
       {
-        primaryMetricKey: selectedPrimaryMetricKey || dryRun.primaryMetricKey,
-        primaryTimeKey: selectedTimeKey || dryRun.primaryTimeKey,
-        primaryCategoryKey: selectedCategoryKey || dryRun.primaryCategoryKey,
+        primaryMetricKey: selectedPrimaryMetricKey || baseAnalytics.primaryMetricKey,
+        primaryTimeKey: selectedTimeKey || baseAnalytics.primaryTimeKey,
+        primaryCategoryKey: selectedCategoryKey || baseAnalytics.primaryCategoryKey,
       }
     )
-  }, [effectiveSource, selectedTimeKey, selectedCategoryKey, selectedPrimaryMetricKey])
+  }, [effectiveSource, baseAnalytics, selectedTimeKey, selectedCategoryKey, selectedPrimaryMetricKey])
 
   const hasData = analytics.hasData
   const datasetName = analytics.datasetName
+
+  const engine = useMemo(() => {
+    if (!effectiveSource?.rows) return null
+    return new DataEngine(effectiveSource.rows, {
+      primaryMetricKey: selectedPrimaryMetricKey || baseAnalytics?.primaryMetricKey,
+      primaryTimeKey: selectedTimeKey || baseAnalytics?.primaryTimeKey,
+      primaryCategoryKey: selectedCategoryKey || baseAnalytics?.primaryCategoryKey,
+    })
+  }, [effectiveSource, selectedPrimaryMetricKey, selectedTimeKey, selectedCategoryKey, baseAnalytics])
+
+  const sharedKPIs = useMemo(() => {
+    if (!engine) return null
+    return {
+      revenue: engine.getRevenueKPIs(),
+      customers: engine.getCustomerKPIs(),
+      ltvCac: engine.getLtvCacRatio(),
+      domain: engine.classifyDomain(),
+    }
+  }, [engine])
+
+  const shared = useMemo(() => {
+    if (!engine) return null
+    return {
+      domain: engine.domain,
+      vocab: engine.vocab,
+      entityKPIs: engine.getEntityKPIs(),
+      monetaryKPIs: engine.getMonetaryKPIs(),
+      grouping: engine.getGroupingBreakdown(),
+    }
+  }, [engine])
 
   return (
     <SpreadsheetContext.Provider value={{
@@ -948,6 +1018,9 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       setSelectedPrimaryMetricKey,
       selectedSecondaryMetricKey,
       setSelectedSecondaryMetricKey,
+      engine,
+      sharedKPIs,
+      shared,
     }}>
       {children}
     </SpreadsheetContext.Provider>

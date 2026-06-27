@@ -53,8 +53,12 @@ export default function Landing() {
 
   const handleSampleSelect = (ds: SampleDataset) => {
     loginAsGuest()
-    loadSample(ds)
-    navigate('/app')
+    setUploading(true)
+    setTimeout(() => {
+      loadSample(ds)
+      navigate('/app')
+      setUploading(false)
+    }, 50)
   }
 
   const handleUploadClick = () => {

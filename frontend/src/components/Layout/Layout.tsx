@@ -3,7 +3,8 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import { useAuth } from '../../context/AuthContext'
-import { Sparkles, Zap, Check, X } from 'lucide-react'
+import { useSpreadsheet } from '../../context/SpreadsheetContext'
+import { Sparkles, Zap, Check, X, Loader2 } from 'lucide-react'
 import './Layout.css'
 
 export default function Layout() {
@@ -18,6 +19,7 @@ export default function Layout() {
     showRenewalModal,
     setShowRenewalModal
   } = useAuth()
+  const { loading: isSpreadsheetLoading } = useSpreadsheet()
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -65,6 +67,28 @@ export default function Layout() {
 
   return (
     <div className={`app-shell ${isDashboard ? 'is-dashboard' : ''} ${isDashboard && sidebarOpen ? 'sidebar-open' : ''}`}>
+      {isSpreadsheetLoading && (
+        <div className="loading-overlay-container" style={{
+          position: 'fixed',
+          top: 0, left: 0,
+          width: '100vw', height: '100vh',
+          background: 'rgba(10, 10, 12, 0.72)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          zIndex: 99999,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '16px',
+          color: '#ffffff',
+          fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif"
+        }}>
+          <Loader2 size={42} className="spin-slow" style={{ color: 'var(--accent)' }} />
+          <div style={{ fontSize: '16px', fontWeight: 800, letterSpacing: '0.02em' }}>Analyzing & Profiling Dataset...</div>
+          <div style={{ fontSize: '11.5px', color: 'rgba(255, 255, 255, 0.65)' }}>Structuring tables, cleaning formats, and compiling metrics</div>
+        </div>
+      )}
       {isDashboard && sidebarOpen && (
         <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
       )}

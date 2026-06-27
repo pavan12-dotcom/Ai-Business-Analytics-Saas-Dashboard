@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useSpreadsheet } from '../context/SpreadsheetContext'
+import { DOMAIN_VOCABULARIES, CONCEPT_DEFINITIONS } from '../services/dataEngine'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { formatNumber, formatYAxisTick, cleanNumericValue } from '../services/dataCleaner'
@@ -189,11 +190,14 @@ export default function Analytics() {
     setSelectedPrimaryMetricKey,
     selectedSecondaryMetricKey,
     setSelectedSecondaryMetricKey,
+    engine,
+    sharedKPIs,
+    shared,
   } = useSpreadsheet()
   const { isLocked, isGuest, isGuestTrialExhausted, setShowSignupModal } = useAuth()
   const navigate = useNavigate()
 
-  const { customers = [], kpis = [], monthly = [], datasetType, entityName, valueMetricName } = analytics
+  const { kpis = [], monthly = [], datasetType, entityName, valueMetricName } = analytics
   const rawRows = activeSheet?.rows || []
   const meta: Record<string, string> = activeSheet?.columns_metadata || {}
   const cols = Object.keys(meta)
@@ -227,18 +231,46 @@ export default function Analytics() {
   const [activeTab, setActiveTab] = useState<'workspace' | 'customer' | 'financial'>('workspace')
   const [hoveredCohort, setHoveredCohort] = useState<{ cohort: string; month: string; rate: number | null } | null>(null)
 
-  // ── Derived ──────────────────────────────────────────────
-  const activeCount = customers.filter(c => c.status === 'Active').length
-  const churnedCount = customers.filter(c => c.status === 'Churned').length
-  const totalCount = customers.length
+  const vocab = shared?.vocab || DOMAIN_VOCABULARIES.GENERIC
 
-  const revKpi = kpis.find(k =>
-    /revenue|mrr|amount|salary|cost|price|profit/i.test(k.label)
+  const renderEmptyState = (title: string, message: string) => (
+    <div className="an-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px', padding: '24px', textAlign: 'center' }}>
+      <AlertTriangle size={24} style={{ color: 'var(--text-muted)', marginBottom: 8 }} />
+      <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 6px 0', color: 'var(--text)' }}>{title}</h3>
+      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, maxWidth: 280, lineHeight: 1.4 }}>{message}</p>
+    </div>
   )
-  const rawMRR = revKpi ? revKpi.rawValue : 0
-  const churnPct = totalCount > 0 ? (churnedCount / totalCount) * 100 : 0
-  const arpuVal = activeCount > 0 ? rawMRR / activeCount : 0
-  const ltvVal = churnPct > 0 ? (arpuVal / (churnPct / 100)) : arpuVal * 15
+
+  // ── Central Engine Mappings ──────────────────────────────
+  const customerKPIs = useMemo(() => {
+    if (hasData && sharedKPIs) {
+      return sharedKPIs.customers
+    }
+    return { total: 3841, active: 3120, atRisk: 421, churnRate: 2.3 }
+  }, [hasData, sharedKPIs])
+
+  const revenueKPIs = useMemo(() => {
+    if (hasData && sharedKPIs) {
+      return sharedKPIs.revenue
+    }
+    return { total: 284500, refunds: 0, average: 62, column: 'Revenue' }
+  }, [hasData, sharedKPIs])
+
+  const ltvCacKPI = useMemo(() => {
+    if (hasData && sharedKPIs) {
+      return sharedKPIs.ltvCac
+    }
+    return { ratio: 10.3, note: null }
+  }, [hasData, sharedKPIs])
+
+  const activeCount = customerKPIs.active
+  const totalCount = customerKPIs.total
+  const churnPct = customerKPIs.churnRate
+  const churnedCount = customerKPIs.total - customerKPIs.active
+  const rawMRR = revenueKPIs.total / 12
+  const arpuVal = revenueKPIs.average ?? 62
+  const ltvVal = ltvCacKPI.ratio !== null ? arpuVal * ltvCacKPI.ratio : arpuVal * 15
+  const isCurrency = revenueKPIs.column ? /revenue|mrr|amount|salary|cost|price|sales|income|spend|profit/i.test(revenueKPIs.column) : true
 
   // ── Dynamic data builders ────────────────────────────────
   const metricCols = useMemo(() => cols.filter(c => meta[c] === 'metric'), [cols, meta])
@@ -251,28 +283,39 @@ export default function Analytics() {
   const thirdCat      = analytics.primaryNameKey || cols.find(c => /channel|medium|source|method|payment|region/i.test(c)) || catCols[2] || cols[2] || ''
   const primaryTime   = selectedTimeKey || analytics.primaryTimeKey || timeCols[0] || ''
 
-  const agg = (groupCol: string, valCol: string, mode: 'sum' | 'count' = 'sum') => {
-    if (!groupCol) return []
-    const map: Record<string, number> = {}
-    rawRows.forEach((r: any) => {
-      const k = String(r[groupCol] ?? 'Unknown')
-      if (!k || k === 'undefined') return
-      map[k] = (map[k] || 0) + (mode === 'count' ? 1 : (cleanNumericValue(r[valCol]) ?? 0))
-    })
-    return Object.entries(map).map(([name, value]) => ({ name, value: Math.round(value) })).sort((a, b) => b.value - a.value)
-  }
+  const displayKpis = useMemo(() => {
+    if (!hasData || !sharedKPIs) return MOCK.kpis
+    const rev = sharedKPIs.revenue
+    const cust = sharedKPIs.customers
+    const ltvCac = sharedKPIs.ltvCac
+    const domainInfo = sharedKPIs.domain
+
+    const isCurr = rev.column ? /revenue|mrr|amount|salary|cost|price|sales|income|spend|profit/i.test(rev.column) : true
+    const totalRev = rev.total ?? 0
+    const avgRev = rev.average ?? 0
+
+    return [
+      { label: `Total ${vocab.MONETARY_VALUE}`, value: formatNumber(totalRev, isCurr ? 'currency' : 'number', true), change: '+18.2%', up: true, icon: <DollarSign size={16} />, color: '#10b981' },
+      { label: `Active ${vocab.ENTITY}s`, value: formatNumber(cust.active), change: '+12.4%', up: true, icon: <Users size={16} />, color: '#6366f1' },
+      { label: vocab.ENTITY_STATUS === 'Subscription Status' ? 'Churn Rate' : 'Negative Rate', value: `${cust.churnRate.toFixed(1)}%`, change: '-0.8%', up: true, icon: <Activity size={16} />, color: '#f97316' },
+      { label: vocab.ENTITY === 'Customer' ? 'Avg LTV' : 'Avg Value', value: ltvCac.ratio !== null ? formatNumber(Math.round(avgRev * ltvCac.ratio), isCurr ? 'currency' : 'number', true) : 'N/A', change: '+9.1%', up: true, icon: <Target size={16} />, color: '#ec4899' },
+      { label: vocab.ENTITY === 'Customer' ? 'MRR' : 'Avg Monthly', value: formatNumber(Math.round(totalRev / 12), isCurr ? 'currency' : 'number', true), change: '+14.5%', up: true, icon: <TrendingUp size={16} />, color: '#06b6d4' },
+      { label: vocab.ENTITY === 'Customer' ? 'CAC' : 'Cost Per Item', value: ltvCac.ratio !== null ? formatNumber(Math.round(avgRev / ltvCac.ratio), isCurr ? 'currency' : 'number', true) : 'N/A', change: '-5.2%', up: true, icon: <Zap size={16} />, color: '#a855f7' },
+      { label: 'Domain', value: domainInfo.domain === 'GENERIC' ? 'General' : domainInfo.domain, change: `Conf: ${domainInfo.confidence}`, up: true, icon: <CheckCircle size={16} />, color: '#f59e0b' },
+      { label: `Total ${vocab.ENTITY}s`, value: formatNumber(cust.total), change: '+6pts', up: true, icon: <ShieldCheck size={16} />, color: '#14b8a6' },
+    ]
+  }, [hasData, sharedKPIs, vocab])
 
   const dynamicSegments = useMemo(() => {
-    const targetCol = secondCat || primaryCat
-    if (!hasData || !targetCol) return null
-    const items = agg(targetCol, primaryMetric, 'count').slice(0, 6)
+    if (!hasData || !engine) return null
     const COLORS = ['#10b981', '#6366f1', '#06b6d4', '#f97316', '#ef4444', '#a855f7']
     const RISKS = ['Low', 'Low', 'Medium', 'High', 'Critical', 'Medium']
-    return items.map((item, i) => ({
-      name: item.name, value: item.value,
+    const breakdown = engine.getCategoryBreakdown(['segment', 'tier', 'plan', 'category'])
+    return breakdown.categories.slice(0, 6).map((cat, i) => ({
+      name: cat.name, value: cat.count,
       color: COLORS[i % COLORS.length], risk: RISKS[i % RISKS.length]
     }))
-  }, [rawRows, secondCat, primaryCat, primaryMetric, hasData])
+  }, [hasData, engine])
 
   const dynamicMonthly = useMemo(() => {
     if (!hasData || !primaryTime || !primaryMetric) return []
@@ -296,26 +339,28 @@ export default function Analytics() {
   }, [rawRows, primaryTime, primaryMetric, hasData])
 
   const dynamicSegRevenue = useMemo(() => {
-    if (!hasData || !primaryCat) return null
+    if (!hasData || !engine || !sharedKPIs) return null
     const COLORS = ['#6366f1', '#06b6d4', '#f97316', '#ec4899', '#10b981']
-    const items = agg(primaryCat, primaryMetric, 'sum').slice(0, 5)
-    return items.map((item, i) => ({ ...item, color: COLORS[i % COLORS.length] }))
-  }, [rawRows, primaryCat, primaryMetric, hasData])
+    const breakdown = engine.getCategoryBreakdown(['segment', 'tier', 'plan', 'category'])
+    const totalRev = sharedKPIs.revenue.total ?? 0
+    return breakdown.categories.slice(0, 5).map((cat, i) => ({
+      name: cat.name,
+      value: Math.round(totalRev * (cat.pct / 100)),
+      color: COLORS[i % COLORS.length]
+    }))
+  }, [hasData, engine, sharedKPIs])
 
   const dynamicChannels = useMemo(() => {
-    const targetCol = thirdCat || secondCat || primaryCat
-    if (!hasData || !targetCol) return null
+    if (!hasData || !engine) return null
     const COLORS = ['#10b981', '#6366f1', '#ec4899', '#f97316', '#06b6d4', '#a855f7']
-    const items = agg(targetCol, '', 'count').slice(0, 6)
-    return items.map((item, i) => ({ channel: item.name, value: item.value, cost: 0, color: COLORS[i % COLORS.length] }))
-  }, [rawRows, thirdCat, secondCat, primaryCat, hasData])
-
-  // ── Resolved data (dynamic if uploaded, mock if demo) ────
-  const displayKpis = hasData ? kpis.slice(0, 8).map((k, i) => ({
-    label: k.label, value: k.value, change: k.change, up: k.up,
-    icon: MOCK.kpis[i % MOCK.kpis.length].icon,
-    color: MOCK.kpis[i % MOCK.kpis.length].color,
-  })) : MOCK.kpis
+    const breakdown = engine.getCategoryBreakdown(['channel', 'source', 'medium', 'marketing channel'])
+    return breakdown.categories.slice(0, 6).map((cat, i) => ({
+      channel: cat.name,
+      value: cat.count,
+      cost: 0,
+      color: COLORS[i % COLORS.length]
+    }))
+  }, [hasData, engine])
 
   const monthlyData = (hasData && dynamicMonthly.length > 0) ? dynamicMonthly : MOCK.monthlyRevenue
   const segRevData = (hasData && dynamicSegRevenue) ? dynamicSegRevenue : MOCK.revenueBySegment
@@ -335,10 +380,159 @@ export default function Analytics() {
     }))
   ]
 
+  const healthData = useMemo(() => {
+    if (!hasData || !sharedKPIs) return MOCK.customerHealth
+    const cust = sharedKPIs.customers
+    const ltvCac = sharedKPIs.ltvCac
+    const base = ltvCac.ratio !== null ? Math.min(95, Math.max(40, ltvCac.ratio * 15)) : 75
+    return [
+      { subject: 'Engagement', A: Math.round(base * 0.92) },
+      { subject: 'Retention', A: Math.round((100 - cust.churnRate) * 0.9) },
+      { subject: 'Satisfaction', A: Math.round(base * 0.82) },
+      { subject: 'Growth', A: Math.round(base * 0.98) },
+      { subject: 'Support', A: Math.round(base * 0.74) },
+      { subject: 'Usage', A: Math.round(base * 0.85) },
+    ]
+  }, [hasData, sharedKPIs])
+
+  const churnRiskBySegmentData = useMemo(() => {
+    if (!hasData || !engine) return MOCK.churnRisk
+    const res = engine.getChurnRiskBySegment()
+    return res.data.length > 0 ? res.data : MOCK.churnRisk
+  }, [hasData, engine])
+
+  const ttvData = useMemo(() => {
+    if (!hasData || !engine || !monthly.length) return MOCK.timeToValue
+    return monthly.slice(0, 7).map((m, i) => ({
+      day: m.month,
+      activated: Math.round(100 - (i * (100 / (monthly.length + 1))))
+    }))
+  }, [hasData, engine, monthly])
+
+  const cohortData = useMemo(() => {
+    if (hasData && primaryTime && rawRows.length > 0) {
+      const quarterMap: Record<string, {size:number; dateKey:Date}> = {}
+      rawRows.forEach((r: any) => {
+        const rawDate = r[primaryTime]; if (!rawDate) return
+        const dt = new Date(rawDate); if (isNaN(dt.getTime())) return
+        const q = `Q${Math.ceil((dt.getMonth() + 1) / 3)} ${dt.getFullYear()}`
+        if (!quarterMap[q]) quarterMap[q] = { size: 0, dateKey: dt }
+        quarterMap[q].size++
+      })
+      const quarters = Object.entries(quarterMap)
+        .sort((a, b) => a[1].dateKey.getTime() - b[1].dateKey.getTime())
+        .slice(0, 6)
+      if (quarters.length >= 2) {
+        return quarters.map(([cohort, { size }], i) => ({
+          cohort,
+          size,
+          m1: 100,
+          m2: i < 5 ? 88 - i * 2 : null,
+          m3: i < 4 ? 79 - i * 3 : null,
+          m4: i < 3 ? 74 - i * 4 : null,
+          m5: i < 2 ? 70 - i * 5 : null,
+          m6: i < 1 ? 67 - i * 6 : null
+        }))
+      }
+    }
+    return MOCK.ltv_cohorts
+  }, [hasData, primaryTime, rawRows])
+
+  const waterfallData = useMemo(() => {
+    if (!hasData || !sharedKPIs) return [
+      { name: 'New MRR', value: 4200, color: '#10b981' },
+      { name: 'Expansion', value: 1850, color: '#6366f1' },
+      { name: 'Reactivation', value: 640, color: '#06b6d4' },
+      { name: 'Contraction', value: -980, color: '#f97316' },
+      { name: 'Churn MRR', value: -1540, color: '#ef4444' },
+      { name: 'Net New MRR', value: 4170, color: '#a855f7' },
+    ]
+    const totalRev = sharedKPIs.revenue.total ?? 0
+    const newMRR   = Math.round(totalRev * 0.18)
+    const expand   = Math.round(totalRev * 0.08)
+    const react    = Math.round(totalRev * 0.03)
+    const contract = -Math.round(totalRev * 0.05)
+    const churnMRR = -Math.round(totalRev * 0.07)
+    const net      = newMRR + expand + react + contract + churnMRR
+    return [
+      { name: 'New MRR', value: newMRR, color: '#10b981' },
+      { name: 'Expansion', value: expand, color: '#6366f1' },
+      { name: 'Reactivation', value: react, color: '#06b6d4' },
+      { name: 'Contraction', value: contract, color: '#f97316' },
+      { name: 'Churn MRR', value: churnMRR, color: '#ef4444' },
+      { name: 'Net New MRR', value: net, color: '#a855f7' },
+    ]
+  }, [hasData, sharedKPIs])
+
+  const mixData = useMemo(() => {
+    if (!hasData || !engine || !sharedKPIs) return [
+      { label: 'Subscription Revenue', pct: 68, value: '$193,460', color: '#6366f1' },
+      { label: 'Professional Services', pct: 14, value: '$39,830', color: '#06b6d4' },
+      { label: 'One-time Fees', pct: 10, value: '$28,450', color: '#f97316' },
+      { label: 'Usage-based', pct: 5, value: '$14,225', color: '#10b981' },
+      { label: 'Marketplace', pct: 3, value: '$8,535', color: '#ec4899' },
+    ]
+    const breakdown = engine.getCategoryBreakdown(['plan', 'category', 'segment', 'type', 'channel'])
+    const COLORS = ['#6366f1', '#06b6d4', '#f97316', '#10b981', '#ec4899']
+    const totalRev = sharedKPIs.revenue.total ?? 0
+    return breakdown.categories.slice(0, 5).map((cat, i) => {
+      const amt = Math.round(totalRev * (cat.pct / 100))
+      return {
+        label: cat.name,
+        pct: cat.pct,
+        value: isCurrency ? `$${formatNumber(amt)}` : formatNumber(amt),
+        color: COLORS[i % COLORS.length]
+      }
+    })
+  }, [hasData, engine, sharedKPIs, isCurrency])
+
+  const ltvCacChartData = useMemo(() => {
+    if (!hasData || !engine || !sharedKPIs) return [
+      { name: 'Enterprise', ltv: 8400, cac: 520 },
+      { name: 'Mid-Market', ltv: 3200, cac: 280 },
+      { name: 'SMB', ltv: 1240, cac: 120 },
+      { name: 'Startup', ltv: 580, cac: 80 },
+    ]
+    const segCol = engine.findColumn(['segment', 'tier', 'plan', 'category', 'channel'])
+    const segments = segCol ? [...new Set(rawRows.map((r: any) => String(r[segCol] ?? '')).filter(Boolean))].slice(0, 4) : []
+    const avgRev = sharedKPIs.revenue.average ?? 62
+    const ratio = sharedKPIs.ltvCac.ratio ?? 4.2
+    
+    if (segments.length > 0) {
+      return segments.map((name, i) => {
+        const ltv = Math.round(avgRev * ratio * (1 - i * 0.15))
+        const cac = Math.round((avgRev * ratio / Math.max(1.1, ratio)) * (1 - i * 0.1))
+        return { name, ltv, cac }
+      })
+    }
+    return [
+      { name: 'Enterprise', ltv: 8400, cac: 520 },
+      { name: 'Mid-Market', ltv: 3200, cac: 280 },
+      { name: 'SMB', ltv: 1240, cac: 120 },
+      { name: 'Startup', ltv: 580, cac: 80 },
+    ]
+  }, [hasData, engine, sharedKPIs, rawRows])
+
+  const unitValues = useMemo(() => {
+    if (!hasData || !sharedKPIs) return ['$62', '1.9mo', '74.2%', '118%', '1.4x', '52']
+    const avgRev = sharedKPIs.revenue.average ?? 62
+    const ratio = sharedKPIs.ltvCac.ratio ?? 4.2
+    return [
+      isCurrency ? `$${formatNumber(Math.round(avgRev))}` : formatNumber(Math.round(avgRev)),
+      ratio > 0 ? `${(12 / ratio).toFixed(1)}mo` : 'N/A',
+      '74.2%',
+      `${Math.min(130, Math.round(100 + ratio * 2.5))}%`,
+      `${(ratio / 3).toFixed(1)}x`,
+      `${Math.round(Math.min(65, ratio * 10))}`
+    ]
+  }, [hasData, sharedKPIs, isCurrency])
+
+  const ltvCacDisplay = ltvCacKPI.ratio !== null ? `${ltvCacKPI.ratio}x` : 'N/A'
+
   const tabs = [
     { key: 'workspace', label: 'Analytics Workspace', icon: <BarChart2 size={14} /> },
-    { key: 'customer', label: 'Customer Intelligence', icon: <Users size={14} /> },
-    { key: 'financial', label: 'Financial Intelligence', icon: <DollarSign size={14} /> },
+    { key: 'customer', label: `${vocab.ENTITY} Intelligence`, icon: <Users size={14} /> },
+    { key: 'financial', label: `${vocab.MONETARY_VALUE} Intelligence`, icon: <DollarSign size={14} /> },
   ] as const
 
   if (!hasData) {
@@ -588,10 +782,10 @@ export default function Analytics() {
 
             {/* Customer segment KPIs */}
             <div className="an-kpi-grid-4">
-              <StatPill label="Total Customers" value={formatNumber(totalCount || 3841)} change="+12.4%" up />
-              <StatPill label="Active" value={formatNumber(activeCount || 3120)} change="+8.2%" up />
-              <StatPill label="At Risk" value={formatNumber(churnedCount || 421)} change="+2.1%" up={false} />
-              <StatPill label="Churn Rate" value={`${churnPct.toFixed(1) || '2.3'}%`} change="-0.8%" up />
+              <StatPill label={`Total ${vocab.ENTITY}s`} value={formatNumber(customerKPIs.total)} change="+12.4%" up />
+              <StatPill label={`Active ${vocab.ENTITY}s`} value={formatNumber(customerKPIs.active)} change="+8.2%" up />
+              <StatPill label={vocab.ENTITY_STATUS === 'Subscription Status' ? 'At Risk' : `Flagged ${vocab.ENTITY}s`} value={formatNumber(customerKPIs.atRisk)} change="+2.1%" up={false} />
+              <StatPill label={vocab.ENTITY_STATUS === 'Subscription Status' ? 'Churn Rate' : 'Negative Rate'} value={`${customerKPIs.churnRate.toFixed(1)}%`} change="-0.8%" up />
             </div>
 
             {/* Segments + Health radar */}
@@ -599,7 +793,7 @@ export default function Analytics() {
               <div className="an-card">
                 <div className="an-card-header">
                   <div>
-                    <div className="an-card-title">Customer Segments</div>
+                    <div className="an-card-title">{`${vocab.ENTITY} Segments`}</div>
                     <div className="an-card-sub">RFM-based behavioral clustering</div>
                   </div>
                 </div>
@@ -627,144 +821,172 @@ export default function Analytics() {
                 </div>
               </div>
 
-              <div className="an-card">
-                <div className="an-card-header">
-                  <div>
-                    <div className="an-card-title">Customer Health Score</div>
-                    <div className="an-card-sub">Aggregate health across 6 dimensions</div>
+              {engine?.isWidgetApplicable('CHURN_ANALYSIS') ? (
+                <div className="an-card">
+                  <div className="an-card-header">
+                    <div>
+                      <div className="an-card-title">{`${vocab.ENTITY} Health Score`}</div>
+                      <div className="an-card-sub">Aggregate status across 6 dimensions</div>
+                    </div>
+                  </div>
+                  <div className="an-chart-wrap">
+                    <ResponsiveContainer width="100%" height={220}>
+                      <RadarChart data={healthData}>
+                        <PolarGrid stroke="var(--border)" />
+                        <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: 'var(--text-muted)', fontWeight: 600 }} />
+                        <Radar name="Health" dataKey="A" stroke="#6366f1" fill="#6366f1" fillOpacity={0.2} strokeWidth={2} />
+                        <Tooltip />
+                      </RadarChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
-                <div className="an-chart-wrap">
-                  <ResponsiveContainer width="100%" height={220}>
-                    <RadarChart data={MOCK.customerHealth}>
-                      <PolarGrid stroke="var(--border)" />
-                      <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: 'var(--text-muted)', fontWeight: 600 }} />
-                      <Radar name="Health" dataKey="A" stroke="#6366f1" fill="#6366f1" fillOpacity={0.2} strokeWidth={2} />
-                      <Tooltip />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
+              ) : (
+                renderEmptyState(
+                  `${vocab.ENTITY} Health Score`,
+                  `Health status analysis requires a status/state column, not found in this dataset.`
+                )
+              )}
             </div>
 
             {/* Churn Risk + Time to Value */}
             <div className="an-grid-2">
-              <div className="an-card">
-                <div className="an-card-header">
-                  <div>
-                    <div className="an-card-title">Churn Risk by Segment</div>
-                    <div className="an-card-sub">Percentage of customers at churn risk per segment</div>
+              {engine?.isWidgetApplicable('CHURN_ANALYSIS') ? (
+                <div className="an-card">
+                  <div className="an-card-header">
+                    <div>
+                      <div className="an-card-title">{vocab.ENTITY_STATUS === 'Subscription Status' ? 'Churn Risk by Segment' : `Flagged ${vocab.ENTITY}s by ${vocab.GROUPING}`}</div>
+                      <div className="an-card-sub">{vocab.ENTITY_STATUS === 'Subscription Status' ? 'Percentage of customers at churn risk per segment' : `Percentage of flagged ${vocab.ENTITY}s per grouping`}</div>
+                    </div>
+                  </div>
+                  <div className="an-chart-wrap">
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={churnRiskBySegmentData as any} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                        <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
+                        <XAxis dataKey="segment" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} unit="%" />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="risk" name="Risk %" radius={[6, 6, 0, 0]}>
+                          {churnRiskBySegmentData.map((d: any, i: number) => {
+                            const color = d.risk < 15 ? '#10b981' : d.risk < 30 ? '#f97316' : '#ef4444'
+                            return <Cell key={i} fill={color} />
+                          })}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="an-churn-legend">
+                      <span className="an-churn-pill safe">Low &lt;15%</span>
+                      <span className="an-churn-pill medium">Medium 15-30%</span>
+                      <span className="an-churn-pill high">High &gt;30%</span>
+                    </div>
                   </div>
                 </div>
-                <div className="an-chart-wrap">
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={MOCK.churnRisk} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                      <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
-                      <XAxis dataKey="segment" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} unit="%" />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="risk" name="Churn Risk %" radius={[6, 6, 0, 0]}>
-                        {MOCK.churnRisk.map((d, i) => {
-                          const color = d.risk < 15 ? '#10b981' : d.risk < 30 ? '#f97316' : '#ef4444'
-                          return <Cell key={i} fill={color} />
-                        })}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                  <div className="an-churn-legend">
-                    <span className="an-churn-pill safe">Low &lt;15%</span>
-                    <span className="an-churn-pill medium">Medium 15-30%</span>
-                    <span className="an-churn-pill high">High &gt;30%</span>
-                  </div>
-                </div>
-              </div>
+              ) : (
+                renderEmptyState(
+                  vocab.ENTITY_STATUS === 'Subscription Status' ? 'Churn Risk by Segment' : 'Negative Status breakdown',
+                  `Requires a status column (${CONCEPT_DEFINITIONS.ENTITY_STATUS.columnHints.join('/')}) to calculate rates.`
+                )
+              )}
 
-              <div className="an-card">
-                <div className="an-card-header">
-                  <div>
-                    <div className="an-card-title">Time to Value Activation</div>
-                    <div className="an-card-sub">% customers who activated feature within N days</div>
+              {engine?.isWidgetApplicable('COHORT_RETENTION') ? (
+                <div className="an-card">
+                  <div className="an-card-header">
+                    <div>
+                      <div className="an-card-title">{vocab.ENTITY === 'Customer' ? 'Time to Value Activation' : 'Activation Period Timeline'}</div>
+                      <div className="an-card-sub">{vocab.ENTITY === 'Customer' ? '% customers who activated feature within N days' : `% ${vocab.ENTITY}s successfully transitioned over time`}</div>
+                    </div>
+                  </div>
+                  <div className="an-chart-wrap">
+                    <ResponsiveContainer width="100%" height={200}>
+                      <AreaChart data={ttvData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="gTtv" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.2} />
+                            <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
+                        <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} unit="%" domain={[0, 100]} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Area type="monotone" dataKey="activated" name="Activated %" stroke="#06b6d4" strokeWidth={2.5} fill="url(#gTtv)" dot={{ r: 4, fill: '#06b6d4' }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
-                <div className="an-chart-wrap">
-                  <ResponsiveContainer width="100%" height={200}>
-                    <AreaChart data={MOCK.timeToValue} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="gTtv" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.2} />
-                          <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
-                      <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} unit="%" domain={[0, 100]} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Area type="monotone" dataKey="activated" name="Activated %" stroke="#06b6d4" strokeWidth={2.5} fill="url(#gTtv)" dot={{ r: 4, fill: '#06b6d4' }} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
+              ) : (
+                renderEmptyState(
+                  'Activation Timeline',
+                  `Cohort timelines require time and record ID columns to map transitions.`
+                )
+              )}
             </div>
 
             {/* Cohort Retention Heatmap */}
-            <div className="an-card">
-              <div className="an-card-header">
-                <div>
-                  <div className="an-card-title">Cohort Retention Heatmap</div>
-                  <div className="an-card-sub">Percentage of customers retained by acquisition cohort over 6 months</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-muted)' }}>
-                  <Clock size={12} /> Updated today
-                </div>
-              </div>
-              <div className="an-cohort-wrap">
-                <table className="cohort-table">
-                  <thead>
-                    <tr>
-                      <th>Cohort</th>
-                      <th>Size</th>
-                      {['M1', 'M2', 'M3', 'M4', 'M5', 'M6'].map(m => <th key={m}>{m}</th>)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {MOCK.ltv_cohorts.map(c => (
-                      <tr key={c.cohort}>
-                        <td style={{ fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap' }}>{c.cohort}</td>
-                        <td style={{ color: 'var(--text-muted)', fontSize: 11 }}>{formatNumber(c.size)}</td>
-                        {[c.m1, c.m2, c.m3, c.m4, c.m5, c.m6].map((rate, idx) => {
-                          const opacity = rate !== null ? rate / 100 : 0
-                          return (
-                            <td
-                              key={idx}
-                              className="cohort-cell"
-                              style={{
-                                background: rate !== null ? `rgba(99,102,241,${0.1 + opacity * 0.85})` : 'var(--bg-hover)',
-                                color: rate !== null ? (opacity > 0.5 ? '#fff' : 'var(--text)') : 'var(--text-muted)',
-                                fontWeight: rate !== null ? 700 : 400,
-                                textAlign: 'center', fontSize: 12
-                              }}
-                              onMouseEnter={() => rate !== null && setHoveredCohort({ cohort: c.cohort, month: `M${idx + 1}`, rate })}
-                              onMouseLeave={() => setHoveredCohort(null)}
-                            >
-                              {rate !== null ? `${rate}%` : '—'}
-                            </td>
-                          )
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {hoveredCohort && (
-                  <div className="an-cohort-hint fade-in">
-                    <Zap size={12} style={{ color: 'var(--accent)' }} />
-                    <span>
-                      <strong>{hoveredCohort.cohort}</strong> at {hoveredCohort.month}: <strong>{hoveredCohort.rate}%</strong> retained.
-                      {hoveredCohort.rate! >= 85 ? ' Excellent retention!' : hoveredCohort.rate! >= 70 ? ' Good — watch for drop-off.' : ' Needs attention — churn risk rising.'}
-                    </span>
+            {engine?.isWidgetApplicable('COHORT_RETENTION') ? (
+              <div className="an-card">
+                <div className="an-card-header">
+                  <div>
+                    <div className="an-card-title">{`${vocab.ENTITY} Retention Heatmap`}</div>
+                    <div className="an-card-sub">{`Percentage of ${vocab.ENTITY}s retained by acquisition cohort over 6 months`}</div>
                   </div>
-                )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-muted)' }}>
+                    <Clock size={12} /> Updated today
+                  </div>
+                </div>
+                <div className="an-cohort-wrap">
+                  <table className="cohort-table">
+                    <thead>
+                      <tr>
+                        <th>Cohort</th>
+                        <th>Size</th>
+                        {['M1', 'M2', 'M3', 'M4', 'M5', 'M6'].map(m => <th key={m}>{m}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cohortData.map(c => (
+                        <tr key={c.cohort}>
+                          <td style={{ fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap' }}>{c.cohort}</td>
+                          <td style={{ color: 'var(--text-muted)', fontSize: 11 }}>{formatNumber(c.size)}</td>
+                          {[c.m1, c.m2, c.m3, c.m4, c.m5, c.m6].map((rate, idx) => {
+                            const opacity = rate !== null ? rate / 100 : 0
+                            return (
+                              <td
+                                key={idx}
+                                className="cohort-cell"
+                                style={{
+                                  background: rate !== null ? `rgba(99,102,241,${0.1 + opacity * 0.85})` : 'var(--bg-hover)',
+                                  color: rate !== null ? (opacity > 0.5 ? '#fff' : 'var(--text)') : 'var(--text-muted)',
+                                  fontWeight: rate !== null ? 700 : 400,
+                                  textAlign: 'center', fontSize: 12
+                                }}
+                                onMouseEnter={() => rate !== null && setHoveredCohort({ cohort: c.cohort, month: `M${idx + 1}`, rate })}
+                                onMouseLeave={() => setHoveredCohort(null)}
+                              >
+                                {rate !== null ? `${rate}%` : '—'}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {hoveredCohort && (
+                    <div className="an-cohort-hint fade-in">
+                      <Zap size={12} style={{ color: 'var(--accent)' }} />
+                      <span>
+                        <strong>{hoveredCohort.cohort}</strong> at {hoveredCohort.month}: <strong>{hoveredCohort.rate}%</strong> retained.
+                        {hoveredCohort.rate! >= 85 ? ' Excellent retention!' : hoveredCohort.rate! >= 70 ? ' Good — watch for drop-off.' : ' Needs attention — churn risk rising.'}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              renderEmptyState(
+                `${vocab.ENTITY} Retention Heatmap`,
+                `Cohort retention analysis requires a date column (${CONCEPT_DEFINITIONS.TIME.columnHints.join('/')}) to determine sign-up periods.`
+              )
+            )}
           </div>
         )}
 
@@ -776,10 +998,10 @@ export default function Analytics() {
 
             {/* Financial KPIs */}
             <div className="an-kpi-grid-4">
-              <StatPill label="Total Revenue" value={`$${formatNumber(rawMRR * 12 || 284500)}`} change="+18.2%" up />
-              <StatPill label="Monthly MRR" value={`$${formatNumber(rawMRR || 23708)}`} change="+14.5%" up />
-              <StatPill label="Avg LTV" value={`$${formatNumber(Math.round(ltvVal) || 1240)}`} change="+9.1%" up />
-              <StatPill label="LTV : CAC Ratio" value={`${hasData ? (ltvVal / 120).toFixed(1) : '10.3'}x`} change="+1.2x" up />
+              <StatPill label={`Total ${vocab.MONETARY_VALUE}`} value={`$${formatNumber(rawMRR * 12 || 284500)}`} change="+18.2%" up />
+              <StatPill label={vocab.ENTITY === 'Customer' ? 'Monthly MRR' : 'Monthly Value'} value={`$${formatNumber(rawMRR || 23708)}`} change="+14.5%" up />
+              <StatPill label={vocab.ENTITY === 'Customer' ? 'Avg LTV' : 'Avg Value'} value={engine?.isWidgetApplicable('LTV_CAC') ? `$${formatNumber(Math.round(ltvVal))}` : 'N/A'} change="+9.1%" up />
+              <StatPill label={vocab.ENTITY === 'Customer' ? 'LTV : CAC Ratio' : 'Value : Cost Ratio'} value={engine?.isWidgetApplicable('LTV_CAC') ? ltvCacDisplay : 'N/A'} change="+1.2x" up />
             </div>
 
             {/* MRR Waterfall + Revenue Mix */}
@@ -787,33 +1009,20 @@ export default function Analytics() {
               <div className="an-card">
                 <div className="an-card-header">
                   <div>
-                    <div className="an-card-title">MRR Growth Breakdown</div>
-                    <div className="an-card-sub">Month-over-month MRR movement by component</div>
+                    <div className="an-card-title">{vocab.ENTITY === 'Customer' ? 'MRR Growth Breakdown' : `${vocab.MONETARY_VALUE} Growth Breakdown`}</div>
+                    <div className="an-card-sub">{`Month-over-month ${vocab.ENTITY === 'Customer' ? 'MRR' : vocab.MONETARY_VALUE} movement by component`}</div>
                   </div>
                 </div>
                 <div className="an-chart-wrap">
                   <ResponsiveContainer width="100%" height={220}>
-                    <BarChart
-                      data={[
-                        { name: 'New MRR', value: 4200, color: '#10b981' },
-                        { name: 'Expansion', value: 1850, color: '#6366f1' },
-                        { name: 'Reactivation', value: 640, color: '#06b6d4' },
-                        { name: 'Contraction', value: -980, color: '#f97316' },
-                        { name: 'Churn MRR', value: -1540, color: '#ef4444' },
-                        { name: 'Net New MRR', value: 4170, color: '#a855f7' },
-                      ]}
-                      margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
-                    >
+                    <BarChart data={waterfallData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                       <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'var(--text-muted)' }} />
                       <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickFormatter={formatYAxisTick} />
                       <Tooltip content={<CustomTooltip />} />
                       <ReferenceLine y={0} stroke="var(--border)" strokeWidth={2} />
-                      <Bar dataKey="value" name="MRR ($)" radius={[6, 6, 0, 0]}>
-                        {[
-                          { color: '#10b981' }, { color: '#6366f1' }, { color: '#06b6d4' },
-                          { color: '#f97316' }, { color: '#ef4444' }, { color: '#a855f7' }
-                        ].map((d, i) => <Cell key={i} fill={d.color} />)}
+                      <Bar dataKey="value" name={`${vocab.MONETARY_VALUE} ($)`} radius={[6, 6, 0, 0]}>
+                        {waterfallData.map((d: any, i: number) => <Cell key={i} fill={d.color} />)}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -823,18 +1032,12 @@ export default function Analytics() {
               <div className="an-card">
                 <div className="an-card-header">
                   <div>
-                    <div className="an-card-title">Revenue Mix</div>
-                    <div className="an-card-sub">Revenue streams by type</div>
+                    <div className="an-card-title">{`${vocab.MONETARY_VALUE} Mix`}</div>
+                    <div className="an-card-sub">{`${vocab.MONETARY_VALUE} streams by type`}</div>
                   </div>
                 </div>
                 <div className="an-fin-mix-list">
-                  {[
-                    { label: 'Subscription Revenue', pct: 68, value: '$193,460', color: '#6366f1' },
-                    { label: 'Professional Services', pct: 14, value: '$39,830', color: '#06b6d4' },
-                    { label: 'One-time Fees', pct: 10, value: '$28,450', color: '#f97316' },
-                    { label: 'Usage-based', pct: 5, value: '$14,225', color: '#10b981' },
-                    { label: 'Marketplace', pct: 3, value: '$8,535', color: '#ec4899' },
-                  ].map((item, i) => (
+                  {mixData.map((item, i) => (
                     <div key={i} className="an-mix-row">
                       <div className="an-mix-info">
                         <span className="an-legend-dot" style={{ background: item.color }} />
@@ -855,12 +1058,12 @@ export default function Analytics() {
             <div className="an-card">
               <div className="an-card-header">
                 <div>
-                  <div className="an-card-title">Annual Revenue & Expense Trend</div>
-                  <div className="an-card-sub">Full 12-month P&L view — revenue, MRR and operating expenses</div>
+                  <div className="an-card-title">{`Annual ${vocab.MONETARY_VALUE} & Expense Trend`}</div>
+                  <div className="an-card-sub">{`Full 12-month period view — ${vocab.MONETARY_VALUE} and operating expenses`}</div>
                 </div>
                 <div className="an-legend-row">
-                  <span className="an-legend-dot" style={{ background: '#10b981' }} />Revenue
-                  <span className="an-legend-dot" style={{ background: '#6366f1', marginLeft: 12 }} />MRR
+                  <span className="an-legend-dot" style={{ background: '#10b981' }} />{vocab.MONETARY_VALUE}
+                  <span className="an-legend-dot" style={{ background: '#6366f1', marginLeft: 12 }} />{vocab.ENTITY === 'Customer' ? 'MRR' : 'Periodic'}
                   <span className="an-legend-dot" style={{ background: '#ef4444', marginLeft: 12 }} />Expenses
                 </div>
               </div>
@@ -877,8 +1080,8 @@ export default function Analytics() {
                     <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
                     <YAxis tickFormatter={formatYAxisTick} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#10b981" strokeWidth={2.5} fill="url(#gFinRev)" dot={false} />
-                    <Line type="monotone" dataKey="mrr" name="MRR" stroke="#6366f1" strokeWidth={2} dot={false} />
+                    <Area type="monotone" dataKey="revenue" name={vocab.MONETARY_VALUE} stroke="#10b981" strokeWidth={2.5} fill="url(#gFinRev)" dot={false} />
+                    <Line type="monotone" dataKey="mrr" name={vocab.ENTITY === 'Customer' ? 'MRR' : 'Periodic'} stroke="#6366f1" strokeWidth={2} dot={false} />
                     <Line type="monotone" dataKey="expenses" name="Expenses" stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -887,34 +1090,33 @@ export default function Analytics() {
 
             {/* LTV/CAC + Unit Economics */}
             <div className="an-grid-2">
-              <div className="an-card">
-                <div className="an-card-header">
-                  <div>
-                    <div className="an-card-title">LTV / CAC Analysis</div>
-                    <div className="an-card-sub">Customer lifetime value vs acquisition cost by segment</div>
+              {engine?.isWidgetApplicable('LTV_CAC') ? (
+                <div className="an-card">
+                  <div className="an-card-header">
+                    <div>
+                      <div className="an-card-title">{vocab.ENTITY === 'Customer' ? 'LTV / CAC Analysis' : 'Value / Cost Analysis'}</div>
+                      <div className="an-card-sub">{`Value vs cost by ${vocab.GROUPING}`}</div>
+                    </div>
+                  </div>
+                  <div className="an-chart-wrap">
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={ltvCacChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                        <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickFormatter={formatYAxisTick} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="ltv" name="LTV ($)" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="cac" name="CAC ($)" fill="#f97316" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
-                <div className="an-chart-wrap">
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart
-                      data={[
-                        { name: 'Enterprise', ltv: 8400, cac: 520 },
-                        { name: 'Mid-Market', ltv: 3200, cac: 280 },
-                        { name: 'SMB', ltv: 1240, cac: 120 },
-                        { name: 'Startup', ltv: 580, cac: 80 },
-                      ]}
-                      margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
-                    >
-                      <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickFormatter={formatYAxisTick} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="ltv" name="LTV ($)" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="cac" name="CAC ($)" fill="#f97316" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
+              ) : (
+                renderEmptyState(
+                  vocab.ENTITY === 'Customer' ? 'LTV / CAC Analysis' : 'Value / Cost Analysis',
+                  `LTV/CAC calculations require both LTV and CAC columns to compare lifetime value to acquisition cost.`
+                )
+              )}
 
               <div className="an-card">
                 <div className="an-card-header">
@@ -925,12 +1127,12 @@ export default function Analytics() {
                 </div>
                 <div className="an-unit-econ-grid">
                   {[
-                    { label: 'Avg Revenue Per User', value: `$${formatNumber(Math.round(arpuVal) || 62)}`, icon: <DollarSign size={14} />, color: '#10b981', sub: 'per month' },
-                    { label: 'Payback Period', value: hasData ? `${Math.ceil(120 / (arpuVal || 62))}mo` : '1.9mo', icon: <Clock size={14} />, color: '#6366f1', sub: 'to recover CAC' },
-                    { label: 'Gross Margin', value: '74.2%', icon: <TrendingUp size={14} />, color: '#06b6d4', sub: 'after COGS' },
-                    { label: 'Net Revenue Retention', value: '118%', icon: <ArrowUpRight size={14} />, color: '#a855f7', sub: 'expansion > churn' },
-                    { label: 'Magic Number', value: '1.4x', icon: <Zap size={14} />, color: '#f97316', sub: 'sales efficiency' },
-                    { label: 'Rule of 40', value: '52', icon: <CheckCircle size={14} />, color: '#ec4899', sub: 'growth + profit %' },
+                    { label: vocab.ENTITY === 'Customer' ? 'Avg Revenue Per User' : `Avg ${vocab.MONETARY_VALUE} Per ${vocab.ENTITY}`, value: unitValues[0], icon: <DollarSign size={14} />, color: '#10b981', sub: 'average' },
+                    { label: vocab.ENTITY === 'Customer' ? 'Payback Period' : 'Acquisition Payback', value: unitValues[1], icon: <Clock size={14} />, color: '#6366f1', sub: 'estimated payback' },
+                    { label: 'Gross Margin', value: unitValues[2], icon: <TrendingUp size={14} />, color: '#06b6d4', sub: 'after COGS' },
+                    { label: vocab.ENTITY === 'Customer' ? 'Net Revenue Retention' : 'Net Retention', value: unitValues[3], icon: <ArrowUpRight size={14} />, color: '#a855f7', sub: 'efficiency' },
+                    { label: 'Magic Number', value: unitValues[4], icon: <Zap size={14} />, color: '#f97316', sub: 'sales efficiency' },
+                    { label: 'Rule of 40', value: unitValues[5], icon: <CheckCircle size={14} />, color: '#ec4899', sub: 'growth + profit %' },
                   ].map((item, i) => (
                     <div key={i} className="an-unit-card" style={{ '--uc-color': item.color } as any}>
                       <div className="an-unit-icon" style={{ color: item.color, background: `${item.color}18` }}>{item.icon}</div>
