@@ -713,34 +713,22 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
 
   const reset = async () => {
     try {
-      if (activeSheet) {
-        await deleteSpreadsheet()
-        setActiveSheet(null)
-      }
-      setSampleSheet(null)
-      setSheetNames([])
-      setActiveSheetName('')
-      setSheetsData({})
-      setSheetsFilename('')
-      // Clear session storage
-      try {
-        sessionStorage.removeItem(SS_KEY_SHEETS_DATA)
-        sessionStorage.removeItem(SS_KEY_FILENAME)
-        sessionStorage.removeItem(SS_KEY_ACTIVE_SHEET)
-      } catch {}
+      await deleteSpreadsheet().catch(() => {})
     } catch (err) {
-      console.error('Failed to reset spreadsheet:', err)
-      setSampleSheet(null)
-      setSheetNames([])
-      setActiveSheetName('')
-      setSheetsData({})
-      setSheetsFilename('')
-      try {
-        sessionStorage.removeItem(SS_KEY_SHEETS_DATA)
-        sessionStorage.removeItem(SS_KEY_FILENAME)
-        sessionStorage.removeItem(SS_KEY_ACTIVE_SHEET)
-      } catch {}
+      console.error('Failed to delete spreadsheet from backend:', err)
     }
+    setActiveSheet(null)
+    setSampleSheet(null)
+    setActiveDocument(null)
+    setSheetNames([])
+    setActiveSheetName('')
+    setSheetsData({})
+    setSheetsFilename('')
+    try {
+      sessionStorage.removeItem(SS_KEY_SHEETS_DATA)
+      sessionStorage.removeItem(SS_KEY_FILENAME)
+      sessionStorage.removeItem(SS_KEY_ACTIVE_SHEET)
+    } catch {}
   }
 
   const uploadDoc = async (file: File): Promise<{ success: boolean; error: string | null }> => {
