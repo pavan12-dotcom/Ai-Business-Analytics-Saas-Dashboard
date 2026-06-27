@@ -14,6 +14,7 @@ import {
   Target, Zap, AlertTriangle, CheckCircle, BarChart2, PieChartIcon,
   ArrowUpRight, ArrowDownRight, Layers, ShieldCheck, Clock, Check, UploadCloud, X
 } from 'lucide-react'
+import RecommendedDatasetsWorkspace from '../components/RecommendedDatasetsWorkspace'
 import './Analytics.css'
 
 // ── Tooltip ───────────────────────────────────────────────────
@@ -339,6 +340,10 @@ export default function Analytics() {
     { key: 'customer', label: 'Customer Intelligence', icon: <Users size={14} /> },
     { key: 'financial', label: 'Financial Intelligence', icon: <DollarSign size={14} /> },
   ] as const
+
+  if (!hasData) {
+    return <RecommendedDatasetsWorkspace featureName="Analytics Workspace" />
+  }
 
   return (
     <div className="analytics-page fade-in" style={{ position: 'relative' }}>

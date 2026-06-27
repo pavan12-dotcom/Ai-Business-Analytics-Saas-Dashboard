@@ -11,6 +11,7 @@ import {
   CartesianGrid, Cell, Line, ReferenceLine
 } from 'recharts'
 import { DollarSign, TrendingUp, ArrowUpRight, ArrowDownRight, Zap, CheckCircle, Clock, Check, Activity, UploadCloud, X } from 'lucide-react'
+import RecommendedDatasetsWorkspace from '../components/RecommendedDatasetsWorkspace'
 import './Intelligence.css'
 
 // ── Mock fallbacks ─────────────────────────────────────────────
@@ -279,6 +280,10 @@ export default function FinancialIntelligence() {
     }
     return ['$62', '1.9mo', '74.2%', '118%', '1.4x', '52']
   }, [hasData, rawRevenue, arpuVal, cacEst, ltvCacRatio, rawAvg, totalCount, isCurrency])
+
+  if (!hasData) {
+    return <RecommendedDatasetsWorkspace featureName="Financial Intelligence" />
+  }
 
   return (
     <div className="int-page fade-in">

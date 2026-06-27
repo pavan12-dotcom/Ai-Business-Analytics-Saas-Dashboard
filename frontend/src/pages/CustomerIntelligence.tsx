@@ -11,6 +11,7 @@ import {
   AreaChart, Area, RadarChart, Radar, PolarGrid, PolarAngleAxis, Cell
 } from 'recharts'
 import { ArrowUpRight, ArrowDownRight, Zap, Clock, Check, Activity, UploadCloud, X } from 'lucide-react'
+import RecommendedDatasetsWorkspace from '../components/RecommendedDatasetsWorkspace'
 import './Intelligence.css'
 
 // ── Mock fallbacks ────────────────────────────────────────────
@@ -250,6 +251,10 @@ export default function CustomerIntelligence() {
     }
     return MOCK_COHORTS
   }, [hasData, primaryTimeKey, rawRows])
+
+  if (!hasData) {
+    return <RecommendedDatasetsWorkspace featureName="Customer Intelligence" />
+  }
 
   return (
     <div className="int-page fade-in">
