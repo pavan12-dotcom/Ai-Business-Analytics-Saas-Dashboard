@@ -371,7 +371,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
 }
 
 /* ════ Cards Overhaul ════ */
@@ -379,7 +379,7 @@
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 14px 16px;
+  padding: 18px 22px;
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
@@ -397,12 +397,12 @@
 .row-kpis-devices {
   display: grid;
   grid-template-columns: repeat(3, 1fr) 1.3fr;
-  gap: 10px;
+  gap: 16px;
 }
 
 .kpi-card-mockup {
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 18px 22px;
 }
 
 .kpi-card-header {
