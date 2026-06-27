@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useSpreadsheet } from '../context/SpreadsheetContext'
-import { formatNumber, cleanNumericValue } from '../services/dataCleaner'
+import { formatNumber, formatYAxisTick, cleanNumericValue } from '../services/dataCleaner'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
   AreaChart, Area, CartesianGrid, PieChart, Pie
@@ -16,6 +16,22 @@ import './Dashboard.css'
 
 // Premium color palettes matching mockup
 const CHART_COLORS = ['#f97316', '#06b6d4', '#a855f7', '#ec4899', '#10b981']
+
+// ── Tooltip ───────────────────────────────────────────────────
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="chart-tooltip" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '8px 12px', borderRadius: '8px', boxShadow: 'var(--shadow-md)' }}>
+      <div className="tooltip-label" style={{ fontWeight: 800, fontSize: '11px', color: 'var(--text)', marginBottom: '4px' }}>{label}</div>
+      {payload.map((p: any) => (
+        <div key={p.name} className="tooltip-row" style={{ display: 'flex', gap: '10px', fontSize: '11px' }}>
+          <span style={{ color: p.color || 'var(--accent)' }}>{p.name}:</span>
+          <span style={{ fontWeight: 700, color: 'var(--text)' }}>{formatNumber(p.value)}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 // ── Smart value formatter ─────────────────────────────────────
 const fmtVal = (v: number, isCurrency = false) => {
@@ -348,13 +364,30 @@ export default function Dashboard() {
   }, [filteredRows, fourthCat, secondCat, primaryCat, hasData])
 
   const dynamicTimeOnSite = useMemo(() => {
-    if (!hasData || !timeKey || !primaryMetric) return []
-    const grouped = agg(filteredRows.slice(-30), timeKey, primaryMetric, 'sum').slice(0, 14)
-    return grouped.map(g => ({
-      day: g.name.substring(0, 10),
+    if (!hasData || !primaryMetric) return []
+    if (timeKey) {
+      const groups: Record<string, { val: number; d: Date }> = {}
+      filteredRows.forEach((r: any) => {
+        const raw = r[timeKey]; if (!raw) return
+        const dt = new Date(raw); if (isNaN(dt.getTime())) return
+        const key = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        const v = cleanNumericValue(r[primaryMetric]) || 0
+        if (!groups[key]) groups[key] = { val: 0, d: dt }
+        groups[key].val += v
+      })
+      const sorted = Object.entries(groups)
+        .map(([day, g]) => ({ day, val: Math.round(g.val), _d: g.d }))
+        .sort((a, b) => a._d.getTime() - b._d.getTime())
+        .slice(0, 14)
+      if (sorted.length > 0) return sorted
+    }
+    const groupCol = secondCat || primaryCat
+    if (!groupCol) return []
+    return agg(filteredRows, groupCol, primaryMetric, 'sum').slice(0, 10).map(g => ({
+      day: g.name,
       val: g.value
     }))
-  }, [filteredRows, timeKey, primaryMetric, hasData])
+  }, [filteredRows, timeKey, primaryMetric, secondCat, primaryCat, hasData])
 
   // Truncate path/label strings
   const trunc = (s: string, n = 15) => s.length > n ? s.slice(0, n - 1) + '…' : s
@@ -882,16 +915,15 @@ export default function Dashboard() {
               </div>
               <div className="time-bar-chart-wrap">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={timeOnSiteList} margin={{ top: 20, right: 10, left: -25, bottom: 0 }} barCategoryGap="28%">
+                  <BarChart data={timeOnSiteList} margin={{ top: 20, right: 10, left: -20, bottom: 0 }} barCategoryGap="24%">
                     <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
                     <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'var(--text-muted)' }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'var(--text-muted)' }} />
-                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
-                    <Bar dataKey="val" radius={[4, 4, 0, 0]}>
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'var(--text-muted)' }} tickFormatter={formatYAxisTick} />
+                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)' }} content={<CustomTooltip />} />
+                    <Bar dataKey="val" name={hasData ? primaryMetric : 'Value'} radius={[4, 4, 0, 0]}>
                       {timeOnSiteList.map((item, i) => {
-                        // Highlight the 12.51 min item like the mockup (or 11th item index 10)
-                        const isHighlighted = i === 10 || item.val === 12.51
-                        return <Cell key={i} fill={isHighlighted ? '#8b5cf6' : 'rgba(139, 92, 246, 0.25)'} />
+                        const isMax = item.val === Math.max(...timeOnSiteList.map(t => t.val))
+                        return <Cell key={i} fill={hasData ? (isMax ? '#a855f7' : '#8b5cf6') : (i === 10 || item.val === 12.51 ? '#8b5cf6' : 'rgba(139, 92, 246, 0.35)')} />
                       })}
                     </Bar>
                   </BarChart>
