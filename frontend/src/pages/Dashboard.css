@@ -221,7 +221,36 @@
   flex-direction: column;
   gap: 12px;
   height: max-content;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
   box-shadow: var(--shadow-sm);
+}
+
+.dashboard-filter-sidebar::-webkit-scrollbar,
+.filter-options-group::-webkit-scrollbar {
+  width: 4px;
+}
+.dashboard-filter-sidebar::-webkit-scrollbar-track,
+.filter-options-group::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dashboard-filter-sidebar::-webkit-scrollbar-thumb,
+.filter-options-group::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+.dashboard-filter-sidebar::-webkit-scrollbar-thumb:hover,
+.filter-options-group::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+.filter-options-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .filter-sidebar-header {
