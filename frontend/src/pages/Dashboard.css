@@ -255,6 +255,12 @@
 }
 
 .filter-sidebar-header {
+  position: sticky;
+  top: -12px;
+  background: var(--bg-sidebar);
+  z-index: 10;
+  margin: -12px -12px 4px -12px;
+  padding: 12px 12px 8px 12px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -263,7 +269,6 @@
   color: var(--text-muted);
   letter-spacing: 0.08em;
   border-bottom: 1px solid var(--border);
-  padding-bottom: 8px;
 }
 
 .filters-list-container {
