@@ -175,6 +175,8 @@ export default function FinancialIntelligence() {
   const totalCount   = computedKPIs.total
   const churnPct     = computedKPIs.churnRate
   const arpuVal      = activeCount > 0 ? rawRevenue / activeCount : rawAvg || 62
+  const ltvVal       = churnPct > 0 ? (arpuVal / (churnPct / 100)) : arpuVal * 15
+  const cacEst       = arpuVal * 1.8
 
   // Safe Ratio Evaluation (Bug 4 fix)
   const ratioResult = useMemo(() => {
