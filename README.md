@@ -1,7 +1,8 @@
 # InsightAI - AI-Powered Business Analytics SaaS Platform
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-80.4%25-blue)](https://www.typescriptlang.org/)
+[![CSS3](https://img.shields.io/badge/CSS3-18.1%25-purple)](https://developer.mozilla.org/en-US/docs/Web/CSS)
 [![React](https://img.shields.io/badge/React-18.2-blue)](https://react.dev/)
 [![Node.js](https://img.shields.io/badge/Node.js-20.0+-green)](https://nodejs.org/)
 [![Gemini AI](https://img.shields.io/badge/AI-Google_Gemini-orange)](https://deepmind.google/technologies/gemini/)
@@ -52,17 +53,18 @@ The backend is a Node.js Express server written in TypeScript, managing AI orche
 
 ---
 
-## Technology Stack
+## Technology Stack & Languages
 
-| Domain | Stack Component |
+| Domain | Stack Component / Language |
 | :--- | :--- |
+| **Primary Languages** | TypeScript (80.4%), CSS3 (18.1%), HTML5 / SQL / Markdown (1.5%) |
 | **Frontend Framework** | React 18, Vite, TypeScript |
 | **State Management** | Context API (`SpreadsheetContext`, `AuthContext`) |
 | **Data Visualization** | Recharts, Lucide React Icons |
 | **Parsing & Utilities** | XLSX (SheetJS), Canvas-Confetti, Axios |
 | **Backend Framework** | Node.js, Express, TypeScript |
 | **AI Integration** | Google Generative AI (`@google/generative-ai` - Gemini 2.5 API) |
-| **Database & Auth** | Supabase (`@supabase/supabase-js`), PostgreSQL (`pg`) |
+| **Database & Auth** | Supabase (`@supabase/supabase-js`), PostgreSQL (`pg`, SQL) |
 | **Payments** | Stripe Node.js SDK |
 
 ---
