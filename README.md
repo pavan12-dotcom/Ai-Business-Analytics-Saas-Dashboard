@@ -10,24 +10,25 @@
 
 ---
 
-## 🌐 Live Production Application
+## Repository & Live Links
+- **GitHub Repository**: [https://github.com/pavan12-dotcom/Ai-Business-Analytics-Saas-Dashboard](https://github.com/pavan12-dotcom/Ai-Business-Analytics-Saas-Dashboard)
 - **Main Application**: [https://ai-business-analytics-saas-dashboard.vercel.app](https://ai-business-analytics-saas-dashboard.vercel.app)
 - **Production Deployment**: [https://frontend-pkbomjqdj-business-analytics-ai.vercel.app](https://frontend-pkbomjqdj-business-analytics-ai.vercel.app)
 
 ---
 
-## 📚 Detailed Documentation Index
+## Detailed Documentation Index
 
-For in-depth technical specifications, developer guides, and architectural diagrams, refer to our dedicated documentation modules:
+For in-depth technical specifications, developer guides, and architectural diagrams, refer to the dedicated documentation modules:
 
-- 🏗️ **[System Architecture & Design](docs/ARCHITECTURE.md)**: Deep dive into data parsing pipelines, client-side state flow, and AI reasoning fallback engines.
-- 🔌 **[API Reference Documentation](docs/API_REFERENCE.md)**: Complete endpoint specifications for AI streaming (`SSE`), dataset management, and Stripe billing.
-- 🗄️ **[Database Schema & Data Dictionary](docs/DATABASE_SCHEMA.md)**: Entity-relationship diagrams, PostgreSQL table definitions, and Supabase RLS security policies.
-- 🚀 **[Deployment & Operations Guide](docs/DEPLOYMENT_GUIDE.md)**: Production deployment instructions for Vercel, Railway, Render, and Supabase environment configuration.
+- **[System Architecture & Design](docs/ARCHITECTURE.md)**: Deep dive into data parsing pipelines, client-side state flow, and AI reasoning fallback engines.
+- **[API Reference Documentation](docs/API_REFERENCE.md)**: Complete endpoint specifications for AI streaming (SSE), dataset management, and Stripe billing.
+- **[Database Schema & Data Dictionary](docs/DATABASE_SCHEMA.md)**: Entity-relationship diagrams, PostgreSQL table definitions, and Supabase RLS security policies.
+- **[Deployment & Operations Guide](docs/DEPLOYMENT_GUIDE.md)**: Production deployment instructions for Vercel, Railway, Render, and Supabase environment configuration.
 
 ---
 
-## ✨ Key Platform Features
+## Key Platform Features
 
 ### 1. Universal Multi-Format Dataset Processing
 - **Instant Schema Resolution**: Upload any business dataset (Sales, Customer Churn, Revenue, Marketing, E-commerce) and the system automatically classifies metrics, categorical dimensions, and time-series columns.
@@ -50,7 +51,7 @@ For in-depth technical specifications, developer guides, and architectural diagr
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 | Domain | Stack Component |
 | :--- | :--- |
@@ -65,7 +66,7 @@ For in-depth technical specifications, developer guides, and architectural diagr
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```
 Ai-Business-Analytics-Saas-Dashboard/
@@ -94,7 +95,7 @@ Ai-Business-Analytics-Saas-Dashboard/
 
 ---
 
-## ⚡ Quick Start & Local Development Setup
+## Quick Start & Local Development Setup
 
 ### Prerequisites
 - Node.js (v20.0.0 or higher)
@@ -125,7 +126,7 @@ The API server will start at `http://localhost:5000`.
 
 ---
 
-## 🏷️ GitHub Repository Metadata & Configuration
+## GitHub Repository Metadata & Configuration
 
 When configuring this repository on GitHub, use the following standardized settings:
 
@@ -140,5 +141,5 @@ When configuring this repository on GitHub, use the following standardized setti
 
 ---
 
-## 📜 License
+## License
 Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
