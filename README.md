@@ -94,6 +94,26 @@ Ai-Business-Analytics-Saas-Dashboard/
     └── package.json
 ```
 
+### Directory Breakdown
+
+1. **`docs/` (Documentation Suite)**
+   - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): Technical architecture, streaming pipeline design, and fallback logic.
+   - [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md): REST endpoints, SSE streams, payload examples, and status codes.
+   - [`docs/DATABASE_SCHEMA.md`](docs/DATABASE_SCHEMA.md): Entity relationships, Supabase tables, and Row-Level Security policies.
+   - [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md): Operational guide for Vercel, Railway, Render, and Supabase deployment.
+
+2. **`frontend/` (React Frontend Application)**
+   - `src/components/`: Modular UI component library for layout, sidebars, and workspaces.
+   - `src/context/`: React Context state providers (`SpreadsheetContext`, `AuthContext`).
+   - `src/pages/`: Feature views for Dashboard, Analytics, AI Copilot, Reports, Settings, and Auth.
+   - `src/services/`: Client engines (`analyticsEngine`, `columnDetection`, `dataCleaner`, `kpiEngine`).
+
+3. **`backend/` (Express API Server)**
+   - `src/routes/`: Express API routers for Google Gemini AI (`ai.ts`), dataset management (`data.ts`), and Stripe (`billing.ts`).
+   - `src/middleware/`: Authentication middleware verifying Supabase JWT tokens.
+   - `schema*.sql`: PostgreSQL table definitions and database migration scripts.
+
+
 ---
 
 ## GitHub Repository Metadata & Configuration
