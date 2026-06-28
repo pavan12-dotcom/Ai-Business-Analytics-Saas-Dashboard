@@ -95,36 +95,6 @@ Ai-Business-Analytics-Saas-Dashboard/
 
 ---
 
-## Quick Start & Local Development Setup
-
-### Prerequisites
-- Node.js (v20.0.0 or higher)
-- npm or yarn
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/pavan12-dotcom/Ai-Business-Analytics-Saas-Dashboard.git
-cd Ai-Business-Analytics-Saas-Dashboard
-```
-
-### 2. Frontend Setup
-```bash
-cd frontend
-npm install
-npm run dev
-```
-The frontend application will start at `http://localhost:5173`.
-
-### 3. Backend Setup
-```bash
-cd ../backend
-npm install
-# Create a .env file with your GEMINI_API_KEY and SUPABASE keys (see docs/DEPLOYMENT_GUIDE.md)
-npm run dev
-```
-The API server will start at `http://localhost:5000`.
-
----
 
 ## GitHub Repository Metadata & Configuration
 
