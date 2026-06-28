@@ -14,40 +14,41 @@
 - **GitHub Repository**: [https://github.com/pavan12-dotcom/Ai-Business-Analytics-Saas-Dashboard](https://github.com/pavan12-dotcom/Ai-Business-Analytics-Saas-Dashboard)
 - **Live Application**: [https://ai-business-analytics-saas-dashboard.vercel.app](https://ai-business-analytics-saas-dashboard.vercel.app)
 
+---
+
+## Documentation
+
+For comprehensive technical specifications, developer guides, and architectural diagrams, refer to the dedicated documentation files:
+
+- **[System Architecture & Design](docs/ARCHITECTURE.md)**: Technical architecture, client state flow, universal data parsing pipelines, and AI reasoning fallback engines.
+- **[API Reference Documentation](docs/API_REFERENCE.md)**: Endpoint specifications for AI streaming (SSE), dataset management, and Stripe billing.
+- **[Database Schema & Data Dictionary](docs/DATABASE_SCHEMA.md)**: Entity-relationship diagrams, PostgreSQL table definitions, and Supabase Row-Level Security (RLS) policies.
+- **[Deployment & Operations Guide](docs/DEPLOYMENT_GUIDE.md)**: Production deployment instructions for Vercel, Railway, Render, and Supabase environment setup.
 
 ---
 
-## Detailed Documentation Index
+## Frontend Architecture
 
-For in-depth technical specifications, developer guides, and architectural diagrams, refer to the dedicated documentation modules:
+The frontend is a React 18 Single-Page Application built with Vite and TypeScript, engineered for interactive data manipulation and real-time visualization.
 
-- **[System Architecture & Design](docs/ARCHITECTURE.md)**: Deep dive into data parsing pipelines, client-side state flow, and AI reasoning fallback engines.
-- **[API Reference Documentation](docs/API_REFERENCE.md)**: Complete endpoint specifications for AI streaming (SSE), dataset management, and Stripe billing.
-- **[Database Schema & Data Dictionary](docs/DATABASE_SCHEMA.md)**: Entity-relationship diagrams, PostgreSQL table definitions, and Supabase RLS security policies.
-- **[Deployment & Operations Guide](docs/DEPLOYMENT_GUIDE.md)**: Production deployment instructions for Vercel, Railway, Render, and Supabase environment configuration.
+### Core Frontend Capabilities
+- **Universal Multi-Format Dataset Processing**: Instantly parses CSV, Excel (`.xlsx`/`.xls`), and JSON datasets, automatically detecting metric columns, categorical dimensions, and time-series data.
+- **Multi-Sheet Selector**: Allows seamless switching between worksheets in complex Excel workbooks.
+- **Interactive Analytical Dashboards**: Executive KPI summaries, sparkline trend profiles, revenue timelines, and customer cohort analytics powered by Recharts.
+- **AI Analyst Copilot Interface**: Real-time streaming SSE Q&A interface for interacting with Google Gemini AI.
+- **Executive Reports & Audited Ledgers**: Export functionality for CSV ledgers, Excel workbooks, and formatted PDF executive decks.
 
 ---
 
-## Key Platform Features
+## Backend Architecture
 
-### 1. Universal Multi-Format Dataset Processing
-- **Instant Schema Resolution**: Upload any business dataset (Sales, Customer Churn, Revenue, Marketing, E-commerce) and the system automatically classifies metrics, categorical dimensions, and time-series columns.
-- **Multi-Sheet Excel Support**: Seamlessly switch between multiple worksheets in complex Excel workbooks via the global sheet selector.
-- **Dynamic Sampling Engine**: Effortlessly handles datasets ranging from small sample sets to large enterprise spreadsheets using high-performance streaming sampling algorithms.
+The backend is a Node.js Express server written in TypeScript, managing AI orchestration, persistent storage, and payment webhooks.
 
-### 2. Interactive Analytical Modules
-- **Executive Dashboard Overview**: Real-time KPI summaries, sparkline trend profiles, channel performance distribution bars, revenue timelines, and audience mix pie charts.
-- **Analytics Workspace**: Dimensional breakdown tables, categorical segment clustering, and correlation charts with multi-select column filtering.
-- **Customer Intelligence**: Real-time customer lifetime value (LTV) tracking, churn probability risk scoring, and interactive cohort analysis.
-- **Financial Intelligence**: Revenue growth profiling, MRR/ARR trend tracking, and budget variance accounting.
-
-### 3. AI Analyst Copilot (Powered by Gemini AI)
-- **Streaming Analytical SSE Answers**: Ask natural-language questions about your loaded data ("What is our highest revenue region?", "Show top performing campaigns").
-- **Smart Offline Reasoning Engine**: Computes real dynamic statistics, numerical totals, and entity rankings directly from active dataset columns when offline or operating in demo mode.
-
-### 4. Executive Reports & Audited Ledgers
-- **Instant Exporting**: One-click exports to audited CSV ledgers, formatted Excel workbooks (`.xlsx`), and clean printable PDF executive decks.
-- **Automated AI Audit Flags**: Generates compliance flags, variance observations, and strategic directives tailored to uploaded data.
+### Core Backend Capabilities
+- **Google Gemini AI Engine**: Integrates `@google/generative-ai` SDK supporting streaming SSE responses via `/api/ai/stream`.
+- **Smart Offline Fallback Engine**: Computes real-time dynamic statistics, numerical aggregates, and entity rankings directly from active dataset columns when offline or rate-limited.
+- **Supabase PostgreSQL & Auth**: Authentication management, Row-Level Security (RLS) enforcement, and dataset persistence.
+- **Stripe Billing Integration**: Webhook handling and subscription lifecycle tracking.
 
 ---
 
@@ -70,7 +71,7 @@ For in-depth technical specifications, developer guides, and architectural diagr
 
 ```
 Ai-Business-Analytics-Saas-Dashboard/
-├── docs/                         # Detailed documentation suite
+├── docs/                         # Documentation suite
 │   ├── ARCHITECTURE.md           # System architecture & data flow diagrams
 │   ├── API_REFERENCE.md          # REST API & SSE streaming documentation
 │   ├── DATABASE_SCHEMA.md        # Database tables & RLS security rules
@@ -94,7 +95,6 @@ Ai-Business-Analytics-Saas-Dashboard/
 ```
 
 ---
-
 
 ## GitHub Repository Metadata & Configuration
 
