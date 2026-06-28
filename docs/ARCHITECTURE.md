@@ -10,26 +10,26 @@ InsightAI follows a decoupled dual-workspace architecture separating client-side
 
 ```mermaid
 graph TD
-    User([User / Browser]) -->|HTTPS / WSS| Frontend[React 18 + Vite SPA]
+    User(["User / Browser"]) -->|HTTPS / WSS| Frontend["React 18 + Vite SPA"]
     
     subgraph Frontend Layer
-        Frontend --> Context[SpreadsheetContext & AuthContext]
-        Context --> Engine[Local Analytics & KPI Engines]
-        Context --> Export[CSV / XLSX / PDF Exporters]
+        Frontend --> Context["SpreadsheetContext & AuthContext"]
+        Context --> Engine["Local Analytics & KPI Engines"]
+        Context --> Export["CSV / XLSX / PDF Exporters"]
     end
 
-    Frontend -->|REST API / SSE| Backend[Node.js Express Server]
+    Frontend -->|REST API / SSE| Backend["Node.js Express Server"]
 
     subgraph Backend Layer
-        Backend --> AuthMW[Supabase JWT Auth Middleware]
-        Backend --> AIRoute[/api/ai Router]
-        Backend --> DataRoute[/api/data Router]
-        Backend --> BillingRoute[/api/billing Router]
+        Backend --> AuthMW["Supabase JWT Auth Middleware"]
+        Backend --> AIRoute["/api/ai Router"]
+        Backend --> DataRoute["/api/data Router"]
+        Backend --> BillingRoute["/api/billing Router"]
     end
 
-    AIRoute -->|Google GenAI SDK| Gemini[Google Gemini 2.5 API]
-    BillingRoute -->|Stripe SDK| Stripe[Stripe Billing & Webhooks]
-    DataRoute -->|PostgreSQL Client| Supabase[(Supabase PostgreSQL Database)]
+    AIRoute -->|Google GenAI SDK| Gemini["Google Gemini 2.5 API"]
+    BillingRoute -->|Stripe SDK| Stripe["Stripe Billing & Webhooks"]
+    DataRoute -->|PostgreSQL Client| Supabase[("Supabase PostgreSQL Database")]
 ```
 
 ---
