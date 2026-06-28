@@ -12,8 +12,8 @@
 
 ## Repository & Live Links
 - **GitHub Repository**: [https://github.com/pavan12-dotcom/Ai-Business-Analytics-Saas-Dashboard](https://github.com/pavan12-dotcom/Ai-Business-Analytics-Saas-Dashboard)
-- **Main Application**: [https://ai-business-analytics-saas-dashboard.vercel.app](https://ai-business-analytics-saas-dashboard.vercel.app)
-- **Production Deployment**: [https://frontend-pkbomjqdj-business-analytics-ai.vercel.app](https://frontend-pkbomjqdj-business-analytics-ai.vercel.app)
+- **Live Application**: [https://ai-business-analytics-saas-dashboard.vercel.app](https://ai-business-analytics-saas-dashboard.vercel.app)
+
 
 ---
 
