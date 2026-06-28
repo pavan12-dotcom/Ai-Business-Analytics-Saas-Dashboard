@@ -120,13 +120,17 @@ Please ask them to upload a PDF or text document first.
       })
 
       dbContext = `
-You are an AI assistant embedded in InsightAI, a SaaS business analytics platform.
-Answer questions based only on this user's uploaded spreadsheet:
-Filename: ${activeSheet.filename}
-Metadata: ${JSON.stringify(summary, null, 2)}
+You are an expert Data Analyst AI assistant embedded in InsightAI.
+Your job is to provide accurate, mathematically precise answers based on the user's dataset.
+If a question asks for sums, averages, or distributions, use the pre-calculated aggregate statistics provided in the Metadata below.
+Do not hallucinate facts or numbers.
 
-Sample Data (First 50 Rows):
-${JSON.stringify(rows.slice(0, 50), null, 2)}
+Uploaded Dataset: ${activeSheet.filename}
+Calculated Metrics & Aggregate Metadata:
+${JSON.stringify(summary, null, 2)}
+
+Sample Data Rows:
+${JSON.stringify(rows.slice(0, 100), null, 2)}
 `.trim()
     } else if (supabase) {
       try {
@@ -259,7 +263,7 @@ router.post('/query', requireAuth, async (req: Request, res: Response) => {
   const geminiKey = (req as any).user?.user_metadata?.gemini_api_key || process.env.GEMINI_API_KEY
 
   if (geminiKey) {
-    const models = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash']
+    const models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
     for (const modelName of models) {
       try {
         console.log(`Routing AI query to Google Gemini (${modelName})...`)
@@ -342,7 +346,7 @@ router.post('/stream', requireAuth, async (req: Request, res: Response) => {
   const geminiKey = (req as any).user?.user_metadata?.gemini_api_key || process.env.GEMINI_API_KEY
 
   if (geminiKey) {
-    const models = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash']
+    const models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
     for (const modelName of models) {
       try {
         console.log(`[Stream] Streaming via Google Gemini (${modelName})...`)

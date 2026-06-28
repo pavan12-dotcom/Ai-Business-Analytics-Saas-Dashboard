@@ -315,13 +315,6 @@ function parseExcelWorkbook(ab: ArrayBuffer): {
 }
 
 export function SpreadsheetProvider({ children }: { children: React.ReactNode }) {
-  const [activeSheet, setActiveSheet] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [activeDocument, setActiveDocument] = useState<any>(null)
-  const [loadingDoc, setLoadingDoc] = useState(true)
-  const [sampleSheet, setSampleSheet] = useState<any>(null) // loaded sample dataset
-  const { user, incrementUploadCount, isGuest, isGuestTrialExhausted, setShowSignupModal, refreshSubscription } = useAuth()
-
   // ── Restore multi-sheet state from sessionStorage on mount ────
   const _restoredSheets = (() => {
     try {
@@ -335,6 +328,26 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
     name,
     rowCount: (_restoredSheets[name]?.rows?.length ?? 0)
   }))
+
+  const _restoredActiveSheet = (() => {
+    if (_restoredActiveName && _restoredSheets[_restoredActiveName]) {
+      const sd = _restoredSheets[_restoredActiveName]
+      return {
+        filename: _restoredFilename,
+        headers: sd.headers,
+        columns_metadata: cleanMetadata(sd.columns_metadata),
+        rows: sd.rows,
+      }
+    }
+    return null
+  })()
+
+  const [activeSheet, setActiveSheet] = useState<any>(_restoredActiveSheet)
+  const [loading, setLoading] = useState(!_restoredActiveSheet)
+  const [activeDocument, setActiveDocument] = useState<any>(null)
+  const [loadingDoc, setLoadingDoc] = useState(true)
+  const [sampleSheet, setSampleSheet] = useState<any>(null) // loaded sample dataset
+  const { user, incrementUploadCount, isGuest, isGuestTrialExhausted, setShowSignupModal, refreshSubscription } = useAuth()
 
   // Multi-sheet state — initialized from sessionStorage if available
   const [sheetNames, setSheetNames] = useState<SheetInfo[]>(_restoredSheetInfos)
@@ -360,7 +373,16 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       setLoading(false)
       return
     }
-    setLoading(true)
+
+    // Only set loading to true (blocking) if we don't have restored active sheet data
+    const hasRestoredData = !!(
+      _restoredActiveName &&
+      _restoredSheets[_restoredActiveName] &&
+      _restoredFilename === sessionStorage.getItem(SS_KEY_FILENAME)
+    )
+    if (!hasRestoredData) {
+      setLoading(true)
+    }
     fetchSpreadsheet()
       .then((sheet) => {
         const restoredActiveName = sessionStorage.getItem(SS_KEY_ACTIVE_SHEET)

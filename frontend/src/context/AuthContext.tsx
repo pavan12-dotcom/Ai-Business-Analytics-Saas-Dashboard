@@ -220,13 +220,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('demo_guest_user')
       return { error: null }
     }
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
       console.warn(`[AUTH] Sign-in failed for ${email}: ${error.message}`)
     } else {
       console.log(`[AUTH] Sign-in successful for ${email}`)
       localStorage.removeItem('demo_guest_user')
       localStorage.removeItem('demo_user')
+      if (data?.user) {
+        setUser(data.user)
+      }
     }
     return { error: error?.message ?? null }
   }
@@ -259,6 +262,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data?.session) {
         localStorage.removeItem('demo_guest_user')
         localStorage.removeItem('demo_user')
+        if (data.session.user) {
+          setUser(data.session.user)
+        }
       }
     }
     return { error: error?.message ?? null, session: data?.session ?? null }

@@ -173,12 +173,15 @@
   cursor: pointer;
   color: var(--text);
   box-shadow: var(--shadow-sm);
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .theme-toggle-btn:hover {
   background: var(--bg3);
-  transform: scale(1.05);
+  transform: scale(1.1) translateZ(0);
+  box-shadow: var(--shadow);
 }
 
 /* 1. ROLE SWITCHER (RBAC) */
@@ -225,9 +228,10 @@
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
   padding: 8px;
   z-index: 1000;
+  animation: fadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .dropdown-section-title {
@@ -308,14 +312,17 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: var(--muted);
+  color: var(--text-muted);
   position: relative;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .notif-bell-btn:hover {
   color: var(--text);
   background: var(--bg3);
+  transform: scale(1.1) translateZ(0);
 }
 
 .notif-bell-btn.unread {
@@ -348,9 +355,10 @@
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
   overflow: hidden;
   z-index: 1000;
+  animation: fadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .notif-header {

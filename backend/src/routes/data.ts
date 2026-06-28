@@ -337,7 +337,7 @@ ${text.slice(0, 100000)}`
 
   try {
     const genAI = new GoogleGenerativeAI(geminiKey)
-    const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
+    const models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
     let raw = ''
     for (const modelName of models) {
       try {
@@ -516,7 +516,7 @@ router.post('/document', requireAuth, async (req: Request, res: Response) => {
     }
 
     const genAI = new GoogleGenerativeAI(geminiKey)
-    const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
+    const models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
     
     const prompt = `You are a data extraction AI. Analyze the uploaded PDF document and perform two tasks:
 1. Extract all raw text from the document (as a single string).
@@ -1069,20 +1069,31 @@ export async function getOrInitSubscription(
 
   const supabase = getSupabase()
   let sub: any = null
+  let custData: any = null
 
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from('user_subscriptions')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle()
+      const [subRes, custRes] = await Promise.all([
+        supabase
+          .from('user_subscriptions')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle(),
+        supabase
+          .from('customers')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle()
+      ])
 
-      if (!error && data) {
-        sub = data
+      if (!subRes.error && subRes.data) {
+        sub = subRes.data
+      }
+      if (!custRes.error && custRes.data) {
+        custData = custRes.data
       }
     } catch (err: any) {
-      console.warn('Supabase subscription fetch failed, using memory fallback:', err.message)
+      console.warn('Supabase parallel subscription/customer fetch failed:', err.message)
     }
   }
 
@@ -1092,50 +1103,38 @@ export async function getOrInitSubscription(
   }
 
   // Check database customers table for active subscription plans
-  if (supabase) {
-    try {
-      const { data: custData } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle()
-
-      if (custData && custData.status === 'Active') {
-        const planLower = custData.plan.toLowerCase()
-        if (planLower === 'pro' || planLower === 'enterprise') {
-          if (!sub) {
-            const now = new Date()
-            const end = new Date()
-            end.setFullYear(end.getFullYear() + 10)
-            sub = {
-              user_id: userId,
-              analyses_used: 0,
-              analyses_remaining: 999999,
-              questions_used: 0,
-              questions_remaining: 999999,
-              trials_limit: 999999,
-              questions_limit: 999999,
-              subscription_status: 'active',
-              subscription_start: now.toISOString(),
-              subscription_end: end.toISOString(),
-              plan_type: planLower,
-              mrr: planLower === 'pro' ? 29 : 99
-            }
-          } else {
-            sub.plan_type = planLower
-            sub.subscription_status = 'active'
-            sub.analyses_remaining = 999999
-            sub.questions_remaining = 999999
-            sub.trials_limit = 999999
-            sub.questions_limit = 999999
-            const end = new Date()
-            end.setFullYear(end.getFullYear() + 10)
-            sub.subscription_end = end.toISOString()
-          }
+  if (custData && custData.status === 'Active') {
+    const planLower = custData.plan.toLowerCase()
+    if (planLower === 'pro' || planLower === 'enterprise') {
+      if (!sub) {
+        const now = new Date()
+        const end = new Date()
+        end.setFullYear(end.getFullYear() + 10)
+        sub = {
+          user_id: userId,
+          analyses_used: 0,
+          analyses_remaining: 999999,
+          questions_used: 0,
+          questions_remaining: 999999,
+          trials_limit: 999999,
+          questions_limit: 999999,
+          subscription_status: 'active',
+          subscription_start: now.toISOString(),
+          subscription_end: end.toISOString(),
+          plan_type: planLower,
+          mrr: planLower === 'pro' ? 29 : 99
         }
+      } else {
+        sub.plan_type = planLower
+        sub.subscription_status = 'active'
+        sub.analyses_remaining = 999999
+        sub.questions_remaining = 999999
+        sub.trials_limit = 999999
+        sub.questions_limit = 999999
+        const end = new Date()
+        end.setFullYear(end.getFullYear() + 10)
+        sub.subscription_end = end.toISOString()
       }
-    } catch (err: any) {
-      console.warn('Supabase customers check failed:', err.message)
     }
   }
 

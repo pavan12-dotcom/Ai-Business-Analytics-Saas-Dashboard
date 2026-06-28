@@ -312,10 +312,9 @@ export default function Settings() {
               <div className="field">
                 <label className="field-label">Full Name</label>
                 <input
-                  className={`field-input ${isRestricted ? 'disabled-input' : ''}`}
+                  className="field-input"
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  disabled={isRestricted}
                   placeholder="Enter your full name"
                 />
               </div>
@@ -330,8 +329,7 @@ export default function Settings() {
             <button
               className="btn btn-primary btn-sm save-btn"
               onClick={save}
-              disabled={saving || isRestricted}
-              title={isRestricted ? `Access denied: ${userRole}s cannot modify profile settings` : ''}
+              disabled={saving}
             >
               {saving ? 'Saving...' : saved ? <><Check size={13} style={{ marginRight: 4 }} />Profile Saved</> : 'Save Profile'}
             </button>
@@ -348,20 +346,18 @@ export default function Settings() {
               <div className="field">
                 <label className="field-label">Organization Name</label>
                 <input
-                  className={`field-input ${isRestricted ? 'disabled-input' : ''}`}
+                  className="field-input"
                   value={orgName}
                   onChange={e => setOrgName(e.target.value)}
-                  disabled={isRestricted}
                   placeholder="e.g. Acme Corp"
                 />
               </div>
               <div className="field">
                 <label className="field-label">Industry Classification</label>
                 <input
-                  className={`field-input ${isRestricted ? 'disabled-input' : ''}`}
+                  className="field-input"
                   value={industry}
                   onChange={e => setIndustry(e.target.value)}
-                  disabled={isRestricted}
                   placeholder="e.g. SaaS / Technology"
                 />
               </div>
@@ -372,8 +368,7 @@ export default function Settings() {
             <button
               className="btn btn-secondary btn-sm save-btn"
               onClick={saveOrg}
-              disabled={savingOrg || isRestricted}
-              title={isRestricted ? `Access denied: ${userRole}s cannot modify organization settings` : ''}
+              disabled={savingOrg}
             >
               {savingOrg ? 'Saving...' : savedOrg ? <><Check size={13} style={{ marginRight: 4 }} />Org Updated</> : 'Update Org'}
             </button>

@@ -117,8 +117,10 @@
   border: 1px solid var(--border);
   border-radius: 13px;
   box-shadow: var(--shadow-sm);
-  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.18s ease;
   animation: int-card-up 0.5s ease both;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 /* stagger KPI pills */
@@ -133,7 +135,7 @@
 }
 
 .int-stat-pill:hover {
-  transform: translateY(-3px);
+  transform: translateY(-3px) translateZ(0);
   box-shadow: 0 8px 22px rgba(0,0,0,0.13);
   border-color: rgba(99,102,241,0.25);
 }
@@ -410,8 +412,9 @@
 
 .int-cohort-cell {
   text-align: center;
-  transition: all 0.2s;
+  transition: filter 0.15s ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
   cursor: pointer;
+  will-change: transform;
 }
 
 .int-cohort-cell:hover {
@@ -510,16 +513,18 @@
   background: var(--bg-hover);
   border: 1px solid var(--border);
   border-radius: 11px;
-  transition: all 0.2s;
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
   animation: int-card-up 0.5s ease both;
   animation-delay: var(--uc-delay, 0ms);
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .int-unit-card:hover {
   border-color: var(--uc-color, var(--accent));
   background: var(--bg-card);
   box-shadow: 0 0 12px rgba(99,102,241,0.1);
-  transform: translateY(-2px);
+  transform: translateY(-3px) translateZ(0);
 }
 
 .int-unit-icon {

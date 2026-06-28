@@ -112,7 +112,7 @@ export default function Login() {
                 onChange={e => { setPassword(e.target.value); if (serverError) setServerError(''); }}
                 onBlur={() => blur('password')}
                 placeholder="••••••••"
-                autoComplete="current-password"
+                autoComplete="off"
               />
               <button
                 type="button"

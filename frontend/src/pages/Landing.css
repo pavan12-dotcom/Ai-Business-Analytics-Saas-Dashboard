@@ -118,13 +118,14 @@ body.dark .landing-glow {
   align-items: center !important;
   justify-content: center !important;
   cursor: pointer !important;
-  transition: all 0.2s ease !important;
+  transition: background-color 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
   padding: 0 !important;
+  will-change: transform;
 }
 
 .landing-theme-toggle:hover {
   background: var(--bg-hover) !important;
-  transform: scale(1.05) !important;
+  transform: scale(1.12) !important;
 }
 
 .see-demo-link {
@@ -242,12 +243,14 @@ body.dark .gradient-text {
   color: var(--text) !important;
   box-shadow: var(--shadow-sm) !important;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  will-change: transform;
 }
 
 .btn-demo-glow:hover {
   background: var(--bg-hover) !important;
   border-color: var(--text-muted) !important;
+  transform: translateY(-2px) !important;
 }
 
 .hero-subtext {
