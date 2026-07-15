@@ -828,7 +828,7 @@ router.delete('/document', requireAuth, async (req: Request, res: Response) => {
 })
 
 // Fetch database connection and seeding status
-router.get('/db-status', async (_req, res) => {
+router.get('/db-status', async (_req: Request, res: Response) => {
   const supabase = getSupabase()
   if (!supabase) {
     return res.json({
@@ -925,7 +925,7 @@ router.get('/db-status', async (_req, res) => {
   }
 })
 
-router.get('/debug-sub', async (_req, res) => {
+router.get('/debug-sub', async (_req: Request, res: Response) => {
   const userId = 'a75350f7-2648-4403-aaf8-03c3554c27a6'
   try {
     const sub = await getOrInitSubscription(userId)
@@ -935,7 +935,7 @@ router.get('/debug-sub', async (_req, res) => {
   }
 })
 
-router.get('/debug-env', async (_req, res) => {
+router.get('/debug-env', async (_req: Request, res: Response) => {
   return res.json({
     VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL,
     SUPABASE_URL: process.env.SUPABASE_URL,
