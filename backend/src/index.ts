@@ -1,7 +1,7 @@
 import dotenv from 'dotenv'
 dotenv.config()
 
-import express from 'express'
+import express, { Request, Response } from 'express'
 import cors from 'cors'
 import dataRoutes from './routes/data'
 import aiRoutes from './routes/ai'
@@ -56,11 +56,11 @@ app.use('/ai', aiRoutes)
 app.use('/api/billing', billingRoutes)
 app.use('/billing', billingRoutes)
 
-app.get('/', (_req, res) => {
+app.get('/', (_req: Request, res: Response) => {
   res.send('<h1>InsightAI API</h1><p>Backend is running.</p><p><a href="/api/health">/api/health</a></p>')
 })
 
-app.get(['/api/health', '/health'], (_req, res) => {
+app.get(['/api/health', '/health'], (_req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 

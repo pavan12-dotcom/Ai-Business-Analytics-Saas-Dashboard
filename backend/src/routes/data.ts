@@ -38,7 +38,7 @@ const SEED = {
   ],
 }
 
-router.get('/kpis', requireAuth, async (_req, res) => {
+router.get('/kpis', requireAuth, async (_req: Request, res: Response) => {
   const supabase = getSupabase()
   if (!supabase) {
     return res.json(SEED.kpis)
@@ -111,7 +111,7 @@ router.get('/kpis', requireAuth, async (_req, res) => {
   }
 })
 
-router.get('/revenue', requireAuth, async (_req, res) => {
+router.get('/revenue', requireAuth, async (_req: Request, res: Response) => {
   const supabase = getSupabase()
   if (!supabase) {
     return res.json(SEED.monthly)
@@ -139,7 +139,7 @@ router.get('/revenue', requireAuth, async (_req, res) => {
   }
 })
 
-router.get('/customers', requireAuth, async (_req, res) => {
+router.get('/customers', requireAuth, async (_req: Request, res: Response) => {
   const supabase = getSupabase()
   if (!supabase) {
     return res.json(SEED.customers)
